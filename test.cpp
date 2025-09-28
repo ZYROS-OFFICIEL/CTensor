@@ -12,11 +12,11 @@ int main() {
 
     std::cout << "First element: " << t.data[0] << ", grad: " << t.grad[0] << std::endl;
     print_t(t);
-    Tensor a({1,5});
+    Tensor a({5});
     Tensor b({2,3,5});
 
     for(size_t i=0;i<a.numel();i++){
-        a[i] = i+1;
+        a.data[i] = i+1;
     }
     for (size_t x = 0; x < b.shape[0]; x++) {
     for (size_t y = 0; y < b.shape[1]; y++) {
