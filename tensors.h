@@ -49,6 +49,34 @@ struct Tensor {
         for (size_t i=0; i<ndim; i++) n *= shape[i];
         return n;
     }
+    
+    // --------- ND access proxy ---------
+    struct Proxy {
+        float* data;
+        size_t* shape;
+        size_t* strides;
+        size_t offset;
+        size_t dim;
+        size_t ndim;
+
+        Proxy(float* d, size_t* s, size_t* st, size_t off, size_t dm, size_t n)
+            : data(d), shape(s), strides(st), offset(off), dim(dm), ndim(n) {}
+
+        Proxy operator[](size_t i) {
+            if (dim + 1 >= ndim) throw std::out_of_range("Too many indices");
+            if (i >= shape[dim]) throw std::out_of_range("Index out of bounds");
+            return Proxy(data, shape, strides, offset + i * strides[dim], dim + 1, ndim);
+        }
+
+        operator float&() { return data[offset]; }      // last dimension returns reference
+        Proxy& operator=(float val) { data[offset] = val; return *this; }
+    };
+
+    Proxy operator[](size_t i) {
+        if (i >= shape[0]) throw std::out_of_range("Index out of bounds");
+        if (ndim == 1) return Proxy(data, shape, strides, i, 0, ndim);
+        return Proxy(data, shape, strides, i * strides[0], 1, ndim);
+    }
 };
 void print_t(const Tensor& t) {
     size_t n = t.numel();

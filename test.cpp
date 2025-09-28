@@ -1,6 +1,8 @@
 #include <iostream>
 #include "ops.h"
 
+using namespace std;
+
 int main() {
     Tensor t({2,3}, true);
     std::cout << "Number of elements: " << t.numel() << std::endl;
@@ -10,17 +12,24 @@ int main() {
 
     std::cout << "First element: " << t.data[0] << ", grad: " << t.grad[0] << std::endl;
     print_t(t);
-    Tensor a({2,3});
-    Tensor b({2,3});
+    Tensor a({1,5});
+    Tensor b({2,3,5});
 
     for(size_t i=0;i<a.numel();i++){
-        a.data[i] = i+1;
-        b.data[i] = i+10;
+        a[i] = i+1;
     }
+    for (size_t x = 0; x < b.shape[0]; x++) {
+    for (size_t y = 0; y < b.shape[1]; y++) {
+        for (size_t z = 0; z < b.shape[2]; z++) {
+            b[x][y][z] = 1; 
+        }
+    }
+}
 
     Tensor c = a + b;
     Tensor d = a * b;
     print_t(a);
+    cout << "b:\n";
     print_t(b);
     print_t(c);
     print_t(d);
