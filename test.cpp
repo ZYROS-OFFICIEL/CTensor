@@ -19,7 +19,9 @@ int main() {
     }
 
     Tensor c = a + b;
+    Tensor d = a * b;
     print_t(a);
     print_t(b);
     print_t(c);
+    print_t(d);
 }
