@@ -16,21 +16,26 @@ int main() {
     Tensor b({2,3,5});
 
     for(size_t i=0;i<a.numel();i++){
-        a.data[i] = i+1;
+        a.data[i] = i;
     }
     for (size_t x = 0; x < b.shape[0]; x++) {
     for (size_t y = 0; y < b.shape[1]; y++) {
         for (size_t z = 0; z < b.shape[2]; z++) {
-            b[x][y][z] = 1; 
+            b[x][y][z] = 2; 
         }
     }
 }
 
     Tensor c = a + b;
     Tensor d = a * b;
+    Tensor e = a / b;
+    Tensor f = a ^ b;
     print_t(a);
     cout << "b:\n";
     print_t(b);
     print_t(c);
     print_t(d);
+    print_t(e);
+    cout << "f:\n";
+    print_t(f);
 }
