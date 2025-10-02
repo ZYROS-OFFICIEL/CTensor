@@ -33,8 +33,11 @@ int main() {
     print_t(a);
     cout << "b:\n";
     print_t(b);
+    cout << "c:\n";
     print_t(c);
+    cout << "d:\n";
     print_t(d);
+    cout << "e:\n";
     print_t(e);
     cout << "f:\n";
     print_t(f);
