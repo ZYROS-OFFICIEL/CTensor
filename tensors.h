@@ -94,7 +94,18 @@ struct Tensor {
         for (size_t i = 0; i < ndim; ++i) n *= shape[i];
         return n;
     }
-
+    std::vector<size_t> shape() const {
+    return std::vector<size_t>(this->shape, this->shape + ndim);
+    }
+    
+    void print_shape() const {
+        std::cout << "(";
+        for (size_t i = 0; i < ndim; ++i) {
+            std::cout << shape[i];
+            if (i < ndim - 1) std::cout << ", ";
+        }
+        std::cout << ")\n";
+    }
     // --------- ND access proxy (corrected) ---------
     struct Proxy {
         float* data;
