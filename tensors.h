@@ -94,10 +94,11 @@ struct Tensor {
         for (size_t i = 0; i < ndim; ++i) n *= shape[i];
         return n;
     }
+    // Returns shape as std::vector
     std::vector<size_t> shape_() const {
     return std::vector<size_t>(this->shape, this->shape + ndim);
     }
-
+    // Print shape for debugging
     void print_shape() const {
         std::cout << "(";
         for (size_t i = 0; i < ndim; ++i) {

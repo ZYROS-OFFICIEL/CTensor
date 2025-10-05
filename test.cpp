@@ -27,8 +27,9 @@ int main() {
 }
 
     Tensor c = a + b;
-    c.print_shape(); // (2, 3, 4)
-    auto s = c.shape_(); // returns std::vector<size_t>{2,3,4}
+    cout << "c shape:\n";
+    c.print_shape();
+    auto s = c.shape_(); 
     Tensor d = a * b;
     Tensor e = a / b;
     Tensor f = a ^ b;
