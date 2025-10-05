@@ -80,7 +80,6 @@ struct Tensor {
 
     // Delete copy assignment and move assignment for now (implement if needed)
     Tensor& operator=(const Tensor&) = delete;
-    Tensor& operator=(Tensor&&) = delete;
 
     ~Tensor() {
         if (data) free(data);
@@ -147,6 +146,37 @@ struct Tensor {
         if (i >= shape[0]) throw std::out_of_range("Index out of bounds");
         size_t off = i * strides[0];
         return Proxy(data, shape, strides, off, 1, ndim);
+    }
+    //ones tensor
+    static Tensor ones(const std::vector<size_t>& shape_, bool requires_grad_ = false) {
+        Tensor t(shape_, requires_grad_);
+        size_t n = t.numel();
+        for (size_t i = 0; i < n; ++i)
+            t.data[i] = 1.0f;
+        return t;
+    }
+    Tensor& operator=(Tensor&& other) noexcept {
+        if (this != &other) {
+            if (data) free(data);
+            if (grad) free(grad);
+            if (shape) free(shape);
+            if (strides) free(strides);
+        
+            data = other.data;
+            grad = other.grad;
+            shape = other.shape;
+            strides = other.strides;
+            ndim = other.ndim;
+            requires_grad = other.requires_grad;
+        
+            other.data = nullptr;
+            other.grad = nullptr;
+            other.shape = nullptr;
+            other.strides = nullptr;
+            other.ndim = 0;
+            other.requires_grad = false;
+        }
+        return *this;
     }
 };
 
