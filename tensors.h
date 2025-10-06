@@ -186,7 +186,7 @@ struct Tensor {
         for (size_t i = 0; i < n; ++i)
             t.data[i] = static_cast<float>(std::rand()) / RAND_MAX; // random float in [0,1]
         return t;
-    }
+    }//lol
 
     // assignement = operator (move)
     Tensor& operator=(Tensor&& other) noexcept {
