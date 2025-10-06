@@ -1,4 +1,5 @@
 // tensors_verified.cpp
+#pragma once
 #include <iostream>
 #include <cstddef>
 #include <cstring>
