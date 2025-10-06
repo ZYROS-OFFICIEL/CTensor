@@ -232,6 +232,9 @@ Tensor pow_(const Tensor& a_, const Tensor& b_) {
 Tensor operator+(const Tensor& a, const Tensor& b) {
     return add_(a,b); 
 }
+Tensor operator-(const Tensor& a, const Tensor& b) {
+    return diff_(a,b); 
+}
 Tensor operator*(const Tensor& a, const Tensor& b) {
     return mul_(a,b); 
 }
