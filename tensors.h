@@ -156,6 +156,22 @@ struct Tensor {
             t.data[i] = 1.0f;
         return t;
     }
+    static Tensor zeros(const std::vector<size_t>& shape_, bool requires_grad_ = false) {
+        Tensor t(shape_, requires_grad_);
+        size_t n = t.numel();
+        for (size_t i = 0; i < n; ++i)
+            t.data[i] = 0.0f;
+        return t;
+    }
+    static Tensor full(const std::vector<size_t>& shape_,float value, bool requires_grad_ = false){
+        Tensor t(shape_, requires_grad_);
+        size_t n = t.numel();
+        for (size_t i = 0; i < n; ++i)
+            t.data[i] = value;
+        return t;
+    }
+
+    // assignement = operator (move)
     Tensor& operator=(Tensor&& other) noexcept {
         if (this != &other) {
             if (data) free(data);
