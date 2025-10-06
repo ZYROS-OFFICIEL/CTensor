@@ -12,7 +12,7 @@ int main() {
     Tensor img = Tensor::ones({3, 256, 256});  // input image
     Tensor out = transforms(img); // applies normalize + resize
     out.print_shape(); // should be (3, 224, 224)
-    Tensor a = Tensor::ones({5});
+    Tensor a = Tensor::rand({5});
     Tensor b = Tensor::full({2,3,5},2.0f);
     print_t(a);
     print_t(b);

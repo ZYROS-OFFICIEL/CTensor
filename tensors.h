@@ -6,6 +6,7 @@
 #include <vector>
 #include <cmath>
 #include <cstdlib>      // malloc/free
+#include <ctime>      // time for rand seed
 #include <stdexcept>    // exceptions
 
 struct Tensor {
@@ -168,6 +169,14 @@ struct Tensor {
         size_t n = t.numel();
         for (size_t i = 0; i < n; ++i)
             t.data[i] = value;
+        return t;
+    }
+    static Tensor rand(const std::vector<size_t>& shape_, bool requires_grad_ = false) {
+        Tensor t(shape_, requires_grad_);
+        size_t n = t.numel();
+        std::srand((unsigned int)std::time(nullptr)); // seed with current time
+        for (size_t i = 0; i < n; ++i)
+            t.data[i] = static_cast<float>(std::rand()) / RAND_MAX; // random float in [0,1]
         return t;
     }
 
