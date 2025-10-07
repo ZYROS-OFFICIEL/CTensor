@@ -19,12 +19,12 @@ int main() {
         a.data[i] = i;
     }
     for (size_t x = 0; x < b.shape[0]; x++) {
-    for (size_t y = 0; y < b.shape[1]; y++) {
-        for (size_t z = 0; z < b.shape[2]; z++) {
-            b[x][y][z] = 2; 
+        for (size_t y = 0; y < b.shape[1]; y++) {
+            for (size_t z = 0; z < b.shape[2]; z++) {
+                b[x][y][z] = 2; 
+            }
         }
     }
-}
 
     Tensor c = a + b;
     cout << "c shape:\n";
