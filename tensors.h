@@ -274,44 +274,6 @@ struct Tensor {
         return t;
     }
 
-    // convert to another dtype and return new Tensor
-    Tensor astype(DType new_dtype) const {
-        Tensor out(shape_(), new_dtype, requires_grad);
-        size_t n = numel_();
-        for (size_t i = 0; i < n; ++i) {
-            double v = read_scalar_at(data, i, dtype);
-            write_scalar_at(out.data, i, out.dtype, v);
-        }
-        return out;
-    }
-
-    // convert in-place (destructive)
-    void to_(DType new_dtype) {
-        if (new_dtype == dtype) return;
-        size_t n = numel_();
-        size_t new_tsize = dtype_size(new_dtype);
-        void* new_data = malloc(n * new_tsize);
-        if (!new_data && n) throw std::bad_alloc();
-        for (size_t i = 0; i < n; ++i) {
-            double v = read_scalar_at(data, i, dtype);
-            write_scalar_at(new_data, i, new_dtype, v);
-        }
-        free(data);
-        data = new_data;
-
-        if (grad) {
-            void* new_grad = malloc(n * new_tsize);
-            if (!new_grad && n) throw std::bad_alloc();
-            // optionally convert grad values (here we copy/convert same way)
-            for (size_t i = 0; i < n; ++i) {
-                double gv = read_scalar_at(grad, i, dtype);
-                write_scalar_at(new_grad, i, new_dtype, gv);
-            }
-            free(grad);
-            grad = new_grad;
-        }
-        dtype = new_dtype;
-    }
 };
 
 // simple flat print (for debugging) — prints as doubles
