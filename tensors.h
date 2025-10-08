@@ -1,3 +1,4 @@
+// tensors.h
 #pragma once
 #include <iostream>
 #include <cstddef>
@@ -11,8 +12,8 @@
 
 enum class DType { Float32, Int32, Double64 };
 
-// helper: size of dtype
-static size_t dtype_size(DType dt) {
+// ---------- helpers ----------
+inline size_t dtype_size(DType dt) {
     switch (dt) {
         case DType::Float32: return sizeof(float);
         case DType::Int32:   return sizeof(int);
@@ -21,46 +22,39 @@ static size_t dtype_size(DType dt) {
     return sizeof(float);
 }
 
-// helpers to read/write scalars at flat index (convert via double)
-static double read_scalar_at(const void* data, size_t idx, DType dt) {
-    switch(dt) {
-        case DType::Float32: {
-            const float* p = static_cast<const float*>(data);
-            return static_cast<double>(p[idx]);
-        }
-        case DType::Int32: {
-            const int* p = static_cast<const int*>(data);
-            return static_cast<double>(p[idx]);
-        }
-        case DType::Double64: {
-            const double* p = static_cast<const double*>(data);
-            return static_cast<double>(p[idx]);
-        }
+inline const char* dtype_to_cstr(DType d) {
+    switch (d) {
+        case DType::Float32:  return "Float32";
+        case DType::Int32:    return "Int32";
+        case DType::Double64: return "Double64";
+    }
+    return "Unknown";
+}
+
+inline std::ostream& operator<<(std::ostream& os, DType d) {
+    os << dtype_to_cstr(d);
+    return os;
+}
+
+// read/write helpers convert via double (safe, simple)
+inline double read_scalar_at(const void* data, size_t idx, DType dt) {
+    switch (dt) {
+        case DType::Float32:  return static_cast<double>( static_cast<const float*>(data)[idx] );
+        case DType::Int32:    return static_cast<double>( static_cast<const int*>(data)[idx] );
+        case DType::Double64: return static_cast<double>( static_cast<const double*>(data)[idx] );
     }
     return 0.0;
 }
 
-static void write_scalar_at(void* data, size_t idx, DType dt, double val) {
-    switch(dt) {
-        case DType::Float32: {
-            float* p = static_cast<float*>(data);
-            p[idx] = static_cast<float>(val);
-            return;
-        }
-        case DType::Int32: {
-            int* p = static_cast<int*>(data);
-            p[idx] = static_cast<int>(std::lrint(val)); // round to nearest int
-            return;
-        }
-        case DType::Double64: {
-            double* p = static_cast<double*>(data);
-            p[idx] = static_cast<double>(val);
-            return;
-        }
+inline void write_scalar_at(void* data, size_t idx, DType dt, double val) {
+    switch (dt) {
+        case DType::Float32:  static_cast<float*>(data)[idx]  = static_cast<float>(val); break;
+        case DType::Int32:    static_cast<int*>(data)[idx]    = static_cast<int>(std::lrint(val)); break;
+        case DType::Double64: static_cast<double*>(data)[idx] = static_cast<double>(val); break;
     }
 }
 
-// Tensor struct with runtime dtype
+// ---------- Tensor ----------
 struct Tensor {
     void* data;
     void* grad;
@@ -73,11 +67,15 @@ struct Tensor {
     // Primary constructor
     Tensor(const std::vector<size_t>& shape_, DType dtype_ = DType::Float32, bool requires_grad_ = false)
         : data(nullptr), grad(nullptr), ndim(shape_.size()), shape(nullptr),
-          strides(nullptr), requires_grad(requires_grad_), dtype(dtype_) 
+          strides(nullptr), requires_grad(requires_grad_), dtype(dtype_)
     {
         // allocate shape & strides
-        shape = (size_t*) malloc(ndim * sizeof(size_t));
-        strides = (size_t*) malloc(ndim * sizeof(size_t));
+        shape = static_cast<size_t*>(malloc(ndim * sizeof(size_t)));
+        strides = static_cast<size_t*>(malloc(ndim * sizeof(size_t)));
+        if ((ndim && !shape) || (ndim && !strides)) {
+            free(shape); free(strides);
+            throw std::bad_alloc();
+        }
         for (size_t i = 0; i < ndim; ++i) shape[i] = shape_[i];
 
         if (ndim > 0) {
@@ -89,12 +87,12 @@ struct Tensor {
         size_t numel = numel_();
         size_t tsize = dtype_size(dtype);
         data = malloc(numel * tsize);
-        if (!data && numel) throw std::bad_alloc();
+        if (!data && numel) { free(shape); free(strides); throw std::bad_alloc(); }
         memset(data, 0, numel * tsize);
 
         if (requires_grad) {
             grad = malloc(numel * tsize);
-            if (!grad && numel) throw std::bad_alloc();
+            if (!grad && numel) { free(data); free(shape); free(strides); throw std::bad_alloc(); }
             memset(grad, 0, numel * tsize);
         } else {
             grad = nullptr;
@@ -106,20 +104,21 @@ struct Tensor {
         : data(nullptr), grad(nullptr), ndim(other.ndim), shape(nullptr),
           strides(nullptr), requires_grad(other.requires_grad), dtype(other.dtype)
     {
-        shape = (size_t*) malloc(ndim * sizeof(size_t));
-        strides = (size_t*) malloc(ndim * sizeof(size_t));
+        shape = static_cast<size_t*>(malloc(ndim * sizeof(size_t)));
+        strides = static_cast<size_t*>(malloc(ndim * sizeof(size_t)));
+        if ((ndim && !shape) || (ndim && !strides)) { free(shape); free(strides); throw std::bad_alloc(); }
         memcpy(shape, other.shape, ndim * sizeof(size_t));
         memcpy(strides, other.strides, ndim * sizeof(size_t));
 
         size_t n = numel_();
         size_t tsize = dtype_size(dtype);
         data = malloc(n * tsize);
-        if (!data && n) throw std::bad_alloc();
+        if (!data && n) { free(shape); free(strides); throw std::bad_alloc(); }
         memcpy(data, other.data, n * tsize);
 
         if (requires_grad && other.grad) {
             grad = malloc(n * tsize);
-            if (!grad && n) throw std::bad_alloc();
+            if (!grad && n) { free(data); free(shape); free(strides); throw std::bad_alloc(); }
             memcpy(grad, other.grad, n * tsize);
         } else {
             grad = nullptr;
@@ -176,16 +175,15 @@ struct Tensor {
         if (strides) free(strides);
     }
 
+    // basic utilities
     size_t numel_() const {
         size_t n = 1;
         for (size_t i = 0; i < ndim; ++i) n *= shape[i];
         return n;
     }
-    // Returns shape as std::vector
     std::vector<size_t> shape_() const {
         return std::vector<size_t>(this->shape, this->shape + ndim);
     }
-    // Print shape for debugging
     void print_shape() const {
         std::cout << "(";
         for (size_t i = 0; i < ndim; ++i) {
@@ -195,89 +193,161 @@ struct Tensor {
         std::cout << ")\n";
     }
 
-    // --------- ND access proxy ----------
+    // ---------- Proxy (writeable) and ConstProxy (read-only) ----------
+    struct ConstProxy {
+        const void* data;
+        size_t* shape;
+        size_t* strides;
+        size_t offset;
+        size_t depth;
+        size_t ndim;
+        DType dtype;
+        ConstProxy(const void* d, size_t* s, size_t* st, size_t off, size_t dp, size_t n, DType dt)
+            : data(d), shape(s), strides(st), offset(off), depth(dp), ndim(n), dtype(dt) {}
+        ConstProxy operator[](size_t i) const {
+            if (depth >= ndim) throw std::out_of_range("Too many indices");
+            if (i >= shape[depth]) throw std::out_of_range("Index out of bounds");
+            size_t new_offset = offset + i * strides[depth];
+            return ConstProxy(data, shape, strides, new_offset, depth + 1, ndim, dtype);
+        }
+        operator double() const {
+            if (depth != ndim) throw std::out_of_range("Not enough indices");
+            return read_scalar_at(data, offset, dtype);
+        }
+    };
+
     struct Proxy {
         void* data;
         size_t* shape;
         size_t* strides;
-        size_t offset;   // current flat offset
-        size_t depth;    // how many indices provided
+        size_t offset;
+        size_t depth;
         size_t ndim;
         DType dtype;
-
         Proxy(void* d, size_t* s, size_t* st, size_t off, size_t dp, size_t n, DType dt)
             : data(d), shape(s), strides(st), offset(off), depth(dp), ndim(n), dtype(dt) {}
-
         Proxy operator[](size_t i) const {
             if (depth >= ndim) throw std::out_of_range("Too many indices");
             if (i >= shape[depth]) throw std::out_of_range("Index out of bounds");
             size_t new_offset = offset + i * strides[depth];
             return Proxy(data, shape, strides, new_offset, depth + 1, ndim, dtype);
         }
-
-        // read as double
         operator double() const {
-            if (depth != ndim) throw std::out_of_range("Not enough indices (or too many)");
+            if (depth != ndim) throw std::out_of_range("Not enough indices");
             return read_scalar_at(data, offset, dtype);
         }
-
-        // assign from double (works with int/float/double dtypes)
         Proxy& operator=(double val) {
-            if (depth != ndim) throw std::out_of_range("Not at leaf index, Dimensions mismatch");
+            if (depth != ndim) throw std::out_of_range("Not at leaf index");
             write_scalar_at(data, offset, dtype, val);
-            return *const_cast<Proxy*>(this);
+            return *this;
         }
     };
 
-    // Tensor operator[] begins chain: sets first index (depth=1)
     Proxy operator[](size_t i) {
         if (ndim == 0) throw std::out_of_range("Tensor has no dimensions");
         if (i >= shape[0]) throw std::out_of_range("Index out of bounds");
         size_t off = i * strides[0];
         return Proxy(data, shape, strides, off, 1, ndim, dtype);
     }
-
-    // const index operator (returns a Proxy that can be read)
-    Proxy operator[](size_t i) const {
+    ConstProxy operator[](size_t i) const {
         if (ndim == 0) throw std::out_of_range("Tensor has no dimensions");
         if (i >= shape[0]) throw std::out_of_range("Index out of bounds");
         size_t off = i * strides[0];
-        return Proxy(data, shape, strides, off, 1, ndim, dtype);
+        return ConstProxy(data, shape, strides, off, 1, ndim, dtype);
     }
 
-    // Factory functions
-    static Tensor ones(const std::vector<size_t>& shape_, DType dtype_ = DType::Float32, bool requires_grad_ = false) {
-        Tensor t(shape_, dtype_, requires_grad_);
+    // ---------- factories ----------
+    static Tensor ones(const std::vector<size_t>& shape_, DType dt = DType::Float32, bool requires_grad_ = false) {
+        Tensor t(shape_, dt, requires_grad_);
         size_t n = t.numel_();
         for (size_t i = 0; i < n; ++i) write_scalar_at(t.data, i, t.dtype, 1.0);
         return t;
     }
-    static Tensor zeros(const std::vector<size_t>& shape_, DType dtype_ = DType::Float32, bool requires_grad_ = false) {
-        Tensor t(shape_, dtype_, requires_grad_);
-        // data already zeroed by memset in ctor, but keep explicit for clarity
+    static Tensor zeros(const std::vector<size_t>& shape_, DType dt = DType::Float32, bool requires_grad_ = false) {
+        Tensor t(shape_, dt, requires_grad_);
+        // already zeroed by memset but fill explicitly for clarity
         size_t n = t.numel_();
         for (size_t i = 0; i < n; ++i) write_scalar_at(t.data, i, t.dtype, 0.0);
         return t;
     }
-    static Tensor full(const std::vector<size_t>& shape_, double value, DType dtype_ = DType::Float32, bool requires_grad_ = false) {
-        Tensor t(shape_, dtype_, requires_grad_);
+    static Tensor full(const std::vector<size_t>& shape_, double value, DType dt = DType::Float32, bool requires_grad_ = false) {
+        Tensor t(shape_, dt, requires_grad_);
         size_t n = t.numel_();
         for (size_t i = 0; i < n; ++i) write_scalar_at(t.data, i, t.dtype, value);
         return t;
     }
-    static Tensor rand(const std::vector<size_t>& shape_, DType dtype_ = DType::Float32, bool requires_grad_ = false) {
-        Tensor t(shape_, dtype_, requires_grad_);
+    static Tensor rand(const std::vector<size_t>& shape_, DType dt = DType::Float32, bool requires_grad_ = false) {
+        Tensor t(shape_, dt, requires_grad_);
         size_t n = t.numel_();
+        // seed only once per program would be better; simple here:
         std::srand((unsigned int)std::time(nullptr));
         for (size_t i = 0; i < n; ++i)
             write_scalar_at(t.data, i, t.dtype, static_cast<double>(std::rand()) / RAND_MAX);
         return t;
     }
 
+    // ---------- dtype helpers ----------
+    DType _dtype() const noexcept { return dtype; }
+    const char* dtype_name() const noexcept { return dtype_to_cstr(dtype); }
+    size_t dtype_bytes() const noexcept { return dtype_size(dtype); }
+
+    // ---------- conversion: return new tensor ----------
+    Tensor astype(DType new_dtype) const {
+        if (new_dtype == dtype) return Tensor(*this); // copy
+        Tensor out(shape_(), new_dtype, requires_grad);
+        size_t n = numel_();
+
+        // straightforward convert elementwise
+        for (size_t i = 0; i < n; ++i) {
+            double v = read_scalar_at(data, i, dtype);
+            write_scalar_at(out.data, i, out.dtype, v);
+        }
+        // grad not copied by default; if you want to copy grad, convert similarly:
+        if (requires_grad && grad) {
+            out.grad = malloc(n * dtype_size(out.dtype));
+            if (!out.grad && n) throw std::bad_alloc();
+            for (size_t i = 0; i < n; ++i) {
+                double gv = read_scalar_at(grad, i, dtype);
+                write_scalar_at(out.grad, i, out.dtype, gv);
+            }
+        }
+        return out;
+    }
+
+    // ---------- conversion: in-place ----------
+    void to_(DType new_dtype) {
+        if (new_dtype == dtype) return;
+        size_t n = numel_();
+        size_t new_tsize = dtype_size(new_dtype);
+
+        // allocate new buffer
+        void* new_data = malloc(n * new_tsize);
+        if (!new_data && n) throw std::bad_alloc();
+
+        // convert
+        for (size_t i = 0; i < n; ++i) {
+            double v = read_scalar_at(data, i, dtype);
+            write_scalar_at(new_data, i, new_dtype, v);
+        }
+        free(data);
+        data = new_data;
+
+        if (grad) {
+            void* new_grad = malloc(n * new_tsize);
+            if (!new_grad && n) throw std::bad_alloc();
+            for (size_t i = 0; i < n; ++i) {
+                double gv = read_scalar_at(grad, i, dtype);
+                write_scalar_at(new_grad, i, new_dtype, gv);
+            }
+            free(grad);
+            grad = new_grad;
+        }
+        dtype = new_dtype;
+    }
 };
 
 // simple flat print (for debugging) — prints as doubles
-static void print_t(const Tensor& t) {
+inline void print_t(const Tensor& t) {
     size_t n = t.numel_();
     std::cout << "[";
     for (size_t i = 0; i < n; i++) {
@@ -290,7 +360,7 @@ static void print_t(const Tensor& t) {
 
 // Helper: compute linear index in original tensor for a given multi-index (vec idx)
 // 'orig' has possibly fewer dims than idx.size(); left-pad with 1s.
-static size_t linear_index_from_padded(const Tensor& orig, const std::vector<size_t>& padded_idx) {
+inline size_t linear_index_from_padded(const Tensor& orig, const std::vector<size_t>& padded_idx) {
     size_t offset = 0;
     size_t pad = padded_idx.size() - orig.ndim;
     for (size_t i = 0; i < orig.ndim; ++i) {
@@ -303,10 +373,8 @@ static size_t linear_index_from_padded(const Tensor& orig, const std::vector<siz
 }
 
 // pad_to_ndim: returns a NEW tensor whose shape is padded to target ndim and values broadcasted
-static Tensor pad_to_ndim(const Tensor& t, size_t target_ndim) {
-    if (t.ndim == target_ndim) {
-        return Tensor(t); // copy
-    }
+inline Tensor pad_to_ndim(const Tensor& t, size_t target_ndim) {
+    if (t.ndim == target_ndim) return Tensor(t);
     if (t.ndim > target_ndim) throw std::runtime_error("target_ndim smaller than tensor ndim");
 
     std::vector<size_t> new_shape(target_ndim, 1);
@@ -314,10 +382,8 @@ static Tensor pad_to_ndim(const Tensor& t, size_t target_ndim) {
         new_shape[target_ndim - t.ndim + i] = t.shape[i];
 
     Tensor result(new_shape, t.dtype);
-
     size_t N = result.numel_();
     std::vector<size_t> idx(target_ndim, 0);
-
     for (size_t flat = 0; flat < N; ++flat) {
         size_t rem = flat;
         for (int d = (int)target_ndim - 1; d >= 0; --d) {
@@ -328,6 +394,5 @@ static Tensor pad_to_ndim(const Tensor& t, size_t target_ndim) {
         double v = read_scalar_at(t.data, src_idx, t.dtype);
         write_scalar_at(result.data, flat, result.dtype, v);
     }
-
     return result;
 }
