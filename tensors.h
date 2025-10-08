@@ -384,7 +384,7 @@ static void print_recursive_braces(const Tensor& t, std::vector<size_t>& idx, si
     std::cout << "}";
 }
 
-inline void print_t(const Tensor& t) {
+inline void print_(const Tensor& t) {
     // handle zero-dim (scalar) specially
     if (t.ndim == 0) {
         double v = read_scalar_at(t.data, 0, t.dtype);
