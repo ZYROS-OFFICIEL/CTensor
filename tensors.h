@@ -285,6 +285,9 @@ struct Tensor {
             write_scalar_at(t.data, i, t.dtype, static_cast<double>(std::rand()) / RAND_MAX);
         return t;
     }
+    static Tensor empty(const std::vector<size_t>& shape_, DType dt = DType::Float32, bool requires_grad_ = false) {
+        return Tensor(shape_, dt, requires_grad_);
+    }
 
     // ---------- dtype helpers ----------
     DType _dtype() const noexcept { return dtype; }
