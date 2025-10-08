@@ -1,6 +1,6 @@
 #include "tensors.h"
 int main() {
-    Tensor a = Tensor::ones({3}, DType::Float32);
+    Tensor a = Tensor::ones({3,2,4}, DType::Float32);
     print_t(a); // prints [1,1,1]
     a.to_(DType::Double64); // convert in-place to double
     std::cout << "dtype now: " << a._dtype() << "\n"; // prints Double64
