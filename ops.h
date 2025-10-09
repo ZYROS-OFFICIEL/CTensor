@@ -229,6 +229,61 @@ Tensor pow_(const Tensor& a_, const Tensor& b_) {
     return result;
 }
 
+Tensor matmul(const Tensor& A, const Tensor& B) {
+    auto shapeA = A.shape();  // e.g. (2, 3, 4, 5)
+    auto shapeB = B.shape();  // e.g. (3, 4, 5, 6)
+
+    if (shapeA.size() < 1 || shapeB.size() < 1)
+        throw std::invalid_argument("matmul: tensors must have at least 1 dimension.");
+
+    // Extract matrix dimensions
+    size_t m, kA, kB, n;
+    kA = shapeA.back();
+    n = shapeB.back();
+    kB = (shapeB.size() >= 2) ? shapeB[shapeB.size() - 2] : 1;
+
+    if (shapeA.back() != kB)
+        throw std::invalid_argument("matmul: inner dimensions do not match.");
+
+    // Batch shapes
+    std::vector<size_t> batchA(shapeA.begin(), shapeA.end() - 2);
+    std::vector<size_t> batchB(shapeB.begin(), shapeB.end() - 2);
+    auto batchShape = broadcast_batch_shape(batchA, batchB);
+
+    m = (shapeA.size() >= 2) ? shapeA[shapeA.size() - 2] : 1;
+    n = (shapeB.size() >= 2) ? shapeB.back() : 1;
+
+    // Final output shape
+    std::vector<size_t> outShape = batchShape;
+    outShape.push_back(m);
+    outShape.push_back(n);
+
+    Tensor C(outShape, A.dtype());
+
+    // Compute total batch size
+    size_t totalBatch = 1;
+    for (auto s : batchShape) totalBatch *= s;
+
+    // Flattened view for iteration
+    for (size_t batch = 0; batch < totalBatch; ++batch) {
+        // Resolve broadcast indices
+        size_t idxA = batch % A.batch_size();
+        size_t idxB = batch % B.batch_size();
+
+        for (size_t i = 0; i < m; ++i) {
+            for (size_t j = 0; j < n; ++j) {
+                float sum = 0.0f;
+                for (size_t t = 0; t < kA; ++t)
+                    sum += A(batch, i, t) * B(batch, t, j);
+                C(batch, i, j) = sum;
+            }
+        }
+    }
+
+    return C;
+}
+
+
 Tensor operator+(const Tensor& a, const Tensor& b) {
     return add_(a,b); 
 }
