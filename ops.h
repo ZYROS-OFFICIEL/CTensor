@@ -301,3 +301,6 @@ Tensor operator/(const Tensor& a, const Tensor& b) {
 Tensor operator^(const Tensor& a, const Tensor& b) {
     return pow_(a,b); 
 }
+Tensor operator@(const Tensor& a, const Tensor& b) {
+    return matmul(a,b); 
+}
