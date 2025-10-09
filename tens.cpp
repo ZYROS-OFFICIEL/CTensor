@@ -1,4 +1,5 @@
 #include "tensors.h"
+#include "ops.h"
 int main() {
     Tensor a = Tensor::empty({3,2,4}, DType::Float32);
     print_t(a); // prints [1,1,1]
@@ -15,4 +16,7 @@ int main() {
     x[0][1] = 3.14;           // write (Proxy)
     double v = x[0][1];       // read (ConstProxy/Proxy -> double)
     std::cout << v << "\n";
+    Tensor d = matmul(a,b); // (3,2,4) @ (3,) -> (3,2)
+    print_t(d);
+    return 0;
 }
