@@ -443,21 +443,22 @@ inline Tensor pad_to_ndim(const Tensor& t, size_t target_ndim) {
         write_scalar_at(result.data, flat, result.dtype, v);
     }
     return result;
-    std::vector<size_t> broadcast_batch_shape(const std::vector<size_t>& a,
-                                              const std::vector<size_t>& b) {
-        std::vector<size_t> result;
-        size_t na = a.size(), nb = b.size();
-        size_t n = std::max(na, nb);
-        result.resize(n);
-                                            
-        for (size_t i = 0; i < n; ++i) {
-            size_t da = (i < n - na) ? 1 : a[i - (n - na)];
-            size_t db = (i < n - nb) ? 1 : b[i - (n - nb)];
-            if (da != db && da != 1 && db != 1)
-                throw std::invalid_argument("Incompatible batch shapes for broadcasting.");
-            result[i] = std::max(da, db);
-        }
-        return result;
-    }
-
 }
+
+// ---------- global helper: broadcast batch shape (place OUTSIDE any other function) ----------
+static std::vector<size_t> broadcast_batch_shape_from_vectors(const std::vector<size_t>& a,
+                                                              const std::vector<size_t>& b) {
+    size_t na = a.size(), nb = b.size();
+    size_t n = std::max(na, nb);
+    std::vector<size_t> result(n, 1);
+    for (size_t i = 0; i < n; ++i) {
+        size_t da = (i < n - na) ? 1 : a[i - (n - na)];
+        size_t db = (i < n - nb) ? 1 : b[i - (n - nb)];
+        if (da != db && da != 1 && db != 1)
+            throw std::invalid_argument("Incompatible batch shapes for broadcasting.");
+        result[i] = std::max(da, db);
+    }
+    return result;
+}
+
+
