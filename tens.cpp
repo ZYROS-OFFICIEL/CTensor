@@ -17,8 +17,10 @@ int main() {
     double v = x[0][1];       // read (ConstProxy/Proxy -> double)
     std::cout << v << "\n";
     a.t_(); 
-    print_(a); 
+    print_(sum(a, -1)); // sum along dim 0
+    print_(sum(b, -1)); // sum along dim 1
     Tensor d = matmul(a,b); // (3,2,4) @ (3,) -> (3,2)
+    print_(sum(d, -1)); // sum all elements
     print_t(d);
     return 0;
 }
