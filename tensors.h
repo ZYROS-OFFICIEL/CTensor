@@ -390,6 +390,14 @@ struct Tensor {
 
         return out;
     }
+    Tensor& t_() {
+        if (ndim < 2)
+            throw std::invalid_argument("t_: tensor must have at least 2 dimensions");
+        
+        std::swap(shape[ndim - 2], shape[ndim - 1]);
+        std::swap(strides[ndim - 2], strides[ndim - 1]);
+        return *this;
+    }
 };
 
 // simple flat print (for debugging) — prints as doubles
