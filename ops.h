@@ -316,6 +316,17 @@ Tensor sum(const Tensor& t, int dim = -1) {
         return out;
     }
 }
+Tensor mean(const Tensor& t, int dim = -1) {
+    Tensor s = sum(t, dim);
+    double denom = (dim == -1) ? (double)t.numel_() : (double)t.shape[dim];
+    size_t n = s.numel_();
+    for (size_t i = 0; i < n; ++i) {
+        double v = read_scalar_at(s.data, i, s.dtype);
+        write_scalar_at(s.data, i, s.dtype, v / denom);
+    }
+    return s;
+}
+
 
 // operator overloads (keep these)
 Tensor operator+(const Tensor& a, const Tensor& b) { return add_(a,b); }
