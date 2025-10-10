@@ -274,6 +274,49 @@ Tensor matmul(const Tensor& A, const Tensor& B) {
     return C;
 }
 
+Tensor sum(const Tensor& t, int dim = -1) {
+    if (dim == -1) {
+        // reduce all elements
+        double s = 0.0;
+        size_t n = t.numel_();
+        for (size_t i = 0; i < n; ++i)
+            s += read_scalar_at(t.data, i, t.dtype);
+
+        Tensor out({1}, t.dtype, false);
+        write_scalar_at(out.data, 0, t.dtype, s);
+        return out;
+    } else {
+        if (dim >= (int)t.ndim)
+            throw std::invalid_argument("sum: invalid dimension");
+
+        std::vector<size_t> new_shape(t.shape, t.shape + t.ndim);
+        new_shape.erase(new_shape.begin() + dim);
+        if (new_shape.empty()) new_shape.push_back(1);
+
+        Tensor out(new_shape, t.dtype, false);
+        memset(out.data, 0, out.numel_() * dtype_size(t.dtype));
+
+        // manual reduction
+        size_t outer = 1, inner = 1, reduce_dim = t.shape[dim];
+        for (size_t i = 0; i < (size_t)dim; ++i) outer *= t.shape[i];
+        for (size_t i = dim + 1; i < t.ndim; ++i) inner *= t.shape[i];
+
+        for (size_t o = 0; o < outer; ++o) {
+            for (size_t i = 0; i < inner; ++i) {
+                double s = 0.0;
+                for (size_t r = 0; r < reduce_dim; ++r) {
+                    size_t idx = o * reduce_dim * inner + r * inner + i;
+                    s += read_scalar_at(t.data, idx, t.dtype);
+                }
+                size_t out_idx = o * inner + i;
+                write_scalar_at(out.data, out_idx, out.dtype, s);
+            }
+        }
+
+        return out;
+    }
+}
+
 // operator overloads (keep these)
 Tensor operator+(const Tensor& a, const Tensor& b) { return add_(a,b); }
 Tensor operator-(const Tensor& a, const Tensor& b) { return diff_(a,b); }
