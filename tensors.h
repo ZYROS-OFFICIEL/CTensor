@@ -347,25 +347,25 @@ struct Tensor {
         }
         dtype = new_dtype;
     }
-    static Tensor transpose_last2(const Tensor& t) {
+    Tensor t() const {
         if (t.ndim < 2)
             throw std::invalid_argument("transpose_last2: tensor must have at least 2 dimensions");
-        
+
         // new shape: swap the last two dimensions
         std::vector<size_t> new_shape(t.shape, t.shape + t.ndim);
         std::swap(new_shape[t.ndim - 2], new_shape[t.ndim - 1]);
-        
+
         Tensor out(new_shape, t.dtype, false);
-        
+
         size_t batch_ndim = t.ndim - 2;
         size_t m = t.shape[t.ndim - 2];
         size_t n = t.shape[t.ndim - 1];
-        
+
         // compute batch size
         size_t batch_size = 1;
         for (size_t i = 0; i < batch_ndim; ++i)
             batch_size *= t.shape[i];
-        
+
         for (size_t b = 0; b < batch_size; ++b) {
             size_t batch_offset = 0;
             if (batch_ndim > 0) {
@@ -377,7 +377,7 @@ struct Tensor {
                     batch_offset += idx * t.strides[d];
                 }
             }
-        
+
             for (size_t i = 0; i < m; ++i) {
                 for (size_t j = 0; j < n; ++j) {
                     size_t src_idx = batch_offset + i * t.strides[t.ndim - 2] + j * t.strides[t.ndim - 1];
@@ -387,7 +387,7 @@ struct Tensor {
                 }
             }
         }
-    
+
         return out;
     }
 };
