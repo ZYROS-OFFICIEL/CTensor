@@ -347,23 +347,23 @@ struct Tensor {
         }
         dtype = new_dtype;
     }
-    Tensor Tensor::t() const {
+    Tensor t() const {
         if (ndim < 2)
             throw std::invalid_argument("t: tensor must have at least 2 dimensions");
-    
+
         std::vector<size_t> new_shape(shape, shape + ndim);
         std::swap(new_shape[ndim - 2], new_shape[ndim - 1]);
-    
+
         Tensor out(new_shape, dtype, requires_grad);
-    
+
         size_t batch_ndim = ndim - 2;
         size_t m = shape[ndim - 2];
         size_t n = shape[ndim - 1];
-    
+
         size_t batch_size = 1;
         for (size_t i = 0; i < batch_ndim; ++i)
             batch_size *= shape[i];
-    
+
         for (size_t b = 0; b < batch_size; ++b) {
             size_t batch_offset = 0;
             if (batch_ndim > 0) {
@@ -374,7 +374,7 @@ struct Tensor {
                     batch_offset += idx * strides[d];
                 }
             }
-        
+
             for (size_t i = 0; i < m; ++i) {
                 for (size_t j = 0; j < n; ++j) {
                     size_t src_idx = batch_offset + i * strides[ndim - 2] + j * strides[ndim - 1];
@@ -384,7 +384,7 @@ struct Tensor {
                 }
             }
         }
-    
+
         return out;
     }
     Tensor& t_() {
