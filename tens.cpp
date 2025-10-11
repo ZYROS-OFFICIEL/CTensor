@@ -13,7 +13,6 @@ int main() {
     Tensor c = a.astype(DType::Int32); // returns new tensor cast to Int32
     print_t(c);
     print_(c); // prints with newlines and braces
-    // Indexing:
     Tensor x = Tensor::zeros({2,3}, DType::Float32);
     x[0][1] = 3.14;           // write (Proxy)
     double v = x[0][1];       // read (ConstProxy/Proxy -> double)
