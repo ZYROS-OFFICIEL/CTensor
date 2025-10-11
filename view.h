@@ -24,3 +24,14 @@ Tensor Tensor::squeeze() const {
     out.shape = new_shape;
     return out;
 }
+Tensor Tensor::unsqueeze(size_t dim) const {
+    if (dim > shape.size())
+        throw std::out_of_range("unsqueeze: dimension out of range.");
+
+    std::vector<size_t> new_shape = shape;
+    new_shape.insert(new_shape.begin() + dim, 1);
+
+    Tensor out = *this;
+    out.shape = new_shape;
+    return out;
+}
