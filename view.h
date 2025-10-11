@@ -35,3 +35,8 @@ Tensor Tensor::unsqueeze(size_t dim) const {
     out.shape = new_shape;
     return out;
 }
+Tensor Tensor::flatten() const {
+    Tensor out = *this;
+    out.shape = {numel()};
+    return out;
+}
