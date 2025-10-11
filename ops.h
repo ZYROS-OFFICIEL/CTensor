@@ -326,6 +326,7 @@ Tensor mean(const Tensor& t, int dim = -1) {
     }
     return s;
 }
+
 Tensor max(const Tensor& t, int dim = -1) {
     if (dim == -1) {
         double m = read_scalar_at(t.data, 0, t.dtype);
@@ -356,6 +357,45 @@ Tensor max(const Tensor& t, int dim = -1) {
                     size_t idx = o * reduce_dim * inner + r * inner + i;
                     double v = read_scalar_at(t.data, idx, t.dtype);
                     if (v > m) m = v;
+                }
+                size_t out_idx = o * inner + i;
+                write_scalar_at(out.data, out_idx, out.dtype, m);
+            }
+        }
+
+        return out;
+    }
+}
+Tensor min(const Tensor& t, int dim = -1) {
+    if (dim == -1) {
+        double m = read_scalar_at(t.data, 0, t.dtype);
+        for (size_t i = 1; i < t.numel_(); ++i) {
+            double v = read_scalar_at(t.data, i, t.dtype);
+            if (v < m) m = v;
+        }
+        Tensor out({1}, t.dtype, false);
+        write_scalar_at(out.data, 0, t.dtype, m);
+        return out;
+    } else {
+        if (dim >= (int)t.ndim)
+            throw std::invalid_argument("min: invalid dimension");
+
+        std::vector<size_t> new_shape(t.shape, t.shape + t.ndim);
+        new_shape.erase(new_shape.begin() + dim);
+        if (new_shape.empty()) new_shape.push_back(1);
+        Tensor out(new_shape, t.dtype, false);
+
+        size_t outer = 1, inner = 1, reduce_dim = t.shape[dim];
+        for (size_t i = 0; i < (size_t)dim; ++i) outer *= t.shape[i];
+        for (size_t i = dim + 1; i < t.ndim; ++i) inner *= t.shape[i];
+
+        for (size_t o = 0; o < outer; ++o) {
+            for (size_t i = 0; i < inner; ++i) {
+                double m = INFINITY;
+                for (size_t r = 0; r < reduce_dim; ++r) {
+                    size_t idx = o * reduce_dim * inner + r * inner + i;
+                    double v = read_scalar_at(t.data, idx, t.dtype);
+                    if (v < m) m = v;
                 }
                 size_t out_idx = o * inner + i;
                 write_scalar_at(out.data, out_idx, out.dtype, m);
