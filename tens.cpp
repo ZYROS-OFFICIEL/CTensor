@@ -7,7 +7,9 @@ int main() {
     std::cout << "dtype now: " << a._dtype() << "\n"; // prints Double64
 
     Tensor b = Tensor::full({3,2,4}, 2.5, DType::Int32); // integer tensor
-    print_t(b); // prints [2, 2, 2]  (written via rounding)
+    print_(b); // prints [2, 2, 2]  (written via rounding)
+    std::cout << "b max\n"; // prints Int32
+    print_(max(b,1));  
     Tensor c = a.astype(DType::Int32); // returns new tensor cast to Int32
     print_t(c);
     print_(c); // prints with newlines and braces
