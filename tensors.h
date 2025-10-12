@@ -536,5 +536,35 @@ Tensor select(size_t dim, size_t index) const {
 
     return out;
 }
+Tensor slice(size_t dim, size_t start, size_t end) const {
+    if (dim >= ndim)
+        throw std::invalid_argument("slice: dim out of range");
+    if (end > shape[dim] || start >= end)
+        throw std::invalid_argument("slice: invalid start/end range");
+
+    std::vector<size_t> new_shape(shape.begin(), shape.end());
+    new_shape[dim] = end - start;
+
+    Tensor out(new_shape, dtype, false);
+
+    size_t outer = 1, inner = 1;
+    for (size_t i = 0; i < dim; ++i)
+        outer *= shape[i];
+    for (size_t i = dim + 1; i < ndim; ++i)
+        inner *= shape[i];
+
+    for (size_t o = 0; o < outer; ++o) {
+        for (size_t s = 0; s < end - start; ++s) {
+            for (size_t i = 0; i < inner; ++i) {
+                size_t src_idx = o * shape[dim] * inner + (start + s) * inner + i;
+                size_t dst_idx = o * (end - start) * inner + s * inner + i;
+                double val = read_scalar_at(data, src_idx, dtype);
+                write_scalar_at(out.data, dst_idx, dtype, val);
+            }
+        }
+    }
+
+    return out;
+}
 
 
