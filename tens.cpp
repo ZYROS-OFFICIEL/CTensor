@@ -10,18 +10,11 @@ int main() {
     print_(b); // prints [2, 2, 2]  (written via rounding)
     std::cout << "b max\n"; // prints Int32
     print_(max(b,1));  
-    Tensor c = a.astype(DType::Int32); // returns new tensor cast to Int32
-    print_t(c);
-    print_(c); // prints with newlines and braces
-    Tensor x = Tensor::zeros({2,3}, DType::Float32);
-    x[0][1] = 3.14;           // write (Proxy)
-    double v = x[0][1];       // read (ConstProxy/Proxy -> double)
-    std::cout << v << "\n";
-    a.t_(); 
-    print_(sum(a, -1)); // sum along dim 0
-    print_(sum(b, -1)); // sum along dim 1
-    Tensor d = matmul(a,b); // (3,2,4) @ (3,) -> (3,2)
-    print_(sum(d, -1)); // sum all elements
-    print_t(d);
+    Tensor a = Tensor::arange(0, 12, 1).reshape({3,4});
+    print_t(a);
+    // [[0,1,2,3], [4,5,6,7], [8,9,10,11]]
+    
+    Tensor row1 = a.select(0, 1);
+    print_t(row1);
     return 0;
 }
