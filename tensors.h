@@ -508,5 +508,33 @@ static std::vector<size_t> broadcast_batch_shape_from_vectors(const std::vector<
     }
     return result;
 }
+Tensor select(size_t dim, size_t index) const {
+    if (dim >= ndim)
+        throw std::invalid_argument("select: dim out of range");
+    if (index >= shape[dim])
+        throw std::invalid_argument("select: index out of range");
+
+    std::vector<size_t> new_shape(shape.begin(), shape.end());
+    new_shape.erase(new_shape.begin() + dim);
+
+    Tensor out(new_shape, dtype, false);
+
+    size_t outer = 1, inner = 1;
+    for (size_t i = 0; i < dim; ++i)
+        outer *= shape[i];
+    for (size_t i = dim + 1; i < ndim; ++i)
+        inner *= shape[i];
+
+    for (size_t o = 0; o < outer; ++o) {
+        for (size_t i = 0; i < inner; ++i) {
+            size_t src_idx = o * shape[dim] * inner + index * inner + i;
+            size_t dst_idx = o * inner + i;
+            double val = read_scalar_at(data, src_idx, dtype);
+            write_scalar_at(out.data, dst_idx, dtype, val);
+        }
+    }
+
+    return out;
+}
 
 
