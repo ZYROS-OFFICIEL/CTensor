@@ -396,27 +396,27 @@ struct Tensor {
         std::swap(strides[ndim - 2], strides[ndim - 1]);
         return *this;
     }
-    Tensor Tensor::permute(const std::vector<size_t>& dims) const {
-        if (dims.size() != shape.size())
+    Tensor permute(const std::vector<size_t>& dims) const {
+        if (dims.size() != ndim)
             throw std::invalid_argument("permute: dims size must match shape size.");
-        
-        std::vector<bool> seen(shape.size(), false);
+
+        std::vector<bool> seen(ndim, false);
         for (auto d : dims) {
-            if (d >= shape.size() || seen[d])
+            if (d >= ndim || seen[d])
                 throw std::invalid_argument("permute: invalid or duplicate dim.");
             seen[d] = true;
         }
-    
+
         Tensor out = *this;
-        std::vector<size_t> new_shape(shape.size()), new_strides(shape.size());
-        for (size_t i = 0; i < shape.size(); ++i) {
+        std::vector<size_t> new_shape(ndim), new_strides(ndim);
+        for (size_t i = 0; i < ndim; ++i) {
             new_shape[i] = shape[dims[i]];
             new_strides[i] = strides[dims[i]];
         }
         out.shape = new_shape;
         out.strides = new_strides;
         return out;
-}
+    }
 
 
 
