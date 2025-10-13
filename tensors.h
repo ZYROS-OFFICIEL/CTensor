@@ -428,6 +428,12 @@ struct Tensor {
         }
         return out;
     }
+    static Tensor arange(double start, double end, double step = 1.0, DType dtype = DType::Float32);
+    Tensor reshape(const std::vector<size_t>& new_shape) const;
+    Tensor select(size_t dim, size_t index) const;
+    Tensor squeeze() const;
+    Tensor unsqueeze(size_t dim) const;
+    Tensor flatten() const;
 
 
 
