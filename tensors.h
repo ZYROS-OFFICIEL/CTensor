@@ -98,6 +98,10 @@ struct Tensor {
             grad = nullptr;
         }
     }
+    //Default constructur 
+    Tensor() : data(nullptr), shape(nullptr), strides(nullptr),
+           ndim(0), dtype(DType::Float32), requires_grad(false) {}
+
 
     // Deep copy constructor
     Tensor(const Tensor& other)
@@ -407,14 +411,21 @@ struct Tensor {
             seen[d] = true;
         }
 
-        Tensor out = *this;
-        std::vector<size_t> new_shape(ndim), new_strides(ndim);
+        Tensor out;
+        out.data = data;
+        out.ndim = ndim;
+        out.dtype = dtype;
+        out.requires_grad = requires_grad;
+
+        // Allocate memory for shape and strides
+        out.shape = (size_t*)malloc(ndim * sizeof(size_t));
+        out.strides = (size_t*)malloc(ndim * sizeof(size_t));
+
+        // Reorder shape and strides based on permutation
         for (size_t i = 0; i < ndim; ++i) {
-            new_shape[i] = shape[dims[i]];
-            new_strides[i] = strides[dims[i]];
+            out.shape[i]   = shape[dims[i]];
+            out.strides[i] = strides[dims[i]];
         }
-        out.shape = new_shape;
-        out.strides = new_strides;
         return out;
     }
 
