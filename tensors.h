@@ -387,6 +387,7 @@ struct Tensor {
 
         return out;
     }
+    //Trnaspose in-place
     Tensor& t_() {
         if (ndim < 2)
             throw std::invalid_argument("t_: tensor must have at least 2 dimensions");
@@ -395,6 +396,28 @@ struct Tensor {
         std::swap(strides[ndim - 2], strides[ndim - 1]);
         return *this;
     }
+    Tensor Tensor::permute(const std::vector<size_t>& dims) const {
+        if (dims.size() != shape.size())
+            throw std::invalid_argument("permute: dims size must match shape size.");
+        
+        std::vector<bool> seen(shape.size(), false);
+        for (auto d : dims) {
+            if (d >= shape.size() || seen[d])
+                throw std::invalid_argument("permute: invalid or duplicate dim.");
+            seen[d] = true;
+        }
+    
+        Tensor out = *this;
+        std::vector<size_t> new_shape(shape.size()), new_strides(shape.size());
+        for (size_t i = 0; i < shape.size(); ++i) {
+            new_shape[i] = shape[dims[i]];
+            new_strides[i] = strides[dims[i]];
+        }
+        out.shape = new_shape;
+        out.strides = new_strides;
+        return out;
+}
+
 
 
 };
