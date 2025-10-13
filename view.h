@@ -12,6 +12,15 @@ Tensor Tensor::reshape(const std::vector<size_t>& new_shape) const {
     out.shape = new_shape;
     return out;
 }
+Tensor Tensor::arange(double start, double end, double step, DType dtype) {
+    size_t n = static_cast<size_t>((end - start) / step);
+    Tensor t({n}, dtype, false);
+    for (size_t i = 0; i < n; ++i) {
+        double v = start + i * step;
+        write_scalar_at(t.data, i, dtype, v);
+    }
+    return t;
+}
 Tensor Tensor::squeeze() const {
     std::vector<size_t> new_shape;
     for (auto s : shape)
