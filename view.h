@@ -59,7 +59,7 @@ Tensor Tensor::select(size_t dim, size_t index) const {
     }
 
     // Offset data pointer to selected slice
-    out.data = data + index * strides[dim];
+    out.data = static_cast<char*>(data) + index * strides[dim];
 
     return out;
 }
