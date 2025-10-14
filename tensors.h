@@ -173,11 +173,21 @@ struct Tensor {
     }
 
     ~Tensor() {
-        if (data) free(data);
-        if (grad) free(grad);
-        if (shape) free(shape);
-        if (strides) free(strides);
+        std::cout << "Freeing tensor @" << this << " shape=" << shape << " strides=" << strides << " data=" << data << std::endl;
+        if (shape) {
+            free(shape);
+            shape = nullptr;
+        }
+        if (strides) {
+            free(strides);
+            strides = nullptr;
+        }
+        if (data) {
+            free(data);
+            data = nullptr;
+        }
     }
+
 
     // basic utilities
     size_t numel_() const {
