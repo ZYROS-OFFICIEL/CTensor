@@ -35,31 +35,28 @@ Tensor Tensor::reshape(const std::vector<size_t>& new_shape) const {
     return out;
 }
 Tensor Tensor::select(size_t dim, size_t index) const {
-    if (dim >= ndim) 
-        throw std::out_of_range("select: dimension out of range");
-    if (index >= shape[dim])
-        throw std::out_of_range("select: index out of range");
+    if (dim >= ndim) throw std::out_of_range("select: invalid dim");
+    if (index >= shape[dim]) throw std::out_of_range("select: index out of range");
 
-    // Build new shape (remove the selected dimension)
-    Tensor out = *this; // shallow copy of data
-    if (out.shape) free(out.shape);
-    if (out.strides) free(out.strides);
+    Tensor out = *this; // shallow copy everything
 
-    out.ndim = ndim - 1;
-    out.shape = (size_t*) malloc(out.ndim * sizeof(size_t));
-    out.strides = (size_t*) malloc(out.ndim * sizeof(size_t));
-    if (!out.shape || !out.strides) throw std::bad_alloc();
+    // --- allocate new shape/strides arrays ---
+    size_t new_ndim = ndim - 1;
+    out.shape = (size_t*) malloc(new_ndim * sizeof(size_t));
+    out.strides = (size_t*) malloc(new_ndim * sizeof(size_t));
 
-    // Copy shape & strides, skipping the selected dim
     for (size_t i = 0, j = 0; i < ndim; ++i) {
         if (i == dim) continue;
         out.shape[j] = shape[i];
         out.strides[j] = strides[i];
-        ++j;
+        j++;
     }
 
-    // Offset data pointer to selected slice
-    out.data = static_cast<char*>(data) + index * strides[dim];
+    out.ndim = new_ndim;
+
+    // fix data pointer (use byte arithmetic!)
+    size_t offset = index * strides[dim] * dtype_size(dtype);
+    out.data = (void*)((char*)data + offset);
 
     return out;
 }
