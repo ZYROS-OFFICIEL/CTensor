@@ -51,7 +51,7 @@ Move assignment operator.
 Destructor — frees all allocated memory.
 
     Methods:
-    
+
 size_t numel_() const
 Returns total number of elements = product of all shape dimensions.
 
@@ -60,3 +60,17 @@ Returns a vector copy of the tensor shape.
 
 void print_shape() const
 Prints shape like (3, 2, 4).
+
+     Indexing via Proxies
+Tensor::Proxy and Tensor::ConstProxy
+
+Provide Python-like indexing:
+
+Tensor t({2, 3});
+t[0][1] = 5.0;
+double val = t[0][1];
+
+
+Proxy → read/write
+
+ConstProxy → read-only
