@@ -9,7 +9,6 @@
 #include <ctime>        // time for rand seed
 #include <stdexcept>    // exceptions
 #include <cassert>
-#include <memory>
 
 enum class DType { Float32, Int32, Double64 };
 
@@ -57,28 +56,28 @@ inline void write_scalar_at(void* data, size_t idx, DType dt, double val) {
 
 // ---------- Tensor ----------
 struct Tensor {
-    // storage pointer (type-erased). We allocate with malloc and free, but manage lifetime via shared_ptr.
-    std::shared_ptr<void> data;    // points to beginning of allocation (or alias to offset)
-    std::shared_ptr<void> grad;    // optional gradient buffer (same semantics)
-
-    // shape & strides (contiguous layout by default)
+    void* data;
+    void* grad;
     size_t ndim;
-    std::vector<size_t> shape;
-    std::vector<size_t> strides;
-
+    size_t* shape;
+    size_t* strides;
     bool requires_grad;
     DType dtype;
 
-    // ---------- constructors ----------
-    Tensor()
-        : data(nullptr), grad(nullptr), ndim(0), shape(), strides(),
-          requires_grad(false), dtype(DType::Float32) {}
-
+    // Primary constructor
     Tensor(const std::vector<size_t>& shape_, DType dtype_ = DType::Float32, bool requires_grad_ = false)
-        : data(nullptr), grad(nullptr), ndim(shape_.size()), shape(shape_), strides(shape_.size(), 0),
-          requires_grad(requires_grad_), dtype(dtype_)
+        : data(nullptr), grad(nullptr), ndim(shape_.size()), shape(nullptr),
+          strides(nullptr), requires_grad(requires_grad_), dtype(dtype_)
     {
-        // compute contiguous strides
+        // allocate shape & strides
+        shape = static_cast<size_t*>(malloc(ndim * sizeof(size_t)));
+        strides = static_cast<size_t*>(malloc(ndim * sizeof(size_t)));
+        if ((ndim && !shape) || (ndim && !strides)) {
+            free(shape); free(strides);
+            throw std::bad_alloc();
+        }
+        for (size_t i = 0; i < ndim; ++i) shape[i] = shape_[i];
+
         if (ndim > 0) {
             strides[ndim - 1] = 1;
             for (int i = (int)ndim - 2; i >= 0; --i)
@@ -86,46 +85,119 @@ struct Tensor {
         }
 
         size_t numel = numel_();
-        size_t bytes = numel * dtype_size(dtype);
+        size_t tsize = dtype_size(dtype);
+        data = malloc(numel * tsize);
+        if (!data && numel) { free(shape); free(strides); throw std::bad_alloc(); }
+        memset(data, 0, numel * tsize);
 
-        if (numel) {
-            void* raw = std::malloc(bytes);
-            if (!raw) throw std::bad_alloc();
-            std::memset(raw, 0, bytes);
-            // create shared_ptr owning raw pointer using free as deleter
-            data = std::shared_ptr<void>(raw, [](void* p){ std::free(p); });
-            if (requires_grad) {
-                void* rawg = std::malloc(bytes);
-                if (!rawg) throw std::bad_alloc();
-                std::memset(rawg, 0, bytes);
-                grad = std::shared_ptr<void>(rawg, [](void* p){ std::free(p); });
-            } else {
-                grad.reset();
-            }
+        if (requires_grad) {
+            grad = malloc(numel * tsize);
+            if (!grad && numel) { free(data); free(shape); free(strides); throw std::bad_alloc(); }
+            memset(grad, 0, numel * tsize);
         } else {
-            data.reset();
-            grad.reset();
+            grad = nullptr;
+        }
+    }
+    //Default constructur 
+    Tensor() : data(nullptr), shape(nullptr), strides(nullptr),
+           ndim(0), dtype(DType::Float32), requires_grad(false) {}
+
+
+    // Deep copy constructor
+    Tensor(const Tensor& other)
+        : data(nullptr), grad(nullptr), ndim(other.ndim), shape(nullptr),
+          strides(nullptr), requires_grad(other.requires_grad), dtype(other.dtype)
+    {
+        shape = static_cast<size_t*>(malloc(ndim * sizeof(size_t)));
+        strides = static_cast<size_t*>(malloc(ndim * sizeof(size_t)));
+        if ((ndim && !shape) || (ndim && !strides)) { free(shape); free(strides); throw std::bad_alloc(); }
+        memcpy(shape, other.shape, ndim * sizeof(size_t));
+        memcpy(strides, other.strides, ndim * sizeof(size_t));
+
+        size_t n = numel_();
+        size_t tsize = dtype_size(dtype);
+        data = malloc(n * tsize);
+        if (!data && n) { free(shape); free(strides); throw std::bad_alloc(); }
+        memcpy(data, other.data, n * tsize);
+
+        if (requires_grad && other.grad) {
+            grad = malloc(n * tsize);
+            if (!grad && n) { free(data); free(shape); free(strides); throw std::bad_alloc(); }
+            memcpy(grad, other.grad, n * tsize);
+        } else {
+            grad = nullptr;
         }
     }
 
-    // Default copy (shallow copy of storage: views share memory)
-    Tensor(const Tensor& other) = default;
-    Tensor& operator=(const Tensor& other) = default;
+    // Move constructor
+    Tensor(Tensor&& other) noexcept
+        : data(other.data), grad(other.grad), ndim(other.ndim),
+          shape(other.shape), strides(other.strides), requires_grad(other.requires_grad),
+          dtype(other.dtype)
+    {
+        other.data = nullptr;
+        other.grad = nullptr;
+        other.shape = nullptr;
+        other.strides = nullptr;
+        other.ndim = 0;
+        other.requires_grad = false;
+    }
 
-    // Move (default is fine)
-    Tensor(Tensor&& other) noexcept = default;
-    Tensor& operator=(Tensor&& other) noexcept = default;
+    // Delete copy assignment for now
+    Tensor& operator=(const Tensor&) = delete;
 
-    ~Tensor() = default; // shared_ptr handles freeing
+    // Move assignment
+    Tensor& operator=(Tensor&& other) noexcept {
+        if (this != &other) {
+            if (data) free(data);
+            if (grad) free(grad);
+            if (shape) free(shape);
+            if (strides) free(strides);
 
-    // ---------- basic utilities ----------
+            data = other.data;
+            grad = other.grad;
+            shape = other.shape;
+            strides = other.strides;
+            ndim = other.ndim;
+            requires_grad = other.requires_grad;
+            dtype = other.dtype;
+
+            other.data = nullptr;
+            other.grad = nullptr;
+            other.shape = nullptr;
+            other.strides = nullptr;
+            other.ndim = 0;
+            other.requires_grad = false;
+        }
+        return *this;
+    }
+
+    ~Tensor() {
+        std::cout << "Freeing tensor @" << this << " shape=" << shape << " strides=" << strides << " data=" << data << std::endl;
+        if (shape) {
+            free(shape);
+            shape = nullptr;
+        }
+        if (strides) {
+            free(strides);
+            strides = nullptr;
+        }
+        if (data) {
+            free(data);
+            data = nullptr;
+        }
+    }
+
+
+    // basic utilities
     size_t numel_() const {
-        if (ndim == 0) return 0;
         size_t n = 1;
         for (size_t i = 0; i < ndim; ++i) n *= shape[i];
         return n;
     }
-    std::vector<size_t> shape_() const { return shape; }
+    std::vector<size_t> shape_() const {
+        return std::vector<size_t>(this->shape, this->shape + ndim);
+    }
     void print_shape() const {
         std::cout << "(";
         for (size_t i = 0; i < ndim; ++i) {
@@ -138,19 +210,18 @@ struct Tensor {
     // ---------- Proxy (writeable) and ConstProxy (read-only) ----------
     struct ConstProxy {
         const void* data;
-        const std::vector<size_t>* shape;
-        const std::vector<size_t>* strides;
-        size_t offset; // element offset (in elements)
+        size_t* shape;
+        size_t* strides;
+        size_t offset;
         size_t depth;
         size_t ndim;
         DType dtype;
-        ConstProxy(const void* d, const std::vector<size_t>* s, const std::vector<size_t>* st,
-                   size_t off, size_t dp, size_t n, DType dt)
+        ConstProxy(const void* d, size_t* s, size_t* st, size_t off, size_t dp, size_t n, DType dt)
             : data(d), shape(s), strides(st), offset(off), depth(dp), ndim(n), dtype(dt) {}
         ConstProxy operator[](size_t i) const {
             if (depth >= ndim) throw std::out_of_range("Too many indices");
-            if (i >= (*shape)[depth]) throw std::out_of_range("Index out of bounds");
-            size_t new_offset = offset + i * (*strides)[depth];
+            if (i >= shape[depth]) throw std::out_of_range("Index out of bounds");
+            size_t new_offset = offset + i * strides[depth];
             return ConstProxy(data, shape, strides, new_offset, depth + 1, ndim, dtype);
         }
         operator double() const {
@@ -161,19 +232,18 @@ struct Tensor {
 
     struct Proxy {
         void* data;
-        const std::vector<size_t>* shape;
-        const std::vector<size_t>* strides;
-        size_t offset; // element offset
+        size_t* shape;
+        size_t* strides;
+        size_t offset;
         size_t depth;
         size_t ndim;
         DType dtype;
-        Proxy(void* d, const std::vector<size_t>* s, const std::vector<size_t>* st,
-              size_t off, size_t dp, size_t n, DType dt)
+        Proxy(void* d, size_t* s, size_t* st, size_t off, size_t dp, size_t n, DType dt)
             : data(d), shape(s), strides(st), offset(off), depth(dp), ndim(n), dtype(dt) {}
         Proxy operator[](size_t i) const {
             if (depth >= ndim) throw std::out_of_range("Too many indices");
-            if (i >= (*shape)[depth]) throw std::out_of_range("Index out of bounds");
-            size_t new_offset = offset + i * (*strides)[depth];
+            if (i >= shape[depth]) throw std::out_of_range("Index out of bounds");
+            size_t new_offset = offset + i * strides[depth];
             return Proxy(data, shape, strides, new_offset, depth + 1, ndim, dtype);
         }
         operator double() const {
@@ -191,39 +261,42 @@ struct Tensor {
         if (ndim == 0) throw std::out_of_range("Tensor has no dimensions");
         if (i >= shape[0]) throw std::out_of_range("Index out of bounds");
         size_t off = i * strides[0];
-        return Proxy(data ? data.get() : nullptr, &shape, &strides, off, 1, ndim, dtype);
+        return Proxy(data, shape, strides, off, 1, ndim, dtype);
     }
     ConstProxy operator[](size_t i) const {
         if (ndim == 0) throw std::out_of_range("Tensor has no dimensions");
         if (i >= shape[0]) throw std::out_of_range("Index out of bounds");
         size_t off = i * strides[0];
-        return ConstProxy(data ? data.get() : nullptr, &shape, &strides, off, 1, ndim, dtype);
+        return ConstProxy(data, shape, strides, off, 1, ndim, dtype);
     }
 
     // ---------- factories ----------
     static Tensor ones(const std::vector<size_t>& shape_, DType dt = DType::Float32, bool requires_grad_ = false) {
         Tensor t(shape_, dt, requires_grad_);
         size_t n = t.numel_();
-        for (size_t i = 0; i < n; ++i) write_scalar_at(t.data.get(), i, t.dtype, 1.0);
+        for (size_t i = 0; i < n; ++i) write_scalar_at(t.data, i, t.dtype, 1.0);
         return t;
     }
     static Tensor zeros(const std::vector<size_t>& shape_, DType dt = DType::Float32, bool requires_grad_ = false) {
         Tensor t(shape_, dt, requires_grad_);
-        // already zeroed by memset in constructor
+        // already zeroed by memset but fill explicitly for clarity
+        size_t n = t.numel_();
+        for (size_t i = 0; i < n; ++i) write_scalar_at(t.data, i, t.dtype, 0.0);
         return t;
     }
     static Tensor full(const std::vector<size_t>& shape_, double value, DType dt = DType::Float32, bool requires_grad_ = false) {
         Tensor t(shape_, dt, requires_grad_);
         size_t n = t.numel_();
-        for (size_t i = 0; i < n; ++i) write_scalar_at(t.data.get(), i, t.dtype, value);
+        for (size_t i = 0; i < n; ++i) write_scalar_at(t.data, i, t.dtype, value);
         return t;
     }
     static Tensor rand(const std::vector<size_t>& shape_, DType dt = DType::Float32, bool requires_grad_ = false) {
         Tensor t(shape_, dt, requires_grad_);
         size_t n = t.numel_();
+        // seed only once per program would be better; simple here:
         std::srand((unsigned int)std::time(nullptr));
         for (size_t i = 0; i < n; ++i)
-            write_scalar_at(t.data.get(), i, t.dtype, static_cast<double>(std::rand()) / RAND_MAX);
+            write_scalar_at(t.data, i, t.dtype, static_cast<double>(std::rand()) / RAND_MAX);
         return t;
     }
     static Tensor empty(const std::vector<size_t>& shape_, DType dt = DType::Float32, bool requires_grad_ = false) {
@@ -237,21 +310,22 @@ struct Tensor {
 
     // ---------- conversion: return new tensor ----------
     Tensor astype(DType new_dtype) const {
-        if (new_dtype == dtype) return *this; // shallow copy
-        Tensor out(shape, new_dtype, requires_grad);
+        if (new_dtype == dtype) return Tensor(*this); // copy
+        Tensor out(shape_(), new_dtype, requires_grad);
         size_t n = numel_();
 
+        // straightforward convert elementwise
         for (size_t i = 0; i < n; ++i) {
-            double v = read_scalar_at(data.get(), i, dtype);
-            write_scalar_at(out.data.get(), i, out.dtype, v);
+            double v = read_scalar_at(data, i, dtype);
+            write_scalar_at(out.data, i, out.dtype, v);
         }
-
+        // grad not copied by default; if you want to copy grad, convert similarly:
         if (requires_grad && grad) {
-            out.grad = std::shared_ptr<void>(std::malloc(n * dtype_size(new_dtype)), [](void* p){ std::free(p); });
+            out.grad = malloc(n * dtype_size(out.dtype));
             if (!out.grad && n) throw std::bad_alloc();
             for (size_t i = 0; i < n; ++i) {
-                double gv = read_scalar_at(grad.get(), i, dtype);
-                write_scalar_at(out.grad.get(), i, new_dtype, gv);
+                double gv = read_scalar_at(grad, i, dtype);
+                write_scalar_at(out.grad, i, out.dtype, gv);
             }
         }
         return out;
@@ -262,246 +336,150 @@ struct Tensor {
         if (new_dtype == dtype) return;
         size_t n = numel_();
         size_t new_tsize = dtype_size(new_dtype);
-        size_t bytes = n * new_tsize;
-        void* raw = (n ? std::malloc(bytes) : nullptr);
-        if (!raw && n) throw std::bad_alloc();
 
+        // allocate new buffer
+        void* new_data = malloc(n * new_tsize);
+        if (!new_data && n) throw std::bad_alloc();
+
+        // convert
         for (size_t i = 0; i < n; ++i) {
-            double v = read_scalar_at(data.get(), i, dtype);
-            write_scalar_at(raw, i, new_dtype, v);
+            double v = read_scalar_at(data, i, dtype);
+            write_scalar_at(new_data, i, new_dtype, v);
         }
-
-        // replace data shared_ptr with new allocation
-        data = std::shared_ptr<void>(raw, [](void* p){ std::free(p); });
+        free(data);
+        data = new_data;
 
         if (grad) {
-            void* rawg = (n ? std::malloc(bytes) : nullptr);
-            if (!rawg && n) throw std::bad_alloc();
+            void* new_grad = malloc(n * new_tsize);
+            if (!new_grad && n) throw std::bad_alloc();
             for (size_t i = 0; i < n; ++i) {
-                double gv = read_scalar_at(grad.get(), i, dtype);
-                write_scalar_at(rawg, i, new_dtype, gv);
+                double gv = read_scalar_at(grad, i, dtype);
+                write_scalar_at(new_grad, i, new_dtype, gv);
             }
-            grad = std::shared_ptr<void>(rawg, [](void* p){ std::free(p); });
+            free(grad);
+            grad = new_grad;
         }
-
         dtype = new_dtype;
     }
-
-    // ---------- transpose & permute ----------
-    // return a new tensor that is a shallow view with last two dims swapped
     Tensor t() const {
-        if (ndim < 2) throw std::invalid_argument("t: tensor must have at least 2 dimensions");
-        Tensor out = *this; // shallow copy
+        if (ndim < 2)
+            throw std::invalid_argument("t: tensor must have at least 2 dimensions");
 
-        // compute element offset? none needed because stride manipulation suffices for view
-        std::vector<size_t> new_shape = shape;
+        std::vector<size_t> new_shape(shape, shape + ndim);
         std::swap(new_shape[ndim - 2], new_shape[ndim - 1]);
-        std::vector<size_t> new_strides = strides;
-        std::swap(new_strides[ndim - 2], new_strides[ndim - 1]);
 
-        out.shape = std::move(new_shape);
-        out.strides = std::move(new_strides);
-        out.ndim = out.shape.size();
+        Tensor out(new_shape, dtype, requires_grad);
+
+        size_t batch_ndim = ndim - 2;
+        size_t m = shape[ndim - 2];
+        size_t n = shape[ndim - 1];
+
+        size_t batch_size = 1;
+        for (size_t i = 0; i < batch_ndim; ++i)
+            batch_size *= shape[i];
+
+        for (size_t b = 0; b < batch_size; ++b) {
+            size_t batch_offset = 0;
+            if (batch_ndim > 0) {
+                size_t rem = b;
+                for (int d = (int)batch_ndim - 1; d >= 0; --d) {
+                    size_t idx = rem % shape[d];
+                    rem /= shape[d];
+                    batch_offset += idx * strides[d];
+                }
+            }
+
+            for (size_t i = 0; i < m; ++i) {
+                for (size_t j = 0; j < n; ++j) {
+                    size_t src_idx = batch_offset + i * strides[ndim - 2] + j * strides[ndim - 1];
+                    size_t dst_idx = batch_offset + j * out.strides[ndim - 2] + i * out.strides[ndim - 1];
+                    double val = read_scalar_at(data, src_idx, dtype);
+                    write_scalar_at(out.data, dst_idx, out.dtype, val);
+                }
+            }
+        }
+
         return out;
     }
-
-    // in-place transpose of last two dims by swapping shape & strides (view semantics)
+    //Trnaspose in-place
     Tensor& t_() {
-        if (ndim < 2) throw std::invalid_argument("t_: tensor must have at least 2 dimensions");
+        if (ndim < 2)
+            throw std::invalid_argument("t_: tensor must have at least 2 dimensions");
+
         std::swap(shape[ndim - 2], shape[ndim - 1]);
         std::swap(strides[ndim - 2], strides[ndim - 1]);
         return *this;
     }
-
     Tensor permute(const std::vector<size_t>& dims) const {
-        if (dims.size() != ndim) throw std::invalid_argument("permute: dims size must match shape size.");
+        if (dims.size() != ndim)
+            throw std::invalid_argument("permute: dims size must match shape size.");
+
         std::vector<bool> seen(ndim, false);
         for (auto d : dims) {
-            if (d >= ndim || seen[d]) throw std::invalid_argument("permute: invalid or duplicate dim.");
+            if (d >= ndim || seen[d])
+                throw std::invalid_argument("permute: invalid or duplicate dim.");
             seen[d] = true;
         }
 
-        Tensor out = *this; // shallow copy
-        std::vector<size_t> new_shape(ndim), new_strides(ndim);
+        Tensor out;
+        out.data = data;
+        out.ndim = ndim;
+        out.dtype = dtype;
+        out.requires_grad = requires_grad;
+
+        // Allocate memory for shape and strides
+        out.shape = (size_t*)malloc(ndim * sizeof(size_t));
+        out.strides = (size_t*)malloc(ndim * sizeof(size_t));
+
+        // Reorder shape and strides based on permutation
         for (size_t i = 0; i < ndim; ++i) {
-            new_shape[i] = shape[dims[i]];
-            new_strides[i] = strides[dims[i]];
-        }
-        out.shape = std::move(new_shape);
-        out.strides = std::move(new_strides);
-        out.ndim = out.shape.size();
-        return out;
-    }
-
-    // ---------- view / reshape / indexing ----------
-    // create 1D range [start, start+step*(n-1)] -> shape {n}
-    static Tensor arange(double start, double end, double step = 1.0, DType dtype = DType::Float32) {
-        if (step == 0.0) throw std::invalid_argument("arange: step must be non-zero");
-        double span = end - start;
-        if ((span > 0 && step < 0) || (span < 0 && step > 0)) return Tensor(); // empty
-        size_t n = 0;
-        if ( (step > 0 && start < end) || (step < 0 && start > end) ) {
-            n = static_cast<size_t>(std::ceil(std::abs(span) / std::abs(step)));
-        }
-        Tensor t({n}, dtype, false);
-        for (size_t i = 0; i < n; ++i) {
-            double v = start + i * step;
-            write_scalar_at(t.data.get(), i, dtype, v);
-        }
-        return t;
-    }
-
-    // reshape (returns a view with new shape but assumes contiguous layout)
-    Tensor reshape(const std::vector<size_t>& new_shape) const {
-        size_t new_numel = 1;
-        for (auto s : new_shape) new_numel *= s;
-        if (new_numel != numel_()) throw std::invalid_argument("reshape: total number of elements must remain constant.");
-
-        Tensor out = *this; // shallow copy
-        out.shape = new_shape;
-        out.ndim = out.shape.size();
-        // recompute contiguous strides for new shape
-        out.strides.assign(out.ndim, 0);
-        if (out.ndim > 0) {
-            out.strides[out.ndim - 1] = 1;
-            for (int i = (int)out.ndim - 2; i >= 0; --i)
-                out.strides[i] = out.strides[i + 1] * out.shape[i + 1];
+            out.shape[i]   = shape[dims[i]];
+            out.strides[i] = strides[dims[i]];
         }
         return out;
     }
+    static Tensor arange(double start, double end, double step = 1.0, DType dtype = DType::Float32);
+    Tensor reshape(const std::vector<size_t>& new_shape) const;
+    Tensor select(size_t dim, size_t index) const;
+    Tensor squeeze() const;
+    Tensor unsqueeze(size_t dim) const;
+    Tensor flatten() const;
 
-    // select (index along dimension) -> returns view with that dim removed and data pointer alias shifted
-    Tensor select(size_t dim, size_t index) const {
-        if (dim >= ndim) throw std::out_of_range("select: dim out of range");
-        if (index >= shape[dim]) throw std::out_of_range("select: index out of range");
 
-        // compute element offset in elements
-        size_t elem_offset = 0;
-        for (size_t d = 0; d < dim; ++d) elem_offset += 0 * strides[d]; // no-op kept for clarity
-        elem_offset += index * strides[dim];
 
-        // create aliasing shared_ptr that points to base + bytes offset, but shares ownership with original
-        size_t byte_offset = elem_offset * dtype_size(dtype);
-        std::shared_ptr<void> new_data;
-        if (data) {
-            new_data = std::shared_ptr<void>(data, static_cast<char*>(data.get()) + byte_offset);
-        } else {
-            new_data.reset();
-        }
-
-        Tensor out = *this; // shallow copy
-        // remove the selected dimension
-        std::vector<size_t> new_shape;
-        std::vector<size_t> new_strides;
-        new_shape.reserve(ndim ? ndim - 1 : 0);
-        new_strides.reserve(ndim ? ndim - 1 : 0);
-        for (size_t d = 0; d < ndim; ++d) {
-            if (d == dim) continue;
-            new_shape.push_back(shape[d]);
-            new_strides.push_back(strides[d]);
-        }
-        // special case: if result is 0-dim, keep shape empty (ndim=0) or shape {1}? we'll allow ndim=0.
-        out.shape = std::move(new_shape);
-        out.strides = std::move(new_strides);
-        out.ndim = out.shape.size();
-        out.data = std::move(new_data);
-        // grad: not adjusted (leave null or share original - for now keep no grad)
-        out.grad.reset();
-        return out;
-    }
-
-    // remove all dims == 1
-    Tensor squeeze() const {
-        std::vector<size_t> new_shape;
-        std::vector<size_t> new_strides;
-        for (size_t i = 0; i < ndim; ++i) {
-            if (shape[i] != 1) {
-                new_shape.push_back(shape[i]);
-                new_strides.push_back(strides[i]);
-            }
-        }
-        if (new_shape.empty()) {
-            // scalar view: shape vector empty, ndim = 0
-            Tensor out = *this;
-            out.shape.clear();
-            out.strides.clear();
-            out.ndim = 0;
-            return out;
-        }
-        Tensor out = *this;
-        out.shape = std::move(new_shape);
-        out.strides = std::move(new_strides);
-        out.ndim = out.shape.size();
-        return out;
-    }
-
-    // insert a dim of size 1 at position dim (0..ndim inclusive)
-    Tensor unsqueeze(size_t dim) const {
-        if (dim > ndim) throw std::out_of_range("unsqueeze: dim out of range");
-        std::vector<size_t> new_shape;
-        std::vector<size_t> new_strides;
-        new_shape.reserve(ndim + 1);
-        new_strides.reserve(ndim + 1);
-        for (size_t i = 0; i < dim; ++i) {
-            new_shape.push_back(shape[i]);
-            new_strides.push_back(strides[i]);
-        }
-        // inserted dim: size 1. Its stride can be anything; to remain consistent with view semantics, set stride to (dim < ndim ? strides[dim] : 1)
-        size_t ins_stride = (dim < ndim ? strides[dim] : (ndim ? strides.back() * shape.back() : 1));
-        new_shape.push_back(1);
-        new_strides.push_back(ins_stride);
-        for (size_t i = dim; i < ndim; ++i) {
-            new_shape.push_back(shape[i]);
-            new_strides.push_back(strides[i]);
-        }
-        Tensor out = *this;
-        out.shape = std::move(new_shape);
-        out.strides = std::move(new_strides);
-        out.ndim = out.shape.size();
-        return out;
-    }
-
-    // flatten -> 1D view
-    Tensor flatten() const {
-        Tensor out = *this;
-        size_t n = numel_();
-        out.shape = { n };
-        out.strides = { 1 };
-        out.ndim = 1;
-        return out;
-    }
-
-}; // end struct Tensor
+};
 
 // simple flat print (for debugging) — prints as doubles
 inline void print_t(const Tensor& t) {
     size_t n = t.numel_();
     std::cout << "[";
     for (size_t i = 0; i < n; i++) {
-        double v = read_scalar_at(t.data ? t.data.get() : nullptr, i, t.dtype);
+        double v = read_scalar_at(t.data, i, t.dtype);
         std::cout << v;
         if (i != n - 1) std::cout << ", ";
     }
     std::cout << "]\n";
 }
-
 static void print_recursive_braces(const Tensor& t, std::vector<size_t>& idx, size_t dim) {
     std::cout << "{";
-    size_t dim_size = (dim < t.ndim ? t.shape[dim] : 0);
+    size_t dim_size = t.shape[dim];
     for (size_t i = 0; i < dim_size; ++i) {
         idx[dim] = i;
         if (dim + 1 == t.ndim) {
             // compute flat offset
             size_t offset = 0;
             for (size_t k = 0; k < t.ndim; ++k) offset += idx[k] * t.strides[k];
-            double v = read_scalar_at(t.data ? t.data.get() : nullptr, offset, t.dtype);
+            double v = read_scalar_at(t.data, offset, t.dtype);
+            // print nicely depending on dtype
             if (t.dtype == DType::Int32) {
                 long long iv = static_cast<long long>(std::lrint(v));
                 std::cout << iv;
             } else {
+                // for floats/doubles print value as-is
                 std::cout << v;
             }
         } else {
+            // recurse to next dimension
             print_recursive_braces(t, idx, dim + 1);
         }
         if (i + 1 != dim_size) std::cout << ", ";
@@ -510,18 +488,17 @@ static void print_recursive_braces(const Tensor& t, std::vector<size_t>& idx, si
 }
 
 inline void print_(const Tensor& t) {
+    // handle zero-dim (scalar) specially
     if (t.ndim == 0) {
-        // try print scalar — if data exists
-        if (t.data && t.numel_() > 0) {
-            double v = read_scalar_at(t.data.get(), 0, t.dtype);
-            if (t.dtype == DType::Int32) std::cout << static_cast<long long>(std::lrint(v)) << "\n";
-            else std::cout << v << "\n";
+        double v = read_scalar_at(t.data, 0, t.dtype);
+        if (t.dtype == DType::Int32) {
+            std::cout << static_cast<long long>(std::lrint(v)) << "\n";
         } else {
-            std::cout << "{}\n";
+            std::cout << v << "\n";
         }
         return;
     }
-
+    // empty dims (any dimension is zero) -> print empty braces
     for (size_t i = 0; i < t.ndim; ++i) if (t.shape[i] == 0) { std::cout << "{}\n"; return; }
 
     std::vector<size_t> idx(t.ndim, 0);
@@ -562,8 +539,8 @@ inline Tensor pad_to_ndim(const Tensor& t, size_t target_ndim) {
             rem /= new_shape[d];
         }
         size_t src_idx = linear_index_from_padded(t, idx);
-        double v = read_scalar_at(t.data ? t.data.get() : nullptr, src_idx, t.dtype);
-        write_scalar_at(result.data.get(), flat, result.dtype, v);
+        double v = read_scalar_at(t.data, src_idx, t.dtype);
+        write_scalar_at(result.data, flat, result.dtype, v);
     }
     return result;
 }
@@ -583,4 +560,6 @@ static std::vector<size_t> broadcast_batch_shape_from_vectors(const std::vector<
     }
     return result;
 }
+
+
 
