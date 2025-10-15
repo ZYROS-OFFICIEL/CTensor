@@ -83,17 +83,33 @@ Tensor::full(shape, value, dtype)	Returns tensor filled with value.
 Tensor::rand(shape, dtype)	Fills tensor with random values in [0, 1].
 Tensor::empty(shape, dtype)	Allocates memory without initialization.
 
-Type Utilities
+    Type Utilities
 Method	Description
 _dtype()	Returns tensor dtype.
 dtype_name()	Returns dtype as string.
 dtype_bytes()	Returns element size in bytes.
 
-Type Conversion
+    Type Conversion
 Tensor astype(DType new_dtype) const
-
 Returns a new tensor converted to another dtype.
 
 void to_(DType new_dtype)
-
 In-place dtype conversion.
+
+    Shape Manipulation
+Tensor t() const
+
+Returns a new tensor with last two dimensions swapped (matrix transpose).
+
+Tensor& t_()
+
+In-place transpose — swaps shape and strides of the last two dimensions.
+
+Tensor permute(const std::vector<size_t>& dims) const
+
+Reorders dimensions according to dims.
+
+Example:
+
+Tensor x({2, 3, 4});
+Tensor y = x.permute({1, 0, 2});
