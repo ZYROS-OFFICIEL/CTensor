@@ -110,6 +110,14 @@ Tensor permute(const std::vector<size_t>& dims) const
 Reorders dimensions according to dims.
 
 Example:
-
 Tensor x({2, 3, 4});
 Tensor y = x.permute({1, 0, 2});
+
+    Printing :
+print_t(const Tensor& t)
+
+Flat print of tensor values.
+
+print_(const Tensor& t)
+
+Recursive print with {} braces, preserving shape.
