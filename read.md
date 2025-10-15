@@ -49,3 +49,14 @@ Move assignment operator.
 
 ~Tensor()
 Destructor — frees all allocated memory.
+
+    Methods:
+    
+size_t numel_() const
+Returns total number of elements = product of all shape dimensions.
+
+std::vector<size_t> shape_() const
+Returns a vector copy of the tensor shape.
+
+void print_shape() const
+Prints shape like (3, 2, 4).
