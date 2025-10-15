@@ -74,3 +74,11 @@ double val = t[0][1];
 Proxy → read/write
 
 ConstProxy → read-only
+
+     Basic Methods
+Classes 	Description
+Tensor::ones(shape, dtype)	Returns tensor filled with ones.
+Tensor::zeros(shape, dtype)	Returns tensor filled with zeros.
+Tensor::full(shape, value, dtype)	Returns tensor filled with value.
+Tensor::rand(shape, dtype)	Fills tensor with random values in [0, 1].
+Tensor::empty(shape, dtype)	Allocates memory without initialization.
