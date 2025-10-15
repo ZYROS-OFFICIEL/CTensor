@@ -17,7 +17,7 @@ write_scalar_at(void* data, size_t idx, DType dt, double val)
 
 Writes a scalar to raw memory at a given index, converting from double to the tensor’s dtype.
 
-🧱 Struct: Tensor
+    Struct: Tensor
 Members
 Member	Type	Description
 void* data	Pointer to tensor data.	
@@ -27,3 +27,25 @@ size_t* shape	Array of dimension sizes.
 size_t* strides	Strides (steps to move to next element along each dimension).	
 bool requires_grad	Whether tensor participates in gradient computations.	
 DType dtype	Data type.
+
+    Constructors :   
+
+Tensor(const std::vector<size_t>& shape, DType dtype, bool requires_grad)
+
+Creates a tensor with given shape, dtype, and gradient flag.
+Allocates memory for data, shape, strides, and optionally grad.
+
+Tensor()
+Default constructor. Creates an empty tensor.
+
+Tensor(const Tensor& other)
+Deep copy constructor. Allocates new memory and copies content.
+
+Tensor(Tensor&& other) noexcept
+Move constructor — transfers ownership of memory.
+
+Tensor& operator=(Tensor&& other) noexcept
+Move assignment operator.
+
+~Tensor()
+Destructor — frees all allocated memory.
