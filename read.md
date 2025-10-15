@@ -115,9 +115,17 @@ Tensor y = x.permute({1, 0, 2});
 
     Printing :
 print_t(const Tensor& t)
-
 Flat print of tensor values.
 
 print_(const Tensor& t)
-
 Recursive print with {} braces, preserving shape.
+
+    Broadcasting :
+linear_index_from_padded(const Tensor&, const std::vector<size_t>&)
+Computes linear memory index for a broadcasted index vector.
+
+Tensor pad_to_ndim(const Tensor& t, size_t target_ndim)
+Pads a tensor to higher dimensions with broadcasting (like PyTorch).
+
+broadcast_batch_shape_from_vectors(a, b)
+Computes output shape when broadcasting two tensors.
