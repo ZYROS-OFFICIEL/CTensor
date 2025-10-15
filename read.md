@@ -82,3 +82,18 @@ Tensor::zeros(shape, dtype)	Returns tensor filled with zeros.
 Tensor::full(shape, value, dtype)	Returns tensor filled with value.
 Tensor::rand(shape, dtype)	Fills tensor with random values in [0, 1].
 Tensor::empty(shape, dtype)	Allocates memory without initialization.
+
+Type Utilities
+Method	Description
+_dtype()	Returns tensor dtype.
+dtype_name()	Returns dtype as string.
+dtype_bytes()	Returns element size in bytes.
+
+Type Conversion
+Tensor astype(DType new_dtype) const
+
+Returns a new tensor converted to another dtype.
+
+void to_(DType new_dtype)
+
+In-place dtype conversion.
