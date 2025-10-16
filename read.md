@@ -190,3 +190,14 @@ std::bad_alloc if memory allocation fails.
 
 Usage Example:
 x.to_(DType::Float32);
+Tensor operator()(const Tensor& input) const;
+Description: Applies all transformations in the pipeline sequentially to the input tensor.
+
+Parameters:
+
+input → Tensor to transform.
+
+Return: Tensor → Result after applying all transformations.
+
+Usage Example:
+Tensor output = tf(input_tensor);
