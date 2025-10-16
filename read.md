@@ -135,27 +135,6 @@ void normalize_(const std::vector<float>& mean, const std::vector<float>& stdv);
 
 Description: Adds a normalization transformation to the pipeline. Normalizes each channel:
 
-𝑜
-𝑢
-𝑡
-𝑝
-𝑢
-𝑡
-=
-𝑖
-𝑛
-𝑝
-𝑢
-𝑡
-−
-𝑚
-𝑒
-𝑎
-𝑛
-𝑠
-𝑡
-𝑑
-𝑣
 output=
 stdv
 input−mean
@@ -176,3 +155,14 @@ Usage Example:
 
 Transforme tf;
 tf.normalize_({0.485f, 0.456f, 0.406f}, {0.229f, 0.224f, 0.225f});
+void resize_(size_t H, size_t W);
+Description: Adds a resize transformation to the pipeline. Currently a placeholder; creates a tensor of shape {C, H, W}.
+
+Parameters:
+
+H → Target height.
+
+W → Target width.
+
+Usage Example:
+tf.resize_(224, 224);
