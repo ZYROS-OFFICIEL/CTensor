@@ -177,3 +177,16 @@ Return: Tensor → New tensor of type new_dtype.
 
 Usage Example:
 Tensor y = x.astype(DType::Float32);
+void to_(DType new_dtype);
+Description: Converts the tensor in-place to the given DType. Updates data and gradient memory.
+
+Parameters:
+
+new_dtype → Target data type.
+
+Exceptions:
+
+std::bad_alloc if memory allocation fails.
+
+Usage Example:
+x.to_(DType::Float32);
