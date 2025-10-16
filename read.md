@@ -201,3 +201,11 @@ Return: Tensor → Result after applying all transformations.
 
 Usage Example:
 Tensor output = tf(input_tensor);
+
+Usage Pattern
+Transforme tf;
+tf.normalize_({0.5f, 0.5f, 0.5f}, {0.5f, 0.5f, 0.5f});
+tf.resize_(128, 128);
+
+Tensor input = load_tensor("image_data");
+Tensor output = tf(input); // Applies normalization then resize
