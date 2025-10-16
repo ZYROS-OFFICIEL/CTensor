@@ -166,3 +166,14 @@ W → Target width.
 
 Usage Example:
 tf.resize_(224, 224);
+Tensor astype(DType new_dtype) const;
+Description: Returns a new tensor with elements converted to the specified DType. Original tensor is unchanged.
+
+Parameters:
+
+new_dtype → Target data type.
+
+Return: Tensor → New tensor of type new_dtype.
+
+Usage Example:
+Tensor y = x.astype(DType::Float32);
