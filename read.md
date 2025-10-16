@@ -1,5 +1,5 @@
 This The documentation for CTensor
-I/ Tesnor declaration:
+I/ Tensor declaration:
 Tensor a = Tensor::empty((dims),grad)
 size_t dtype_size(DType dt)
 
@@ -129,3 +129,50 @@ Pads a tensor to higher dimensions with broadcasting (like PyTorch).
 
 broadcast_batch_shape_from_vectors(a, b)
 Computes output shape when broadcasting two tensors.
+normalize_
+void normalize_(const std::vector<float>& mean, const std::vector<float>& stdv);
+
+
+Description: Adds a normalization transformation to the pipeline. Normalizes each channel:
+
+𝑜
+𝑢
+𝑡
+𝑝
+𝑢
+𝑡
+=
+𝑖
+𝑛
+𝑝
+𝑢
+𝑡
+−
+𝑚
+𝑒
+𝑎
+𝑛
+𝑠
+𝑡
+𝑑
+𝑣
+output=
+stdv
+input−mean
+	​
+
+
+Parameters:
+
+mean → Vector of mean values per channel (or length 1 for all channels).
+
+stdv → Vector of standard deviations per channel (or length 1 for all channels).
+
+Exceptions:
+
+std::invalid_argument if mean or stdv length does not match channels.
+
+Usage Example:
+
+Transforme tf;
+tf.normalize_({0.485f, 0.456f, 0.406f}, {0.229f, 0.224f, 0.225f});
