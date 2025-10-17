@@ -4,14 +4,14 @@
 #include <cstring>
 #include <vector>
 #include <cmath>
-#include <cstdlib>      // malloc/free
-#include <ctime>        // time for rand seed
-#include <stdexcept>    // exceptions
+#include <cstdlib>
+#include <stdexcept>
 #include <cassert>
+#include <memory>
 
-using namespace std;
 enum class DType { Float32, Int32, Double64 };
-static size_t dtype_size(DType dt) {
+
+inline size_t dtype_size(DType dt) {
     switch (dt) {
         case DType::Float32: return sizeof(float);
         case DType::Int32:   return sizeof(int);
@@ -20,36 +20,55 @@ static size_t dtype_size(DType dt) {
     return sizeof(float);
 }
 
-struct Storage{
+struct Storage {
     std::shared_ptr<void> data;
-    size_t size;
-    static shared_ptr<void> allocate(size_t n, DType dt){
-        size = n * dtype_size(dt);
-        data = std::shared_ptr<void>(malloc(size), free);
-        if(!data && size) throw std::bad_alloc();
-        memset(data.get(), 0, size);
-        return std::shared_ptr<void>(p, std::free);
+    std::shared_ptr<void> grad;
+    size_t size = 0;
+
+    static std::shared_ptr<Storage> allocate(size_t n, DType dt, bool requires_grad = false) {
+        auto s = std::make_shared<Storage>();
+        s->size = n * dtype_size(dt);
+
+        // allocate data
+        void* p = std::malloc(s->size);
+        if (!p && s->size) throw std::bad_alloc();
+        std::memset(p, 0, s->size);
+        s->data = std::shared_ptr<void>(p, std::free);
+
+        // optional grad
+        if (requires_grad) {
+            void* g = std::malloc(s->size);
+            if (!g && s->size) throw std::bad_alloc();
+            std::memset(g, 0, s->size);
+            s->grad = std::shared_ptr<void>(g, std::free);
+        } else {
+            s->grad = nullptr;
+        }
+
+        return s;
     }
-}
-struct Tensorimpl{
+};
+
+struct Tensorimpl {
     std::shared_ptr<Storage> storage;
-    size_t offset;
-    size_t ndim;
-    size_t* shape;
-    size_t* strides;
-    bool requires_grad;
-    DType dtype;
+    size_t offset = 0;
+    size_t ndim = 0;
+    size_t* shape = nullptr;
+    size_t* strides = nullptr;
+    bool requires_grad = false;
+    DType dtype = DType::Float32;
+
     Tensorimpl(const std::vector<size_t>& shape_, DType dtype_ = DType::Float32, bool requires_grad_ = false)
-        : offset(0), ndim(shape_.size()), shape(nullptr),
-          strides(nullptr), requires_grad(requires_grad_), dtype(dtype_)
+        : offset(0), ndim(shape_.size()), requires_grad(requires_grad_), dtype(dtype_)
     {
         // allocate shape & strides
-        shape = static_cast<size_t*>(malloc(ndim * sizeof(size_t)));
-        strides = static_cast<size_t*>(malloc(ndim * sizeof(size_t)));
-        if ((ndim && !shape) || (ndim && !strides)) {
-            free(shape); free(strides);
+        shape = static_cast<size_t*>(std::malloc(ndim * sizeof(size_t)));
+        strides = static_cast<size_t*>(std::malloc(ndim * sizeof(size_t)));
+        if ((!shape && ndim) || (!strides && ndim)) {
+            std::free(shape); std::free(strides);
             throw std::bad_alloc();
         }
+
         for (size_t i = 0; i < ndim; ++i) shape[i] = shape_[i];
 
         if (ndim > 0) {
@@ -58,7 +77,14 @@ struct Tensorimpl{
                 strides[i] = strides[i + 1] * shape[i + 1];
         }
 
-        size_t numel = numel_();
-        storage = std::make_shared<Storage>(Storage::allocate(numel, dtype));
+        size_t numel = 1;
+        for (auto v : shape_) numel *= v;
+
+        storage = Storage::allocate(numel, dtype, requires_grad);
     }
-}
+
+    ~Tensorimpl() {
+        std::free(shape);
+        std::free(strides);
+    }
+};
