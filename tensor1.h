@@ -60,3 +60,5 @@ struct Tensorimpl{
 
         size_t numel = numel_();
         storage = std::make_shared<Storage>(Storage::allocate(numel, dtype));
+    }
+}
