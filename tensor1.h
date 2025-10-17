@@ -31,3 +31,32 @@ struct Storage{
         return std::shared_ptr<void>(p, std::free);
     }
 }
+struct Tensorimpl{
+    std::shared_ptr<Storage> storage;
+    size_t offset;
+    size_t ndim;
+    size_t* shape;
+    size_t* strides;
+    bool requires_grad;
+    DType dtype;
+    Tensorimpl(const std::vector<size_t>& shape_, DType dtype_ = DType::Float32, bool requires_grad_ = false)
+        : offset(0), ndim(shape_.size()), shape(nullptr),
+          strides(nullptr), requires_grad(requires_grad_), dtype(dtype_)
+    {
+        // allocate shape & strides
+        shape = static_cast<size_t*>(malloc(ndim * sizeof(size_t)));
+        strides = static_cast<size_t*>(malloc(ndim * sizeof(size_t)));
+        if ((ndim && !shape) || (ndim && !strides)) {
+            free(shape); free(strides);
+            throw std::bad_alloc();
+        }
+        for (size_t i = 0; i < ndim; ++i) shape[i] = shape_[i];
+
+        if (ndim > 0) {
+            strides[ndim - 1] = 1;
+            for (int i = (int)ndim - 2; i >= 0; --i)
+                strides[i] = strides[i + 1] * shape[i + 1];
+        }
+
+        size_t numel = numel_();
+        storage = std::make_shared<Storage>(Storage::allocate(numel, dtype));
