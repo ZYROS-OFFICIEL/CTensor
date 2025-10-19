@@ -88,3 +88,16 @@ struct Tensorimpl {
         std::free(strides);
     }
 };
+struct Tensor{
+    Tensorimpl* impl;
+
+    Tensor() : impl(nullptr) {}
+
+    Tensor(const std::vector<size_t>& shape_, DType dtype_ = DType::Float32, bool requires_grad_ = false) {
+        impl = new Tensorimpl(shape_, dtype_, requires_grad_);
+    }
+
+    ~Tensor() {
+        delete impl;
+    }
+}
