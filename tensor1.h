@@ -132,4 +132,11 @@ struct Tensor{
 
     // --- Destructor ---
     ~Tensor() = default;
+    inline double read_scalar(size_t idx) const {
+        return read_scalar_at(impl->storage->data.get(), idx, impl->dtype);
+    }
+
+    inline void write_scalar(size_t idx, double val) {
+        write_scalar_at(impl->storage->data.get(), idx, impl->dtype, val);
+    }
 }
