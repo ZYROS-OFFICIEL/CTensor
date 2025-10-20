@@ -237,6 +237,15 @@ struct Tensor{
         for (size_t i = 0; i < n; ++i) write_scalar_at(t.impl->storage->data.get(), i, t.dtype, value);
         return t;
     }
+    static Tensor rand(const std::vector<size_t>& shape_, DType dt = DType::Float32, bool requires_grad_ = false) {
+        Tensor t(shape_, dt, requires_grad_);
+        size_t n = t.numel_();
+        // seed only once per program would be better; simple here:
+        std::srand((unsigned int)std::time(nullptr));
+        for (size_t i = 0; i < n; ++i)
+            write_scalar_at(t.data, i, t.dtype, static_cast<double>(std::rand()) / RAND_MAX);
+        return t;
+    }
     static Tensor empty(const std::vector<size_t>& shape_, DType dt = DType::Float32, bool requires_grad_ = false){
         Tensor t(shape_,dt,requires_grad_);
         return t;
