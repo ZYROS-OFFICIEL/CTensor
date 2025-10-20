@@ -222,19 +222,19 @@ struct Tensor{
     static Tensor ones(const std::vector<size_t>& shape_, DType dt = DType::Float32, bool requires_grad_ = false){
         Tensor t(shape_, dt, requires_grad_);
         size_t n = t.numel();
-        for (size_t i = 0; i < n; ++i) write_scalar_at(t.impl->storage->data.get(), i, t.dtype, 1.0);
+        for (size_t i = 0; i < n; ++i) write_scalar_at(t.impl->storage->data.get(), i, dt, 1.0);
         return t;
     }
     static Tensor zeros(const std::vector<size_t>& shape_, DType dt = DType::Float32, bool requires_grad_ = false){
         Tensor t(shape_, dt, requires_grad_);
         size_t n = t.numel();
-        for (size_t i = 0; i < n; ++i) write_scalar_at(t.impl->storage->data.get(), i, t.dtype, 0.0);
+        for (size_t i = 0; i < n; ++i) write_scalar_at(t.impl->storage->data.get(), i, dt, 0.0);
         return t;
     }
     static Tensor full(const std::vector<size_t>& shape_,float value,DType dt = DType::Float32, bool requires_grad_ = false){
         Tensor t(shape_, dt, requires_grad_);
         size_t n = t.numel();
-        for (size_t i = 0; i < n; ++i) write_scalar_at(t.impl->storage->data.get(), i, t.dtype, value);
+        for (size_t i = 0; i < n; ++i) write_scalar_at(t.impl->storage->data.get(), i, dt, value);
         return t;
     }
     static Tensor rand(const std::vector<size_t>& shape_, DType dt = DType::Float32, bool requires_grad_ = false) {
@@ -243,7 +243,7 @@ struct Tensor{
         // seed only once per program would be better; simple here:
         std::srand((unsigned int)std::time(nullptr));
         for (size_t i = 0; i < n; ++i)
-            write_scalar_at(t.data, i, t.dtype, static_cast<double>(std::rand()) / RAND_MAX);
+            write_scalar_at(t.impl->storage->data.get(), i, dt, static_cast<double>(std::rand()) / RAND_MAX);
         return t;
     }
     static Tensor empty(const std::vector<size_t>& shape_, DType dt = DType::Float32, bool requires_grad_ = false){
@@ -251,7 +251,17 @@ struct Tensor{
         return t;
     }
         // ---------- dtype helpers ----------
-    DType _dtype() const noexcept { return dtype; }
-    const char* dtype_name() const noexcept { return dtype_to_cstr(dtype); }
-    size_t dtype_bytes() const noexcept { return dtype_size(dtype); }
-}
+    DType _dtype() const noexcept { 
+        if (!impl) throw std::runtime_error("Tensor is empty");
+        return impl->dtype;  
+    }
+    const char* dtype_name() const noexcept { 
+        if (!impl) throw std::runtime_error("Tensor is empty");
+        return dtype_to_cstr(impl->dtype); 
+    }
+
+    size_t dtype_bytes() const noexcept { 
+        if (!impl) throw std::runtime_error("Tensor is empty");
+        return dtype_size(impl->dtype); 
+    }
+};
