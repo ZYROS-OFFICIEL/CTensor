@@ -218,4 +218,11 @@ struct Tensor{
         if (impl->ndim == 0) throw std::out_of_range("Tensor has no dimensions");
         return ConstProxy(impl, i * impl->strides[0], 1);
     }
+
+    static Tensor ones(const std::vector<size_t>& shape_, DType dt = DType::Float32, bool requires_grad_ = false){
+        Tensor t(shape_, dt, requires_grad_);
+        size_t n = t.numel();
+        for (size_t i = 0; i < n; ++i) write_scalar_at(t.impl->storage->data.get(), i, t.dtype, 1.0);
+        return t;
+    }
 }
