@@ -89,15 +89,30 @@ struct Tensorimpl {
     }
 };
 struct Tensor{
-    Tensorimpl* impl;
+    std::shared_ptr<Tensorimpl> impl;
 
-    Tensor() : impl(nullptr) {}
+    // --- Default constructor ---
+    Tensor() = default;
 
-    Tensor(const std::vector<size_t>& shape_, DType dtype_ = DType::Float32, bool requires_grad_ = false) {
-        impl = new Tensorimpl(shape_, dtype_, requires_grad_);
-    }
+    // --- Primary constructor (create a new impl) ---
+    Tensor(const std::vector<size_t>& shape_,
+           DType dtype_ = DType::Float32,
+           bool requires_grad_ = false)
+        : impl(std::make_shared<Tensorimpl>(shape_, dtype_, requires_grad_))
+    {}
 
-    ~Tensor() {
-        delete impl;
-    }
+    // --- Copy constructor ---
+    Tensor(const Tensor& other) = default;
+
+    // --- Move constructor ---
+    Tensor(Tensor&& other) noexcept = default;
+
+    // --- Copy assignment ---
+    Tensor& operator=(const Tensor& other) = default;
+
+    // --- Move assignment ---
+    Tensor& operator=(Tensor&& other) noexcept = default;
+
+    // --- Destructor ---
+    ~Tensor() = default;
 }
