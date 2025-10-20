@@ -19,6 +19,23 @@ inline size_t dtype_size(DType dt) {
     }
     return sizeof(float);
 }
+// read/write helpers convert via double (safe, simple)
+inline double read_scalar_at(const void* data, size_t idx, DType dt) {
+    switch (dt) {
+        case DType::Float32:  return static_cast<double>( static_cast<const float*>(data)[idx] );
+        case DType::Int32:    return static_cast<double>( static_cast<const int*>(data)[idx] );
+        case DType::Double64: return static_cast<double>( static_cast<const double*>(data)[idx] );
+    }
+    return 0.0;
+}
+
+inline void write_scalar_at(void* data, size_t idx, DType dt, double val) {
+    switch (dt) {
+        case DType::Float32:  static_cast<float*>(data)[idx]  = static_cast<float>(val); break;
+        case DType::Int32:    static_cast<int*>(data)[idx]    = static_cast<int>(std::lrint(val)); break;
+        case DType::Double64: static_cast<double*>(data)[idx] = static_cast<double>(val); break;
+    }
+}
 
 struct Storage {
     std::shared_ptr<void> data;
