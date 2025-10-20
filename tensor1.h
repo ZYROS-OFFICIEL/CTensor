@@ -250,4 +250,8 @@ struct Tensor{
         Tensor t(shape_,dt,requires_grad_);
         return t;
     }
+        // ---------- dtype helpers ----------
+    DType _dtype() const noexcept { return dtype; }
+    const char* dtype_name() const noexcept { return dtype_to_cstr(dtype); }
+    size_t dtype_bytes() const noexcept { return dtype_size(dtype); }
 }
