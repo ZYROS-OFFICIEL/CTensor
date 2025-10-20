@@ -237,4 +237,8 @@ struct Tensor{
         for (size_t i = 0; i < n; ++i) write_scalar_at(t.impl->storage->data.get(), i, t.dtype, value);
         return t;
     }
+    static Tensor empty(const std::vector<size_t>& shape_, DType dt = DType::Float32, bool requires_grad_ = false){
+        Tensor t(shape_,dt,requires_grad_);
+        return t;
+    }
 }
