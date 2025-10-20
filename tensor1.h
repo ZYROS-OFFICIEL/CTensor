@@ -132,11 +132,90 @@ struct Tensor{
 
     // --- Destructor ---
     ~Tensor() = default;
+    //helper wrapers
     inline double read_scalar(size_t idx) const {
         return read_scalar_at(impl->storage->data.get(), idx, impl->dtype);
     }
 
     inline void write_scalar(size_t idx, double val) {
         write_scalar_at(impl->storage->data.get(), idx, impl->dtype, val);
+    }
+    //Utulities
+    size_t numel() const {
+        if (!impl) return 0;
+        size_t n = 1;
+        for (size_t i = 0; i < impl->ndim; ++i) n *= impl->shape[i];
+        return n;
+    }
+
+    std::vector<size_t> shape() const {
+        if (!impl) return {};
+        return std::vector<size_t>(impl->shape, impl->shape + impl->ndim);
+    }
+
+    void print_shape() const {
+        if (!impl) { std::cout << "()\n"; return; }
+        std::cout << "(";
+        for (size_t i = 0; i < impl->ndim; ++i) {
+            std::cout << impl->shape[i];
+            if (i < impl->ndim - 1) std::cout << ", ";
+        }
+        std::cout << ")\n";
+    }
+        // ---------------- Templated Proxy ----------------
+    template <bool Writable>
+    struct ProxyBase {
+        using TDataPtr = std::conditional_t<Writable, void*, const void*>;
+        std::shared_ptr<Tensorimpl> impl;
+        size_t offset;
+        size_t depth;
+
+        ProxyBase(std::shared_ptr<Tensorimpl> impl_, size_t off, size_t dp = 0)
+            : impl(std::move(impl_)), offset(off), depth(dp) {}
+
+        ProxyBase operator[](size_t i) const {
+            if (!impl) throw std::runtime_error("Invalid tensor");
+            if (depth >= impl->ndim) throw std::out_of_range("Too many indices");
+            if (i >= impl->shape[depth]) throw std::out_of_range("Index out of bounds");
+            size_t new_offset = offset + i * impl->strides[depth];
+            return ProxyBase(impl, new_offset, depth + 1);
+        }
+
+        // Convert to double (read access)
+        operator double() const {
+            if (!impl) throw std::runtime_error("Invalid tensor");
+            if (depth != impl->ndim) throw std::out_of_range("Not at leaf index");
+            return read_scalar_at(impl->storage->data.get(), offset, impl->dtype);
+        }
+
+        // Only enabled for writable proxies
+        template <bool W = Writable, typename = std::enable_if_t<W>>
+        ProxyBase& operator=(double val) {
+            if (!impl) throw std::runtime_error("Invalid tensor");
+            if (depth != impl->ndim) throw std::out_of_range("Not at leaf index");
+            write_scalar_at(impl->storage->data.get(), offset, impl->dtype, val);
+            return *this;
+        }
+
+        template <bool W = Writable, typename T, typename = std::enable_if_t<W>>
+        ProxyBase& operator=(T val) {
+            return operator=(static_cast<double>(val));
+        }
+    };
+
+    using Proxy = ProxyBase<true>;
+    using ConstProxy = ProxyBase<false>;
+
+    // ---------------- Tensor indexing ----------------
+    Proxy operator[](size_t i) {
+        if (!impl) throw std::runtime_error("Empty tensor");
+        if (impl->ndim == 0) throw std::out_of_range("Tensor has no dimensions");
+        return Proxy(impl, i * impl->strides[0], 1);
+    }
+
+    ConstProxy operator[](size_t i) const {
+        if (!impl) throw std::runtime_error("Empty tensor");
+        if (impl->ndim == 0) throw std::out_of_range("Tensor has no dimensions");
+        return ConstProxy(impl, i * impl->strides[0], 1);
     }
 }
