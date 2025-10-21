@@ -8,6 +8,7 @@
 #include <stdexcept>
 #include <cassert>
 #include <memory>
+#include <ctime>
 
 enum class DType { Float32, Int32, Double64 };
 
@@ -147,6 +148,11 @@ struct Tensor{
         for (size_t i = 0; i < impl->ndim; ++i) n *= impl->shape[i];
         return n;
     }
+    size_t numel_() const { return numel(); }
+        inline std::vector<size_t> strides() const {
+        if (!impl) return {};
+        return std::vector<size_t>(impl->strides, impl->strides + impl->ndim);
+    }
 
     std::vector<size_t> shape() const {
         if (!impl) return {};
@@ -255,9 +261,8 @@ struct Tensor{
         if (!impl) throw std::runtime_error("Tensor is empty");
         return impl->dtype;  
     }
-    const char* dtype_name() const noexcept { 
-        if (!impl) throw std::runtime_error("Tensor is empty");
-        return dtype_to_cstr(impl->dtype); 
+        const char* dtype_name() const {
+        return (_dtype()==DType::Float32) ? "Float32" : (_dtype()==DType::Int32 ? "Int32" : "Double64");
     }
 
     size_t dtype_bytes() const noexcept { 
@@ -268,7 +273,7 @@ struct Tensor{
     Tensor astype(DType new_dtype) const {
         if (!impl) throw std::runtime_error("Empty tensor");
         if (new_dtype == impl->dtype) return Tensor(*this); // copy
-        Tensor out(shape_(), new_dtype, impl->requires_grad);
+        Tensor out(shape(), new_dtype, impl->requires_grad);
         size_t n = numel_();
 
         // straightforward convert elementwise
@@ -278,7 +283,7 @@ struct Tensor{
         }
         // grad not copied by default; if you want to copy grad, convert similarly:
         if (impl->requires_grad && impl->storage->grad) {
-            if (!out.grad && n) throw std::bad_alloc();
+            if (!out.impl->storage->grad && n) throw std::bad_alloc();
             for (size_t i = 0; i < n; ++i) {
                 double gv = read_scalar_at(impl->storage->grad.get(), i, impl->dtype);
                 write_scalar_at(out.impl->storage->grad.get(), i, out.impl->dtype, gv);
@@ -353,12 +358,6 @@ struct Tensor{
 
         return out;
     }
-        static Tensor arange(double start, double end, double step = 1.0, DType dtype = DType::Float32);
-    Tensor reshape(const std::vector<size_t>& new_shape) const;
-    Tensor select(size_t dim, size_t index) const;
-    Tensor squeeze() const;
-    Tensor unsqueeze(size_t dim) const;
-    Tensor flatten() const;
         // ------------- arange -------------
     static Tensor arange(double start, double end, double step = 1.0, DType dtype = DType::Float32) {
         if (step == 0.0) throw std::invalid_argument("step must be non-zero");
@@ -458,7 +457,7 @@ inline void print_flat(const Tensor& t) {
     size_t n = t.numel_();
     std::cout << "[";
     for (size_t i = 0; i < n; ++i) {
-        double v = read_scalar_at(t.impl->storage->data.get(), i, t.dtype);
+        double v = read_scalar_at(t.impl->storage->data.get(), i, t.impl->dtype);
         std::cout << v;
         if (i + 1 != n) std::cout << ", ";
     }
@@ -473,10 +472,10 @@ static void print_recursive_braces(const Tensor& t, std::vector<size_t>& idx, si
     for (size_t i = 0; i < dim_size; ++i) {
         idx[dim] = i;
 
-        if (dim + 1 == t.ndim) {
+        if (dim + 1 == t.impl->ndim) {
             // compute flat offset
             size_t offset = 0;
-            for (size_t k = 0; k < t.ndim; ++k)
+            for (size_t k = 0; k < t.impl->ndim; ++k)
                 offset += idx[k] * t.strides()[k];
 
             double v = read_scalar_at(t.impl->storage->data.get(), offset, t.dtype);
@@ -530,6 +529,7 @@ inline size_t linear_index_from_padded(const Tensor& orig, const std::vector<siz
     }
     return offset;
 }
+
 
 // ---------- pad_to_ndim: expand tensor to target ndim by padding dimensions ----------
 inline Tensor pad_to_ndim(const Tensor& t, size_t target_ndim) {
