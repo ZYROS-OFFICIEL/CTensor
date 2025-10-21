@@ -100,6 +100,30 @@ struct Tensorimpl {
 
         storage = Storage::allocate(numel, dtype, requires_grad);
     }
+    Tensorimpl(std::shared_ptr<Storage> storage_,
+               size_t offset_,
+               const std::vector<size_t>& shape_,
+               const std::vector<size_t>& strides_,
+               DType dtype_,
+               bool requires_grad_)
+        : storage(std::move(storage_)),
+          offset(offset_),
+          ndim(shape_.size()),
+          requires_grad(requires_grad_),
+          dtype(dtype_)
+    {
+        shape = static_cast<size_t*>(std::malloc(ndim * sizeof(size_t)));
+        strides = static_cast<size_t*>(std::malloc(ndim * sizeof(size_t)));
+        if ((!shape && ndim) || (!strides && ndim)) {
+            std::free(shape); std::free(strides);
+            throw std::bad_alloc();
+        }
+        for (size_t i = 0; i < ndim; ++i) {
+            shape[i] = shape_[i];
+            strides[i] = strides_[i];
+        }
+    }
+
 
     ~Tensorimpl() {
         std::free(shape);
@@ -257,7 +281,7 @@ struct Tensor{
         return t;
     }
         // ---------- dtype helpers ----------
-    DType _dtype() const noexcept { 
+    DType _dtype() const  { 
         if (!impl) throw std::runtime_error("Tensor is empty");
         return impl->dtype;  
     }
@@ -265,7 +289,7 @@ struct Tensor{
         return (_dtype()==DType::Float32) ? "Float32" : (_dtype()==DType::Int32 ? "Int32" : "Double64");
     }
 
-    size_t dtype_bytes() const noexcept { 
+    size_t dtype_bytes() const  { 
         if (!impl) throw std::runtime_error("Tensor is empty");
         return dtype_size(impl->dtype); 
     }
@@ -474,9 +498,10 @@ static void print_recursive_braces(const Tensor& t, std::vector<size_t>& idx, si
 
         if (dim + 1 == t.impl->ndim) {
             // compute flat offset
-            size_t offset = 0;
-            for (size_t k = 0; k < t.impl->ndim; ++k)
-                offset += idx[k] * t.strides()[k];
+            size_t offset = t.impl->offset;
+                for (size_t k = 0; k < t.impl->ndim; ++k)
+                    offset += idx[k] * t.impl->strides[k];
+
 
             double v = read_scalar_at(t.impl->storage->data.get(), offset, t.impl->dtype);
 
@@ -523,11 +548,11 @@ inline size_t linear_index_from_padded(const Tensor& orig, const std::vector<siz
     size_t pad = padded_idx.size() - orig.impl->ndim;
     for (size_t i = 0; i < orig.impl->ndim; ++i) {
         size_t idx = padded_idx[pad + i];
-        size_t dim = orig.shape()[i];
+        size_t dim = orig.impl->shape[i];
         size_t use_idx = (dim == 1 ? 0 : idx);
-        offset += use_idx * orig.strides()[i];
+        offset += use_idx * orig.impl->strides[i];
     }
-    return offset;
+    return offset + orig.impl->offset;
 }
 
 
