@@ -359,7 +359,69 @@ struct Tensor{
     Tensor squeeze() const;
     Tensor unsqueeze(size_t dim) const;
     Tensor flatten() const;
-
-
-
 };
+// ---------- printing utilities ----------
+
+inline void print_flat(const Tensor& t) {
+    size_t n = t.numel_();
+    std::cout << "[";
+    for (size_t i = 0; i < n; ++i) {
+        double v = read_scalar_at(t.impl->storage->data.get(), i, t.dtype);
+        std::cout << v;
+        if (i + 1 != n) std::cout << ", ";
+    }
+    std::cout << "]\n";
+}
+
+// internal helper for recursive printing
+static void print_recursive_braces(const Tensor& t, std::vector<size_t>& idx, size_t dim) {
+    std::cout << "{";
+    size_t dim_size = t.shape()[dim];
+
+    for (size_t i = 0; i < dim_size; ++i) {
+        idx[dim] = i;
+
+        if (dim + 1 == t.ndim) {
+            // compute flat offset
+            size_t offset = 0;
+            for (size_t k = 0; k < t.ndim; ++k)
+                offset += idx[k] * t.strides()[k];
+
+            double v = read_scalar_at(t.impl->storage->data.get(), offset, t.dtype);
+
+            if (t.dtype == DType::Int32)
+                std::cout << static_cast<long long>(std::lrint(v));
+            else
+                std::cout << v;
+        } else {
+            print_recursive_braces(t, idx, dim + 1);
+        }
+
+        if (i + 1 != dim_size)
+            std::cout << ", ";
+    }
+    std::cout << "}";
+}
+
+// main print function — wraps recursive version in []
+inline void print_(const Tensor& t) {
+    // scalar (0D)
+    if (t.ndim == 0) {
+        double v = read_scalar_at(t.impl->storage->data.get(), 0, t.dtype);
+        if (t.dtype == DType::Int32)
+            std::cout << static_cast<long long>(std::lrint(v)) << "\n";
+        else
+            std::cout << v << "\n";
+        return;
+    }
+
+    // empty tensor
+    for (size_t i = 0; i < t.ndim; ++i)
+        if (t.shape()[i] == 0) { std::cout << "[]\n"; return; }
+
+    // general case
+    std::vector<size_t> idx(t.ndim, 0);
+    std::cout << "[ ";
+    print_recursive_braces(t, idx, 0);
+    std::cout << " ]\n";
+}
