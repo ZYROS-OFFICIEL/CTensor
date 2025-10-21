@@ -328,31 +328,37 @@ struct Tensor{
         if (!impl) throw std::runtime_error("Empty tensor");
         if (dims.size() != impl->ndim)
             throw std::invalid_argument("permute: dims size must match shape size");
-        
+
         std::vector<bool> seen(impl->ndim, false);
         for (auto d : dims) {
             if (d >= impl->ndim || seen[d])
                 throw std::invalid_argument("permute: invalid or duplicate dim");
             seen[d] = true;
         }
-    
+
         // Create new Tensor sharing same storage
         Tensor out;
         out.impl = std::make_shared<Tensorimpl>(*impl); // shallow copy
         // Free and reallocate shape/strides because we’ll reorder them
         std::free(out.impl->shape);
         std::free(out.impl->strides);
-    
+
         out.impl->shape = static_cast<size_t*>(std::malloc(impl->ndim * sizeof(size_t)));
         out.impl->strides = static_cast<size_t*>(std::malloc(impl->ndim * sizeof(size_t)));
-    
+
         for (size_t i = 0; i < impl->ndim; ++i) {
             out.impl->shape[i]   = impl->shape[dims[i]];
             out.impl->strides[i] = impl->strides[dims[i]];
         }
-    
+
         return out;
     }
+        static Tensor arange(double start, double end, double step = 1.0, DType dtype = DType::Float32);
+    Tensor reshape(const std::vector<size_t>& new_shape) const;
+    Tensor select(size_t dim, size_t index) const;
+    Tensor squeeze() const;
+    Tensor unsqueeze(size_t dim) const;
+    Tensor flatten() const;
 
 
 
