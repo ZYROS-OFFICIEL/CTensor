@@ -289,19 +289,19 @@ struct Tensor{
     void to_(DType new_dtype) {
         if (!impl) throw std::runtime_error("Empty tensor");
         if (new_dtype == impl->dtype) return;
-        
+
         size_t n = numel_();
         size_t new_tsize = dtype_size(new_dtype);
-        
+
         // allocate new storage buffer (shared_ptr)
         auto new_storage = Storage::allocate(n, new_dtype, impl->requires_grad);
-        
+
         // elementwise convert data
         for (size_t i = 0; i < n; ++i) {
             double v = read_scalar_at(impl->storage->data.get(), i, impl->dtype);
             write_scalar_at(new_storage->data.get(), i, new_dtype, v);
         }
-    
+
         // optional: convert gradient if it exists
         if (impl->requires_grad && impl->storage->grad) {
             for (size_t i = 0; i < n; ++i) {
@@ -309,10 +309,21 @@ struct Tensor{
                 write_scalar_at(new_storage->grad.get(), i, new_dtype, gv);
             }
         }
-    
+
         // replace old storage & dtype
         impl->storage = new_storage;
         impl->dtype = new_dtype;
     }
+    //in place transpose 
+    Tensor& t_() {
+    if (!impl) throw std::runtime_error("Empty tensor");
+    if (impl->ndim < 2)
+        throw std::invalid_argument("t_: tensor must have at least 2 dimensions");
+
+    std::swap(impl->shape[impl->ndim - 2], impl->shape[impl->ndim - 1]);
+    std::swap(impl->strides[impl->ndim - 2], impl->strides[impl->ndim - 1]);
+    return *this;
+}
+
 
 };
