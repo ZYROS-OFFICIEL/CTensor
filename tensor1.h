@@ -264,4 +264,26 @@ struct Tensor{
         if (!impl) throw std::runtime_error("Tensor is empty");
         return dtype_size(impl->dtype); 
     }
+        // ---------- conversion: return new tensor ----------
+    Tensor astype(DType new_dtype) const {
+        if (!impl) throw std::runtime_error("Empty tensor");
+        if (new_dtype == impl->dtype) return Tensor(*this); // copy
+        Tensor out(shape_(), new_dtype, impl->requires_grad);
+        size_t n = numel_();
+
+        // straightforward convert elementwise
+        for (size_t i = 0; i < n; ++i) {
+            double v = read_scalar_at(impl->storage->data.get(), i, impl->dtype);
+            write_scalar_at(out.impl->storage->data.get(), i, out.impl->dtype, v);
+        }
+        // grad not copied by default; if you want to copy grad, convert similarly:
+        if (impl->requires_grad && impl->storage->grad) {
+            if (!out.grad && n) throw std::bad_alloc();
+            for (size_t i = 0; i < n; ++i) {
+                double gv = read_scalar_at(impl->storage->grad.get(), i, impl->dtype);
+                write_scalar_at(out.impl->storage->grad.get(), i, out.impl->dtype, gv);
+            }
+        }
+        return out;
+    }
 };
