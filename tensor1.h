@@ -533,16 +533,16 @@ inline size_t linear_index_from_padded(const Tensor& orig, const std::vector<siz
 
 // ---------- pad_to_ndim: expand tensor to target ndim by padding dimensions ----------
 inline Tensor pad_to_ndim(const Tensor& t, size_t target_ndim) {
-    if (t.ndim == target_ndim) return Tensor(t);  // copy
-    if (t.ndim > target_ndim)
+    if (t.impl->ndim == target_ndim) return Tensor(t);  // copy
+    if (t.impl->ndim > target_ndim)
         throw std::runtime_error("pad_to_ndim: target_ndim smaller than tensor ndim");
 
     // Left-pad shape with 1s
     std::vector<size_t> new_shape(target_ndim, 1);
-    for (size_t i = 0; i < t.ndim; ++i)
-        new_shape[target_ndim - t.ndim + i] = t.shape()[i];
+    for (size_t i = 0; i < t.impl->ndim; ++i)
+        new_shape[target_ndim - t.impl->ndim + i] = t.shape()[i];
 
-    Tensor result(new_shape, t.dtype, t.requires_grad);
+    Tensor result(new_shape, t.impl->dtype, t.impl->requires_grad);
     size_t N = result.numel_();
     std::vector<size_t> idx(target_ndim, 0);
 
@@ -554,8 +554,8 @@ inline Tensor pad_to_ndim(const Tensor& t, size_t target_ndim) {
             rem /= new_shape[d];
         }
         size_t src_idx = linear_index_from_padded(t, idx);
-        double v = read_scalar_at(t.impl->storage->data.get(), src_idx, t.dtype);
-        write_scalar_at(result.impl->storage->data.get(), flat, result.dtype, v);
+        double v = read_scalar_at(t.impl->storage->data.get(), src_idx, t.impl->dtype);
+        write_scalar_at(result.impl->storage->data.get(), flat, result.impl->dtype, v);
     }
     return result;
 }
