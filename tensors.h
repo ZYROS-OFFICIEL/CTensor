@@ -54,6 +54,8 @@ inline void write_scalar_at(void* data, size_t idx, DType dt, double val) {
     }
 }
 
+struct memall
+
 // ---------- Tensor ----------
 struct Tensor {
     void* data;
@@ -401,7 +403,7 @@ struct Tensor {
 
         return out;
     }
-    //Trnaspose in-place
+    //Transpose in-place
     Tensor& t_() {
         if (ndim < 2)
             throw std::invalid_argument("t_: tensor must have at least 2 dimensions");
