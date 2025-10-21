@@ -1,4 +1,6 @@
 #include "tensor1.h"
+
+// ---------- TESTS ----------
 int main() {
     try {
         std::cout << "TESTS BEGIN\n";
@@ -37,6 +39,21 @@ int main() {
         Tensor p = ar.reshape({2,3}).permute({1,0});
         std::cout << "permute view (1,0): "; Tensor::print_(p);
         assert(p.shape().size() == 2 && p.shape()[0] == 3 && p.shape()[1] == 2);
+
+        // select
+        Tensor sel = ar.reshape({2,3}).select(0,1); // select first dim index 1 -> shape {3}
+        std::cout << "select(0,1): "; Tensor::print_(sel);
+        assert(sel.shape().size() == 1 && sel.shape()[0] == 3);
+
+        // squeeze/unsqueeze/flatten
+        Tensor s = Tensor::ones({1,3,1});
+        Tensor sq = s.squeeze();
+        std::cout << "squeeze: "; Tensor::print_(sq);
+        Tensor us = sq.unsqueeze(1);
+        std::cout << "unsqueeze: "; Tensor::print_(us);
+        Tensor fl = us.flatten();
+        std::cout << "flatten: "; Tensor::print_(fl);
+        assert(fl.shape().size() == 1 && fl.shape()[0] == fl.numel());
 
         // pad_to_ndim
         Tensor v1 = Tensor::arange(0,3);
