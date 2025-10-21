@@ -478,9 +478,9 @@ static void print_recursive_braces(const Tensor& t, std::vector<size_t>& idx, si
             for (size_t k = 0; k < t.impl->ndim; ++k)
                 offset += idx[k] * t.strides()[k];
 
-            double v = read_scalar_at(t.impl->storage->data.get(), offset, t.dtype);
+            double v = read_scalar_at(t.impl->storage->data.get(), offset, t.impl->dtype);
 
-            if (t.dtype == DType::Int32)
+            if (t.impl->dtype == DType::Int32)
                 std::cout << static_cast<long long>(std::lrint(v));
             else
                 std::cout << v;
@@ -497,9 +497,9 @@ static void print_recursive_braces(const Tensor& t, std::vector<size_t>& idx, si
 // main print function — wraps recursive version in []
 inline void print_(const Tensor& t) {
     // scalar (0D)
-    if (t.ndim == 0) {
-        double v = read_scalar_at(t.impl->storage->data.get(), 0, t.dtype);
-        if (t.dtype == DType::Int32)
+    if (t.impl->ndim == 0) {
+        double v = read_scalar_at(t.impl->storage->data.get(), 0, t.impl->dtype);
+        if (t.impl->dtype == DType::Int32)
             std::cout << static_cast<long long>(std::lrint(v)) << "\n";
         else
             std::cout << v << "\n";
@@ -507,11 +507,11 @@ inline void print_(const Tensor& t) {
     }
 
     // empty tensor
-    for (size_t i = 0; i < t.ndim; ++i)
+    for (size_t i = 0; i < t.impl->ndim; ++i)
         if (t.shape()[i] == 0) { std::cout << "[]\n"; return; }
 
     // general case
-    std::vector<size_t> idx(t.ndim, 0);
+    std::vector<size_t> idx(t.impl->ndim, 0);
     std::cout << "[ ";
     print_recursive_braces(t, idx, 0);
     std::cout << " ]\n";
@@ -520,8 +520,8 @@ inline void print_(const Tensor& t) {
 // 'orig' has possibly fewer dims than padded_idx.size(); left-pad with 1s.
 inline size_t linear_index_from_padded(const Tensor& orig, const std::vector<size_t>& padded_idx) {
     size_t offset = 0;
-    size_t pad = padded_idx.size() - orig.ndim;
-    for (size_t i = 0; i < orig.ndim; ++i) {
+    size_t pad = padded_idx.size() - orig.impl->ndim;
+    for (size_t i = 0; i < orig.impl->ndim; ++i) {
         size_t idx = padded_idx[pad + i];
         size_t dim = orig.shape()[i];
         size_t use_idx = (dim == 1 ? 0 : idx);
