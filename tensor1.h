@@ -425,3 +425,65 @@ inline void print_(const Tensor& t) {
     print_recursive_braces(t, idx, 0);
     std::cout << " ]\n";
 }
+// ---------- Helper: compute linear index in original tensor for a given multi-index ----------
+// 'orig' has possibly fewer dims than padded_idx.size(); left-pad with 1s.
+inline size_t linear_index_from_padded(const Tensor& orig, const std::vector<size_t>& padded_idx) {
+    size_t offset = 0;
+    size_t pad = padded_idx.size() - orig.ndim;
+    for (size_t i = 0; i < orig.ndim; ++i) {
+        size_t idx = padded_idx[pad + i];
+        size_t dim = orig.shape()[i];
+        size_t use_idx = (dim == 1 ? 0 : idx);
+        offset += use_idx * orig.strides()[i];
+    }
+    return offset;
+}
+
+// ---------- pad_to_ndim: expand tensor to target ndim by padding dimensions ----------
+inline Tensor pad_to_ndim(const Tensor& t, size_t target_ndim) {
+    if (t.ndim == target_ndim) return Tensor(t);  // copy
+    if (t.ndim > target_ndim)
+        throw std::runtime_error("pad_to_ndim: target_ndim smaller than tensor ndim");
+
+    // Left-pad shape with 1s
+    std::vector<size_t> new_shape(target_ndim, 1);
+    for (size_t i = 0; i < t.ndim; ++i)
+        new_shape[target_ndim - t.ndim + i] = t.shape()[i];
+
+    Tensor result(new_shape, t.dtype, t.requires_grad);
+    size_t N = result.numel_();
+    std::vector<size_t> idx(target_ndim, 0);
+
+    // Iterate over every element in result, compute its source index from t
+    for (size_t flat = 0; flat < N; ++flat) {
+        size_t rem = flat;
+        for (int d = static_cast<int>(target_ndim) - 1; d >= 0; --d) {
+            idx[d] = rem % new_shape[d];
+            rem /= new_shape[d];
+        }
+        size_t src_idx = linear_index_from_padded(t, idx);
+        double v = read_scalar_at(t.impl->storage->data.get(), src_idx, t.dtype);
+        write_scalar_at(result.impl->storage->data.get(), flat, result.dtype, v);
+    }
+    return result;
+}
+
+// ---------- global helper: broadcast shape from two tensors ----------
+inline std::vector<size_t> broadcast_batch_shape_from_vectors(const std::vector<size_t>& a,
+                                                              const std::vector<size_t>& b) {
+    size_t na = a.size(), nb = b.size();
+    size_t n = std::max(na, nb);
+    std::vector<size_t> result(n, 1);
+
+    for (size_t i = 0; i < n; ++i) {
+        size_t da = (i < n - na) ? 1 : a[i - (n - na)];
+        size_t db = (i < n - nb) ? 1 : b[i - (n - nb)];
+
+        if (da != db && da != 1 && db != 1)
+            throw std::invalid_argument("broadcast_batch_shape_from_vectors: incompatible shapes");
+
+        result[i] = std::max(da, db);
+    }
+
+    return result;
+}
