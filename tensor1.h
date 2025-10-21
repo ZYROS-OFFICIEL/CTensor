@@ -316,14 +316,44 @@ struct Tensor{
     }
     //in place transpose 
     Tensor& t_() {
-    if (!impl) throw std::runtime_error("Empty tensor");
-    if (impl->ndim < 2)
-        throw std::invalid_argument("t_: tensor must have at least 2 dimensions");
+        if (!impl) throw std::runtime_error("Empty tensor");
+        if (impl->ndim < 2)
+            throw std::invalid_argument("t_: tensor must have at least 2 dimensions");
 
-    std::swap(impl->shape[impl->ndim - 2], impl->shape[impl->ndim - 1]);
-    std::swap(impl->strides[impl->ndim - 2], impl->strides[impl->ndim - 1]);
-    return *this;
-}
+        std::swap(impl->shape[impl->ndim - 2], impl->shape[impl->ndim - 1]);
+        std::swap(impl->strides[impl->ndim - 2], impl->strides[impl->ndim - 1]);
+        return *this;
+    }
+    Tensor permute(const std::vector<size_t>& dims) const {
+        if (!impl) throw std::runtime_error("Empty tensor");
+        if (dims.size() != impl->ndim)
+            throw std::invalid_argument("permute: dims size must match shape size");
+        
+        std::vector<bool> seen(impl->ndim, false);
+        for (auto d : dims) {
+            if (d >= impl->ndim || seen[d])
+                throw std::invalid_argument("permute: invalid or duplicate dim");
+            seen[d] = true;
+        }
+    
+        // Create new Tensor sharing same storage
+        Tensor out;
+        out.impl = std::make_shared<Tensorimpl>(*impl); // shallow copy
+        // Free and reallocate shape/strides because we’ll reorder them
+        std::free(out.impl->shape);
+        std::free(out.impl->strides);
+    
+        out.impl->shape = static_cast<size_t*>(std::malloc(impl->ndim * sizeof(size_t)));
+        out.impl->strides = static_cast<size_t*>(std::malloc(impl->ndim * sizeof(size_t)));
+    
+        for (size_t i = 0; i < impl->ndim; ++i) {
+            out.impl->shape[i]   = impl->shape[dims[i]];
+            out.impl->strides[i] = impl->strides[dims[i]];
+        }
+    
+        return out;
+    }
+
 
 
 };
