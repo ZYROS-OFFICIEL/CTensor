@@ -354,34 +354,39 @@ struct Tensor{
         return *this;
     }
     Tensor permute(const std::vector<size_t>& dims) const {
-        if (!impl) throw std::runtime_error("Empty tensor");
-        if (dims.size() != impl->ndim)
-            throw std::invalid_argument("permute: dims size must match shape size");
+    if (!impl)
+        throw std::runtime_error("permute: tensor has no implementation");
 
-        std::vector<bool> seen(impl->ndim, false);
-        for (auto d : dims) {
-            if (d >= impl->ndim || seen[d])
-                throw std::invalid_argument("permute: invalid or duplicate dim");
-            seen[d] = true;
-        }
+    if (dims.size() != impl->ndim)
+        throw std::invalid_argument("permute: dims size must match ndim.");
 
-        // Create new Tensor sharing same storage
-        Tensor out;
-        out.impl = std::make_shared<Tensorimpl>(*impl); // shallow copy
-        // Free and reallocate shape/strides because we’ll reorder them
-        std::free(out.impl->shape);
-        std::free(out.impl->strides);
-
-        out.impl->shape = static_cast<size_t*>(std::malloc(impl->ndim * sizeof(size_t)));
-        out.impl->strides = static_cast<size_t*>(std::malloc(impl->ndim * sizeof(size_t)));
-
-        for (size_t i = 0; i < impl->ndim; ++i) {
-            out.impl->shape[i]   = impl->shape[dims[i]];
-            out.impl->strides[i] = impl->strides[dims[i]];
-        }
-
-        return out;
+    std::vector<bool> seen(impl->ndim, false);
+    for (auto d : dims) {
+        if (d >= impl->ndim || seen[d])
+            throw std::invalid_argument("permute: invalid or duplicate dim.");
+        seen[d] = true;
     }
+
+    std::vector<size_t> new_shape(impl->ndim);
+    std::vector<size_t> new_strides(impl->ndim);
+    for (size_t i = 0; i < impl->ndim; ++i) {
+        new_shape[i] = impl->shape[dims[i]];
+        new_strides[i] = impl->strides[dims[i]];
+    }
+
+    // use the new "view constructor"
+    Tensor out;
+    out.impl = std::make_shared<Tensorimpl>(
+        impl->storage,
+        impl->offset,
+        new_shape,
+        new_strides,
+        impl->dtype,
+        impl->requires_grad);
+
+    return out;
+}
+
         // ------------- arange -------------
     static Tensor arange(double start, double end, double step = 1.0, DType dtype = DType::Float32) {
         if (step == 0.0) throw std::invalid_argument("step must be non-zero");
