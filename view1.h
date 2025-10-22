@@ -116,3 +116,24 @@ Tensor Tensor::flatten() const {
     out.impl = std::make_shared<Tensorimpl>(impl->storage, impl->offset, nsh, nst, impl->dtype, impl->requires_grad);
     return out;
 }
+        // ---------- conversion: return new tensor ----------
+Tensor Tensor::astype(DType new_dtype) const {
+    if (!impl) throw std::runtime_error("Empty tensor");
+    if (new_dtype == impl->dtype) return Tensor(*this); // copy
+    Tensor out(shape(), new_dtype, impl->requires_grad);
+    size_t n = numel_();
+    // straightforward convert elementwise
+    for (size_t i = 0; i < n; ++i) {
+        double v = read_scalar_at(impl->storage->data.get(), i, impl->dtype);
+        write_scalar_at(out.impl->storage->data.get(), i, out.impl->dtype, v);
+    }
+    // grad not copied by default; if you want to copy grad, convert similarly:
+    if (impl->requires_grad && impl->storage->grad) {
+        if (!out.impl->storage->grad && n) throw std::bad_alloc();
+        for (size_t i = 0; i < n; ++i) {
+            double gv = read_scalar_at(impl->storage->grad.get(), i, impl->dtype);
+            write_scalar_at(out.impl->storage->grad.get(), i, out.impl->dtype, gv);
+        }
+    }
+    return out;
+}
