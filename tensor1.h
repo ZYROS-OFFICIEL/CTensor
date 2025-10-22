@@ -182,6 +182,17 @@ struct Tensor{
         if (!impl) return {};
         return std::vector<size_t>(impl->shape, impl->shape + impl->ndim);
     }
+    //-----------Clone constructor-----------
+    // deep copy of tensor
+    Tensor clone() const {
+        Tensor out(shape(), _dtype(), requires_grad());
+        size_t n = numel();
+        for (size_t i = 0; i < n; ++i)
+            out[i] = (*this)[i];  // or use read_scalar_at / write_scalar_at
+        return out;
+    }
+
+
 
     void print_shape() const {
         if (!impl) { std::cout << "()\n"; return; }
