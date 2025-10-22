@@ -12,7 +12,7 @@ struct Transforme {
     // Add normalization transform (like torchvision.transforms.Normalize)
     void normalize_(const std::vector<float>& mean, const std::vector<float>& stdv) {
         pipeline.push_back([mean, stdv](const Tensor& input) -> Tensor {
-            if (input.ndim() < 2)
+            if (input.impl->ndim < 2)
                 throw std::invalid_argument("normalize_: input must have at least 2 dims (C,H,...)");
 
             size_t C = input.shape()[0];
@@ -23,7 +23,7 @@ struct Transforme {
 
             Tensor output = input.clone();
             size_t inner_size = 1;
-            for (size_t i = 1; i < input.ndim(); ++i)
+            for (size_t i = 1; i < input.impl->ndim; ++i)
                 inner_size *= input.shape()[i];
 
             for (size_t c = 0; c < C; ++c) {
