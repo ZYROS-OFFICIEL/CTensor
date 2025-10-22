@@ -185,7 +185,7 @@ struct Tensor{
     //-----------Clone constructor-----------
     // deep copy of tensor
     Tensor clone() const {
-        Tensor out(shape(), _dtype(), requires_grad());
+        Tensor out(shape(), _dtype(), impl->requires_grad);
         size_t n = numel();
         for (size_t i = 0; i < n; ++i)
             out[i] = (*this)[i];  // or use read_scalar_at / write_scalar_at

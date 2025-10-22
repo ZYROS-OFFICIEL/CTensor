@@ -2,56 +2,71 @@
 #include <vector>
 #include <functional>
 #include <stdexcept>
-#include <iostream>
-#include "tensor1.h"  // make sure this has your Tensor class
+#include "tensor1.h"
 
 struct Transforme {
-    // Internally store a list of functions that take a Tensor and return a Tensor
     std::vector<std::function<Tensor(const Tensor&)>> pipeline;
 
-    // Add normalization transform (like torchvision.transforms.Normalize)
+    // ---------------- N-D normalize ----------------
     void normalize_(const std::vector<float>& mean, const std::vector<float>& stdv) {
         pipeline.push_back([mean, stdv](const Tensor& input) -> Tensor {
-            if (input.impl->ndim < 2)
-                throw std::invalid_argument("normalize_: input must have at least 2 dims (C,H,...)");
+            if (!input.impl) throw std::runtime_error("normalize: empty tensor");
+
+            Tensor output(input.shape(), input._dtype(), input.impl->requires_grad);
 
             size_t C = input.shape()[0];
             if (mean.size() != C && mean.size() != 1)
-                throw std::invalid_argument("normalize_: mean length must match channels or be 1");
+                throw std::invalid_argument("mean length must match channels or be 1");
             if (stdv.size() != C && stdv.size() != 1)
-                throw std::invalid_argument("normalize_: std length must match channels or be 1");
+                throw std::invalid_argument("std length must match channels or be 1");
 
-            Tensor output = input.clone();
-            size_t inner_size = 1;
-            for (size_t i = 1; i < input.impl->ndim; ++i)
-                inner_size *= input.shape()[i];
+            // total number of elements
+            size_t N = input.numel();
 
-            for (size_t c = 0; c < C; ++c) {
-                float m = mean.size() == 1 ? mean[0] : mean[c];
-                float s = stdv.size() == 1 ? stdv[0] : stdv[c];
-                for (size_t j = 0; j < inner_size; ++j) {
-                    size_t idx = c * inner_size + j;
-                    double v = input[idx];
-                    output[idx] = (v - m) / s;
+            // multi-index helper
+            std::vector<size_t> idx(input.impl->ndim, 0);
+
+            for (size_t flat = 0; flat < N; ++flat) {
+                // compute multi-index from flat index
+                size_t rem = flat;
+                for (int d = static_cast<int>(input.impl->ndim) - 1; d >= 0; --d) {
+                    idx[d] = rem % input.impl->shape[d];
+                    rem /= input.impl->shape[d];
                 }
+
+                // compute real offset in storage
+                size_t offset = input.impl->offset;
+                for (size_t d = 0; d < input.impl->ndim; ++d)
+                    offset += idx[d] * input.impl->strides[d];
+
+                double val = read_scalar_at(input.impl->storage->data.get(), offset, input.impl->dtype);
+
+                // channel index = first dim
+                size_t c = idx[0];
+                double m = (mean.size() == 1 ? mean[0] : mean[c]);
+                double s = (stdv.size() == 1 ? stdv[0] : stdv[c]);
+
+                write_scalar_at(output.impl->storage->data.get(), offset, output.impl->dtype, (val - m)/s);
             }
+
             return output;
         });
     }
 
-    // Resize placeholder (for now just changes shape, no interpolation)
+    // ---------------- placeholder resize ----------------
     void resize_(size_t H, size_t W) {
         pipeline.push_back([H, W](const Tensor& input) -> Tensor {
-            Tensor output({input.shape()[0], H, W}, input._dtype());
+            Tensor output({input.shape()[0], H, W}, input._dtype(), input.impl->requires_grad);
+            // real resize/interpolation can be implemented here
             return output;
         });
     }
 
-    // Apply all transformations sequentially
+    // ---------------- apply transformations ----------------
     Tensor operator()(const Tensor& input) const {
         Tensor x = input;
-        for (const auto& f : pipeline)
-            x = f(x);
+        for (auto& t : pipeline)
+            x = t(x);
         return x;
     }
 };
