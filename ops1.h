@@ -402,3 +402,39 @@ Tensor min(const Tensor& t, int dim = -1) {
         return out;
     }
 }
+*static Tensor cat(const std::vector<Tensor>& tensors, size_t dim) {
+    if (tensors.empty()) throw std::invalid_argument("cat: empty tensor list.");
+
+    // Check compatibility
+    size_t* ref_shape = tensors[0].shape;
+    size_t ndim = tensors[0].ndim;
+    for (size_t i = 1; i < tensors.size(); ++i) {
+        for (size_t d = 0; d < ndim; ++d) {
+            if (d != dim && tensors[i].shape[d] != ref_shape[d])
+                throw std::invalid_argument("cat: shape mismatch except along concatenation dim.");
+        }
+    }
+
+    // Compute new shape
+    std::vector<size_t> new_shape(ndim);
+    for (size_t d = 0; d < ndim; ++d)
+        new_shape[d] = ref_shape[d];
+    new_shape[dim] = 0;
+    for (auto& t : tensors)
+        new_shape[dim] += t.shape[dim];
+
+    // Create output
+    Tensor out(new_shape, tensors[0].dtype);
+    size_t offset = 0;
+
+    for (auto& t : tensors) {
+        size_t n = t.numel_();  // Use your helper if defined
+        size_t bytes = n * dtype_size(t.dtype);
+        std::memcpy((char*)out.data + offset, t.data, bytes);
+        offset += bytes;
+    }
+
+    return out;
+}
+
+
