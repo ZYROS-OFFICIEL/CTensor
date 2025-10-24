@@ -323,30 +323,30 @@ Tensor sum(const Tensor& t, int dim = -1) {
         write_scalar_at(out.impl->storage->data.get(), 0, t.impl->dtype, s);
         return out;
     } else {
-        if (dim >= (int)t.ndim)
+        if (dim >= (int)t.impl->ndim)
             throw std::invalid_argument("sum: invalid dimension");
 
-        std::vector<size_t> new_shape(t.shape, t.shape + t.ndim);
+        std::vector<size_t> new_shape(t.impl->shape, t.impl->shape + t.impl->ndim);
         new_shape.erase(new_shape.begin() + dim);
         if (new_shape.empty()) new_shape.push_back(1);
 
         Tensor out(new_shape, t.impl->dtype, false);
-        memset(out.data, 0, out.numel_() * dtype_size(t.impl->dtype));
+        memset(out.impl->storage->data.get(), 0, out.numel_() * dtype_size(t.impl->dtype));
 
         // manual reduction
-        size_t outer = 1, inner = 1, reduce_dim = t.shape[dim];
-        for (size_t i = 0; i < (size_t)dim; ++i) outer *= t.shape[i];
-        for (size_t i = dim + 1; i < t.ndim; ++i) inner *= t.shape[i];
+        size_t outer = 1, inner = 1, reduce_dim = t.impl->shape[dim];
+        for (size_t i = 0; i < (size_t)dim; ++i) outer *= t.impl->shape[i];
+        for (size_t i = dim + 1; i < t.impl->ndim; ++i) inner *= t.impl->shape[i];
 
         for (size_t o = 0; o < outer; ++o) {
             for (size_t i = 0; i < inner; ++i) {
                 double s = 0.0;
                 for (size_t r = 0; r < reduce_dim; ++r) {
                     size_t idx = o * reduce_dim * inner + r * inner + i;
-                    s += read_scalar_at(t.data, idx, t.impl->dtype);
+                    s += read_scalar_at(t.impl->storage->data.get(), idx, t.impl->dtype);
                 }
                 size_t out_idx = o * inner + i;
-                write_scalar_at(out.data, out_idx, out.impl->dtype, s);
+                write_scalar_at(out.impl->storage->data.get(), out_idx, out.impl->dtype, s);
             }
         }
 
@@ -374,17 +374,17 @@ Tensor max(const Tensor& t, int dim = -1) {
         write_scalar_at(out.impl->storage->data.get(), 0, t.impl->dtype, m);
         return out;
     } else {
-        if (dim >= (int)t.ndim)
+        if (dim >= (int)t.impl->ndim)
             throw std::invalid_argument("max: invalid dimension");
 
-        std::vector<size_t> new_shape(t.shape, t.shape + t.ndim);
+        std::vector<size_t> new_shape(t.impl->shape, t.impl->shape + t.impl->ndim);
         new_shape.erase(new_shape.begin() + dim);
         if (new_shape.empty()) new_shape.push_back(1);
         Tensor out(new_shape, t.dtype, false);
 
-        size_t outer = 1, inner = 1, reduce_dim = t.shape[dim];
-        for (size_t i = 0; i < (size_t)dim; ++i) outer *= t.shape[i];
-        for (size_t i = dim + 1; i < t.ndim; ++i) inner *= t.shape[i];
+        size_t outer = 1, inner = 1, reduce_dim = t.impl->shape[dim];
+        for (size_t i = 0; i < (size_t)dim; ++i) outer *= t.impl->shape[i];
+        for (size_t i = dim + 1; i < t.impl->ndim; ++i) inner *= t.impl->shape[i];
 
         for (size_t o = 0; o < outer; ++o) {
             for (size_t i = 0; i < inner; ++i) {
@@ -413,28 +413,28 @@ Tensor min(const Tensor& t, int dim = -1) {
         write_scalar_at(out.impl->storage->data.get(), 0, t.impl->dtype, m);
         return out;
     } else {
-        if (dim >= (int)t.ndim)
+        if (dim >= (int)t.impl->ndim)
             throw std::invalid_argument("min: invalid dimension");
 
-        std::vector<size_t> new_shape(t.shape, t.shape + t.ndim);
+        std::vector<size_t> new_shape(t.impl->shape, t.impl->shape + t.impl->ndim);
         new_shape.erase(new_shape.begin() + dim);
         if (new_shape.empty()) new_shape.push_back(1);
         Tensor out(new_shape, t.dtype, false);
 
-        size_t outer = 1, inner = 1, reduce_dim = t.shape[dim];
-        for (size_t i = 0; i < (size_t)dim; ++i) outer *= t.shape[i];
-        for (size_t i = dim + 1; i < t.ndim; ++i) inner *= t.shape[i];
+        size_t outer = 1, inner = 1, reduce_dim = t.impl->shape[dim];
+        for (size_t i = 0; i < (size_t)dim; ++i) outer *= t.impl->shape[i];
+        for (size_t i = dim + 1; i < t.impl->ndim; ++i) inner *= t.impl->shape[i];
 
         for (size_t o = 0; o < outer; ++o) {
             for (size_t i = 0; i < inner; ++i) {
                 double m = INFINITY;
                 for (size_t r = 0; r < reduce_dim; ++r) {
                     size_t idx = o * reduce_dim * inner + r * inner + i;
-                    double v = read_scalar_at(t.data, idx, t.impl->dtype);
+                    double v = read_scalar_at(t.impl->storage->data.get(), idx, t.impl->dtype);
                     if (v < m) m = v;
                 }
                 size_t out_idx = o * inner + i;
-                write_scalar_at(out.data, out_idx, out.impl->dtype, m);
+                write_scalar_at(out.impl->storage->data.get(), out_idx, out.impl->dtype, m);
             }
         }
 
@@ -445,11 +445,11 @@ Tensor min(const Tensor& t, int dim = -1) {
     if (tensors.empty()) throw std::invalid_argument("cat: empty tensor list.");
 
     // Check compatibility
-    size_t* ref_shape = tensors[0].shape;
-    size_t ndim = tensors[0].ndim;
+    size_t* ref_shape = tensors[0].impl->shape;
+    size_t ndim = tensors[0].impl->ndim;
     for (size_t i = 1; i < tensors.size(); ++i) {
         for (size_t d = 0; d < ndim; ++d) {
-            if (d != dim && tensors[i].shape[d] != ref_shape[d])
+            if (d != dim && tensors[i].impl->shape[d] != ref_shape[d])
                 throw std::invalid_argument("cat: shape mismatch except along concatenation dim.");
         }
     }
@@ -460,7 +460,7 @@ Tensor min(const Tensor& t, int dim = -1) {
         new_shape[d] = ref_shape[d];
     new_shape[dim] = 0;
     for (auto& t : tensors)
-        new_shape[dim] += t.shape[dim];
+        new_shape[dim] += t.impl->shape[dim];
 
     // Create output
     Tensor out(new_shape, tensors[0].impl->dtype);
