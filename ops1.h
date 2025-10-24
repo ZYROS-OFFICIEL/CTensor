@@ -14,6 +14,20 @@ static std::vector<size_t> compute_result_shape_padded(const Tensor& a, const Te
     return result;
 }
 
+//------------------Helper ---------------------------------------------
+static bool broadcastable(const std::vector<size_t>& a, const std::vector<size_t>& b) {
+    size_t na = a.size(), nb = b.size();
+    size_t ndim = std::max(na, nb);
+
+    for (size_t i = 0; i < ndim; ++i) {
+        size_t da = (i < ndim - na) ? 1 : a[i - (ndim - na)];
+        size_t db = (i < ndim - nb) ? 1 : b[i - (ndim - nb)];
+        if (da != db && da != 1 && db != 1)
+            return false;
+    }
+    return true;
+}
+
 // ---------------- elementwise ops (use read_scalar_at/write_scalar_at) ----------------
 
 Tensor add_(const Tensor& a_, const Tensor& b_) {
