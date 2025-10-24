@@ -437,4 +437,4 @@ Tensor min(const Tensor& t, int dim = -1) {
     return out;
 }
 
-
+Tensor operator+(const Tensor& a, const Tensor& b) { return add_(a,b); }
