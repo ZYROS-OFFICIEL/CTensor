@@ -317,10 +317,10 @@ Tensor sum(const Tensor& t, int dim = -1) {
         double s = 0.0;
         size_t n = t.numel_();
         for (size_t i = 0; i < n; ++i)
-            s += read_scalar_at(t.impl->storage->data.get(), i, t.dtype);
+            s += read_scalar_at(t.impl->storage->data.get(), i, t.impl->dtype);
 
-        Tensor out({1}, t.dtype, false);
-        write_scalar_at(out.impl->storage->data.get(), 0, t.dtype, s);
+        Tensor out({1}, t.impl->dtype, false);
+        write_scalar_at(out.impl->storage->data.get(), 0, t.impl->dtype, s);
         return out;
     } else {
         if (dim >= (int)t.ndim)
@@ -330,8 +330,8 @@ Tensor sum(const Tensor& t, int dim = -1) {
         new_shape.erase(new_shape.begin() + dim);
         if (new_shape.empty()) new_shape.push_back(1);
 
-        Tensor out(new_shape, t.dtype, false);
-        memset(out.data, 0, out.numel_() * dtype_size(t.dtype));
+        Tensor out(new_shape, t.impl->dtype, false);
+        memset(out.data, 0, out.numel_() * dtype_size(t.impl->dtype));
 
         // manual reduction
         size_t outer = 1, inner = 1, reduce_dim = t.shape[dim];
@@ -343,10 +343,10 @@ Tensor sum(const Tensor& t, int dim = -1) {
                 double s = 0.0;
                 for (size_t r = 0; r < reduce_dim; ++r) {
                     size_t idx = o * reduce_dim * inner + r * inner + i;
-                    s += read_scalar_at(t.data, idx, t.dtype);
+                    s += read_scalar_at(t.data, idx, t.impl->dtype);
                 }
                 size_t out_idx = o * inner + i;
-                write_scalar_at(out.data, out_idx, out.dtype, s);
+                write_scalar_at(out.data, out_idx, out.impl->dtype, s);
             }
         }
 
@@ -358,20 +358,20 @@ Tensor mean(const Tensor& t, int dim = -1) {
     double denom = (dim == -1) ? (double)t.numel_() : (double)t.impl->shape[dim];
     size_t n = s.numel_();
     for (size_t i = 0; i < n; ++i) {
-        double v = read_scalar_at(s.impl->storage->data.get(), i, s.dtype);
-        write_scalar_at(s.impl->storage->data.get(), i, s.dtype, v / denom);
+        double v = read_scalar_at(s.impl->storage->data.get(), i, s.impl->dtype);
+        write_scalar_at(s.impl->storage->data.get(), i, s.impl->dtype, v / denom);
     }
     return s;
 }
 Tensor max(const Tensor& t, int dim = -1) {
     if (dim == -1) {
-        double m = read_scalar_at(t.impl->storage->data.get(), 0, t.dtype);
+        double m = read_scalar_at(t.impl->storage->data.get(), 0, t.impl->dtype);
         for (size_t i = 1; i < t.numel_(); ++i) {
-            double v = read_scalar_at(t.impl->storage->data.get(), i, t.dtype);
+            double v = read_scalar_at(t.impl->storage->data.get(), i, t.impl->dtype);
             if (v > m) m = v;
         }
-        Tensor out({1}, t.dtype, false);
-        write_scalar_at(out.impl->storage->data.get(), 0, t.dtype, m);
+        Tensor out({1}, t.impl->dtype, false);
+        write_scalar_at(out.impl->storage->data.get(), 0, t.impl->dtype, m);
         return out;
     } else {
         if (dim >= (int)t.ndim)
@@ -391,11 +391,11 @@ Tensor max(const Tensor& t, int dim = -1) {
                 double m = -INFINITY;
                 for (size_t r = 0; r < reduce_dim; ++r) {
                     size_t idx = o * reduce_dim * inner + r * inner + i;
-                    double v = read_scalar_at(t.impl->storage->data.get(), idx, t.dtype);
+                    double v = read_scalar_at(t.impl->storage->data.get(), idx, t.impl->dtype);
                     if (v > m) m = v;
                 }
                 size_t out_idx = o * inner + i;
-                write_scalar_at(out.impl->storage->data.get(), out_idx, out.dtype, m);
+                write_scalar_at(out.impl->storage->data.get(), out_idx, out.impl->dtype, m);
             }
         }
 
@@ -404,13 +404,13 @@ Tensor max(const Tensor& t, int dim = -1) {
 }
 Tensor min(const Tensor& t, int dim = -1) {
     if (dim == -1) {
-        double m = read_scalar_at(t.impl->storage->data.get(), 0, t.dtype);
+        double m = read_scalar_at(t.impl->storage->data.get(), 0, t.impl->dtype);
         for (size_t i = 1; i < t.numel_(); ++i) {
-            double v = read_scalar_at(t.impl->storage->data.get(), i, t.dtype);
+            double v = read_scalar_at(t.impl->storage->data.get(), i, t.impl->dtype);
             if (v < m) m = v;
         }
-        Tensor out({1}, t.dtype, false);
-        write_scalar_at(out.impl->storage->data.get(), 0, t.dtype, m);
+        Tensor out({1}, t.impl->dtype, false);
+        write_scalar_at(out.impl->storage->data.get(), 0, t.impl->dtype, m);
         return out;
     } else {
         if (dim >= (int)t.ndim)
@@ -430,11 +430,11 @@ Tensor min(const Tensor& t, int dim = -1) {
                 double m = INFINITY;
                 for (size_t r = 0; r < reduce_dim; ++r) {
                     size_t idx = o * reduce_dim * inner + r * inner + i;
-                    double v = read_scalar_at(t.data, idx, t.dtype);
+                    double v = read_scalar_at(t.data, idx, t.impl->dtype);
                     if (v < m) m = v;
                 }
                 size_t out_idx = o * inner + i;
-                write_scalar_at(out.data, out_idx, out.dtype, m);
+                write_scalar_at(out.data, out_idx, out.impl->dtype, m);
             }
         }
 
@@ -463,13 +463,13 @@ Tensor min(const Tensor& t, int dim = -1) {
         new_shape[dim] += t.shape[dim];
 
     // Create output
-    Tensor out(new_shape, tensors[0].dtype);
+    Tensor out(new_shape, tensors[0].impl->dtype);
     size_t offset = 0;
 
     for (auto& t : tensors) {
         size_t n = t.numel_();  // Use your helper if defined
-        size_t bytes = n * dtype_size(t.dtype);
-        std::memcpy((char*)out.data + offset, t.data, bytes);
+        size_t bytes = n * dtype_size(t.impl->dtype);
+        std::memcpy((char*)out.impl->storage->data.get() + offset, t.impl->storage->data.get(), bytes);
         offset += bytes;
     }
 
@@ -478,6 +478,6 @@ Tensor min(const Tensor& t, int dim = -1) {
 
 Tensor operator+(const Tensor& a, const Tensor& b) { return add_(a,b); }
 Tensor operator-(const Tensor& a, const Tensor& b) { return diff_(a,b); }
-Tensor operator*(const Tensor& a, const Tensor& b) { return mul_(a,b); }
+Tensor operator*(const Tensor& a, const Tensor& b) { return mult_(a,b); }
 Tensor operator/(const Tensor& a, const Tensor& b) { return div_(a,b); }
 Tensor operator^(const Tensor& a, const Tensor& b) { return pow_(a,b); }
