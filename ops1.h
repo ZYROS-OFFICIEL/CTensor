@@ -355,23 +355,23 @@ Tensor sum(const Tensor& t, int dim = -1) {
 }
 Tensor mean(const Tensor& t, int dim = -1) {
     Tensor s = sum(t, dim);
-    double denom = (dim == -1) ? (double)t.numel_() : (double)t.shape[dim];
+    double denom = (dim == -1) ? (double)t.numel_() : (double)t.impl->shape[dim];
     size_t n = s.numel_();
     for (size_t i = 0; i < n; ++i) {
-        double v = read_scalar_at(s.data, i, s.dtype);
-        write_scalar_at(s.data, i, s.dtype, v / denom);
+        double v = read_scalar_at(s.impl->storage->data.get(), i, s.dtype);
+        write_scalar_at(s.impl->storage->data.get(), i, s.dtype, v / denom);
     }
     return s;
 }
 Tensor max(const Tensor& t, int dim = -1) {
     if (dim == -1) {
-        double m = read_scalar_at(t.data, 0, t.dtype);
+        double m = read_scalar_at(t.impl->storage->data.get(), 0, t.dtype);
         for (size_t i = 1; i < t.numel_(); ++i) {
-            double v = read_scalar_at(t.data, i, t.dtype);
+            double v = read_scalar_at(t.impl->storage->data.get(), i, t.dtype);
             if (v > m) m = v;
         }
         Tensor out({1}, t.dtype, false);
-        write_scalar_at(out.data, 0, t.dtype, m);
+        write_scalar_at(out.impl->storage->data.get(), 0, t.dtype, m);
         return out;
     } else {
         if (dim >= (int)t.ndim)
@@ -391,11 +391,11 @@ Tensor max(const Tensor& t, int dim = -1) {
                 double m = -INFINITY;
                 for (size_t r = 0; r < reduce_dim; ++r) {
                     size_t idx = o * reduce_dim * inner + r * inner + i;
-                    double v = read_scalar_at(t.data, idx, t.dtype);
+                    double v = read_scalar_at(t.impl->storage->data.get(), idx, t.dtype);
                     if (v > m) m = v;
                 }
                 size_t out_idx = o * inner + i;
-                write_scalar_at(out.data, out_idx, out.dtype, m);
+                write_scalar_at(out.impl->storage->data.get(), out_idx, out.dtype, m);
             }
         }
 
@@ -404,13 +404,13 @@ Tensor max(const Tensor& t, int dim = -1) {
 }
 Tensor min(const Tensor& t, int dim = -1) {
     if (dim == -1) {
-        double m = read_scalar_at(t.data, 0, t.dtype);
+        double m = read_scalar_at(t.impl->storage->data.get(), 0, t.dtype);
         for (size_t i = 1; i < t.numel_(); ++i) {
-            double v = read_scalar_at(t.data, i, t.dtype);
+            double v = read_scalar_at(t.impl->storage->data.get(), i, t.dtype);
             if (v < m) m = v;
         }
         Tensor out({1}, t.dtype, false);
-        write_scalar_at(out.data, 0, t.dtype, m);
+        write_scalar_at(out.impl->storage->data.get(), 0, t.dtype, m);
         return out;
     } else {
         if (dim >= (int)t.ndim)
