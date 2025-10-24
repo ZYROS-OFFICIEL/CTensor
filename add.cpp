@@ -1,22 +1,22 @@
-#include "ops1.h"
+#include <iostream>
+#include "ops_add.h"
 
-using namespace std;
 int main() {
-    // Example usage of add_ function
-    Tensor a = Tensor::ones({3, 3}, DType::Float32);
-    Tensor b = Tensor::full({2, 3}, 2.0f, DType::Float32);
-    Tensor c = add_(a, b);
-    Tensor d = matmul(b, a);
+    try {
+        std::cout << "TEST add_ with broadcasting BEGIN\n";
 
-    cout<<("Tensor a:") <<endl;
-    print_(a);
-    cout <<("Tensor b:") << endl;
-    print_(b);
-    cout << ("Tensor c = a + b:") <<endl;
-    print_(c);
-    cout << ("Tensor c = a ** b:") <<endl;
-    print_(d);
+        Tensor a = Tensor::ones({3, 3});
+        Tensor b = Tensor::ones({2, 3}) * 2.0;
 
-    return 0;
+        std::cout << "Tensor a:\n"; print_(a);
+        std::cout << "Tensor b:\n"; print_(b);
 
+        Tensor c = add_(a, b);
+        std::cout << "Tensor c = a + b:\n"; print_(c);
+
+        std::cout << "add_ test OK\n";
+    } catch (const std::exception& e) {
+        std::cerr << "add_ test FAILED: " << e.what() << "\n";
+        return 1;
+    }
 }
