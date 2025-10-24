@@ -317,10 +317,10 @@ Tensor sum(const Tensor& t, int dim = -1) {
         double s = 0.0;
         size_t n = t.numel_();
         for (size_t i = 0; i < n; ++i)
-            s += read_scalar_at(t.data, i, t.dtype);
+            s += read_scalar_at(t.impl->storage->data.get(), i, t.dtype);
 
         Tensor out({1}, t.dtype, false);
-        write_scalar_at(out.data, 0, t.dtype, s);
+        write_scalar_at(out.impl->storage->data.get(), 0, t.dtype, s);
         return out;
     } else {
         if (dim >= (int)t.ndim)
