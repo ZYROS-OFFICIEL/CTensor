@@ -6,7 +6,7 @@ int main() {
         std::cout << "TEST add_ with broadcasting BEGIN\n";
 
         Tensor a = Tensor::ones({3, 3});
-        Tensor b = Tensor::ones({2, 3}) * 2.0;
+        Tensor b = Tensor::full({1, 3}, 2.0); ;
 
         std::cout << "Tensor a:\n"; print_(a);
         std::cout << "Tensor b:\n"; print_(b);
