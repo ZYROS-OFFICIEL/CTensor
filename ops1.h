@@ -235,7 +235,7 @@ Tensor div_(const Tensor& a_, const Tensor& b_) {
 
         double va = read_scalar_at(a.impl->storage->data.get(), index_a, a.impl->dtype);
         double vb = read_scalar_at(b.impl->storage->data.get(), index_b, b.impl->dtype);
-        write_scalar_at(result.impl->storage->data.get(), flat, result.impl->dtype, va + vb);
+        write_scalar_at(result.impl->storage->data.get(), flat, result.impl->dtype, va / vb);
     }
 
     return result;
