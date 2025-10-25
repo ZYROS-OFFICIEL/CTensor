@@ -142,7 +142,8 @@ Tensor diff_(const Tensor& a_, const Tensor& b_) {
     }
 
     return result;
-}Tensor mult_(const Tensor& a_, const Tensor& b_) {
+}
+Tensor mult_(const Tensor& a_, const Tensor& b_) {
     if (!a_.impl || !b_.impl)
         throw std::runtime_error("add_: null tensor implementation");
 
