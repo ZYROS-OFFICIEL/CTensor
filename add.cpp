@@ -1,8 +1,11 @@
 #include <iostream>
 #include "ops1.h"
+#include <ctime>
 
 int main() {
+    std::clock_t start = std::clock();
     try {
+        
         std::cout << "TEST add_ with broadcasting BEGIN\n";
 
         Tensor a = Tensor::ones({3, 3});
@@ -19,4 +22,7 @@ int main() {
         std::cerr << "add_ test FAILED: " << e.what() << "\n";
         return 1;
     }
+    std::clock_t end = std::clock();
+    double elapsed = double(end - start) / CLOCKS_PER_SEC;
+    std::cout << "Elapsed time: " << elapsed << " seconds\n";
 }
