@@ -242,24 +242,39 @@ Tensor div_(const Tensor& a_, const Tensor& b_) {
 }
 
 Tensor pow_(const Tensor& a_, const Tensor& b_) {
+    if (!a_.impl || !b_.impl)
+        throw std::runtime_error("add_: null tensor implementation");
+
+    // --- Step 1: pad shapes to same ndim ---
     size_t ndim_result = std::max(a_.impl->ndim, b_.impl->ndim);
     Tensor a = pad_to_ndim(a_, ndim_result);
     Tensor b = pad_to_ndim(b_, ndim_result);
 
-    std::vector<size_t> result_shape = compute_result_shape_padded(a, b);
+    // --- Step 2: wrap shape pointers into vectors ---
+    std::vector<size_t> shape_a(a.impl->shape, a.impl->shape + a.impl->ndim);
+    std::vector<size_t> shape_b(b.impl->shape, b.impl->shape + b.impl->ndim);
+
+    // --- Step 3: compute broadcasted shape ---
+    if (!broadcastable(shape_a, shape_b))
+        throw std::runtime_error("add_: shapes are not broadcastable");
+    std::vector<size_t> result_shape = broadcast_shape(shape_a, shape_b);
+
+    // --- Step 4: create result tensor ---
     Tensor result(result_shape, a.impl->dtype, false);
 
+    // --- Step 5: iterate over result elements ---
     size_t n = result.numel_();
     std::vector<size_t> idx(ndim_result, 0);
 
     for (size_t flat = 0; flat < n; ++flat) {
+        // convert flat index -> multi-dimensional index
         size_t rem = flat;
         for (int i = (int)ndim_result - 1; i >= 0; --i) {
             idx[i] = rem % result_shape[i];
             rem /= result_shape[i];
         }
 
-        // compute flat index for a and b using strides (with broadcasting)
+        // compute flat index for a and b using broadcasting
         size_t index_a = 0, index_b = 0;
         for (size_t i = 0; i < ndim_result; ++i) {
             size_t idx_a = (a.impl->shape[i] == 1 ? 0 : idx[i]);
