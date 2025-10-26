@@ -25,8 +25,10 @@ Tensor tensor_elementwise(const Tensor& a_, const Tensor& b_, Backend backend) {
     Tensor a = pad_to_ndim(a_, ndim);
     Tensor b = pad_to_ndim(b_, ndim);
 
-    // compute broadcasted shape
-    std::vector<size_t> result_shape = broadcast_batch_shape_from_vectors(a.shape(), b.shape());
+    if (!broadcastable(a.shape(), b.shape()))
+        throw std::runtime_error("Shapes not compatible for broadcasting");
+
+    std::vector<size_t> result_shape = broadcast_shape(a.shape(), b.shape());
     Tensor result(result_shape, a._dtype());
 
     size_t n = result.numel_();
