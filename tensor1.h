@@ -32,6 +32,15 @@ inline Backend select_backend(bool avx512_supported, bool avx2_supported) {
     if (avx2_supported)   return Backend::AVX2;
     return Backend::SCALAR;
 }
+// general SIMD width from backend
+inline size_t simd_width(DType dt, Backend backend) {
+    switch (backend) {
+        case Backend::SCALAR: return 1;
+        case Backend::AVX2:   return simd_width(dt, false);
+        case Backend::AVX512: return simd_width(dt, true);
+    }
+    return 1;
+}
 
 // read/write helpers convert via double (safe, simple)
 inline double read_scalar_at(const void* data, size_t idx, DType dt) {
