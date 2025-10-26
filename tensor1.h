@@ -20,6 +20,13 @@ inline size_t dtype_size(DType dt) {
     }
     return sizeof(float);
 }
+// general SIMD width utility
+inline size_t simd_width(DType dt, bool avx512 = false) {
+    size_t bits = avx512 ? 512 : 256;   // AVX2 = 256, AVX-512 = 512
+    size_t bytes = dtype_size(dt);      // size of one element
+    return bits / (bytes * 8);          // elements per SIMD register
+}
+
 // read/write helpers convert via double (safe, simple)
 inline double read_scalar_at(const void* data, size_t idx, DType dt) {
     switch (dt) {
