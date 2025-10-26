@@ -1,9 +1,10 @@
 #include <iostream>
 #include "ops1.h"
 #include <ctime>
+#include <chrono>
 
 int main() {
-    std::clock_t start = std::clock();
+    
     try {
         
         std::cout << "TEST add_ with broadcasting BEGIN\n";
@@ -13,16 +14,20 @@ int main() {
 
         std::cout << "Tensor a:\n"; print_(a);
         std::cout << "Tensor b:\n"; print_(b);
-
-        Tensor c = add_(a, b);
-        std::cout << "Tensor c = a + b:\n"; print_(c);
-
+        int N = 1000000;
+        auto start = std::chrono::high_resolution_clock::now();
+        for (int i = 0; i < N; ++i) {
+            Tensor c = add(a, b);
+        }
+        auto end = std::chrono::high_resolution_clock::now();
+        Tensor c = add_simd(a, b);
+        double avg = std::chrono::duration<double, std::micro>(end - start).count() / N;
+        std::cout << "Average add_ time: " << avg << " microseconds\n";
+        std::cout << "Tensor c:\n"; print_(c);
         std::cout << "add_ test OK\n";
     } catch (const std::exception& e) {
         std::cerr << "add_ test FAILED: " << e.what() << "\n";
         return 1;
     }
-    std::clock_t end = std::clock();
-    double elapsed = double(end - start) / CLOCKS_PER_SEC;
-    std::cout << "Elapsed time: " << elapsed << " seconds\n";
+
 }

@@ -15,6 +15,61 @@ static std::vector<size_t> compute_result_shape_padded(const Tensor& a, const Te
 }
 
 // ---------------- elementwise ops (use read_scalar_at/write_scalar_at) ----------------
+Tensor add_(const Tensor& a_, const Tensor& b_) {
+    if (!a_.impl || !b_.impl)
+        throw std::runtime_error("add_: null tensor implementation");
+
+    // --- Step 1: pad shapes to same ndim ---
+    size_t ndim_result = std::max(a_.impl->ndim, b_.impl->ndim);
+    Tensor a = pad_to_ndim(a_, ndim_result);
+    Tensor b = pad_to_ndim(b_, ndim_result);
+
+    // --- Step 2: wrap shapes and strides ---
+    std::vector<size_t> shape_a(a.impl->shape, a.impl->shape + a.impl->ndim);
+    std::vector<size_t> shape_b(b.impl->shape, b.impl->shape + b.impl->ndim);
+    std::vector<size_t> strides_a(a.impl->strides, a.impl->strides + a.impl->ndim);
+    std::vector<size_t> strides_b(b.impl->strides, b.impl->strides + b.impl->ndim);
+
+    // --- Step 3: check broadcastable & compute result shape ---
+    std::vector<size_t> result_shape(ndim_result);
+    for (size_t i = 0; i < ndim_result; ++i) {
+        size_t da = (i < ndim_result - shape_a.size()) ? 1 : shape_a[i - (ndim_result - shape_a.size())];
+        size_t db = (i < ndim_result - shape_b.size()) ? 1 : shape_b[i - (ndim_result - shape_b.size())];
+        if (da != db && da != 1 && db != 1)
+            throw std::runtime_error("add_: shapes are not broadcastable");
+        result_shape[i] = std::max(da, db);
+    }
+
+    // --- Step 4: precompute broadcast strides ---
+    std::vector<size_t> stride_a_bc(ndim_result);
+    std::vector<size_t> stride_b_bc(ndim_result);
+    for (size_t i = 0; i < ndim_result; ++i) {
+        stride_a_bc[i] = (shape_a[i] == 1 ? 0 : strides_a[i]);
+        stride_b_bc[i] = (shape_b[i] == 1 ? 0 : strides_b[i]);
+    }
+
+    // --- Step 5: create result tensor ---
+    Tensor result(result_shape, a.impl->dtype, false);
+
+    // --- Step 6: iterate using flat index and precomputed strides ---
+    size_t n = result.numel_();
+    for (size_t flat = 0; flat < n; ++flat) {
+        size_t index_a = 0, index_b = 0;
+        size_t tmp = flat;
+        for (int i = (int)ndim_result - 1; i >= 0; --i) {
+            size_t idx = tmp % result_shape[i];
+            tmp /= result_shape[i];
+            index_a += idx * stride_a_bc[i];
+            index_b += idx * stride_b_bc[i];
+        }
+
+        double va = read_scalar_at(a.impl->storage->data.get(), index_a, a.impl->dtype);
+        double vb = read_scalar_at(b.impl->storage->data.get(), index_b, b.impl->dtype);
+        write_scalar_at(result.impl->storage->data.get(), flat, result.impl->dtype, va + vb);
+    }
+
+    return result;
+}
 
 Tensor add_(const Tensor& a_, const Tensor& b_) {
     size_t ndim_result = std::max(a_.ndim, b_.ndim);
