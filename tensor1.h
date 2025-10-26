@@ -26,6 +26,12 @@ inline size_t simd_width(DType dt, bool avx512 = false) {
     size_t bytes = dtype_size(dt);      // size of one element
     return bits / (bytes * 8);          // elements per SIMD register
 }
+enum class Backend { SCALAR, AVX2, AVX512 };
+inline Backend select_backend(bool avx512_supported, bool avx2_supported) {
+    if (avx512_supported) return Backend::AVX512;
+    if (avx2_supported)   return Backend::AVX2;
+    return Backend::SCALAR;
+}
 
 // read/write helpers convert via double (safe, simple)
 inline double read_scalar_at(const void* data, size_t idx, DType dt) {
