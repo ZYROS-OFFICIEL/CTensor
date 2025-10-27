@@ -35,3 +35,20 @@ Tensor from_raw_ptr(const T* ptr, size_t count, const std::vector<size_t>& shape
     }
     return out;
 }
+// ---------- 2D nested vector -> tensor ----------
+template<typename T>
+Tensor from_2d_vector(const std::vector<std::vector<T>>& v2, DType dtype = DType::Float32, bool requires_grad = false) {
+    size_t rows = v2.size();
+    size_t cols = (rows == 0) ? 0 : v2[0].size();
+    for (size_t r = 0; r < rows; ++r) {
+        if (v2[r].size() != cols) throw std::invalid_argument("from_2d_vector: ragged rows not supported");
+    }
+    Tensor out({rows, cols}, dtype, requires_grad);
+    size_t idx = 0;
+    for (size_t r = 0; r < rows; ++r) {
+        for (size_t c = 0; c < cols; ++c) {
+            write_scalar_at(out.impl->storage->data.get(), idx++, out.impl->dtype, static_cast<double>(v2[r][c]));
+        }
+    }
+    return out;
+}
