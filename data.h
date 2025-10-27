@@ -52,3 +52,23 @@ Tensor from_2d_vector(const std::vector<std::vector<T>>& v2, DType dtype = DType
     }
     return out;
 }
+// ---------- 3D nested vector -> tensor ----------
+template<typename T>
+Tensor from_3d_vector(const std::vector<std::vector<std::vector<T>>>& v3, DType dtype = DType::Float32, bool requires_grad = false) {
+    size_t d0 = v3.size();
+    size_t d1 = (d0 == 0) ? 0 : v3[0].size();
+    size_t d2 = (d1 == 0) ? 0 : v3[0][0].size();
+    for (size_t i = 0; i < d0; ++i) {
+        if (v3[i].size() != d1) throw std::invalid_argument("from_3d_vector: ragged dims not supported (dim1 mismatch)");
+        for (size_t j = 0; j < d1; ++j) {
+            if (v3[i][j].size() != d2) throw std::invalid_argument("from_3d_vector: ragged dims not supported (dim2 mismatch)");
+        }
+    }
+    Tensor out({d0, d1, d2}, dtype, requires_grad);
+    size_t idx = 0;
+    for (size_t i = 0; i < d0; ++i)
+        for (size_t j = 0; j < d1; ++j)
+            for (size_t k = 0; k < d2; ++k)
+                write_scalar_at(out.impl->storage->data.get(), idx++, out.impl->dtype, static_cast<double>(v3[i][j][k]));
+    return out;
+}
