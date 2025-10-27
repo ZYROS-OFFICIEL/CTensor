@@ -177,6 +177,14 @@ struct Tensor{
     // --- Move assignment ---
     Tensor& operator=(Tensor&& other) noexcept = default;
 
+    // ---Image constructor ---
+    static Tensor from_image(const std::string& path, DType dt = DType::Float32) {
+        return tensorio::from_image(path, dt);
+    }
+    void save_image(const std::string& path) const {
+        tensorio::to_image(*this, path);
+    }
+    
     // --- Destructor ---
     ~Tensor() = default;
     //helper wrapers

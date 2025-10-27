@@ -6,7 +6,7 @@
 #include <type_traits>
 #include <stdexcept>
 #include "tensor1.h"
-
+#include "image_io.h"
 // ---------- flat vector -> tensor ----------
 template<typename T>
 Tensor from_flat_vector(const std::vector<T>& data, const std::vector<size_t>& shape, DType dtype = DType::Float32, bool requires_grad = false) {
@@ -244,4 +244,40 @@ inline Tensor from_npy(const std::string& filename, bool requires_grad = false) 
     }
 
     return out;
+}
+//---------------tensor -> image  ---------------
+void tensorio::to_image(const Tensor& t, const std::string& path) {
+    assert(t.ndim == 3 && "Expected [C,H,W] tensor");
+
+    size_t C = t.shape[0];
+    size_t H = t.shape[1];
+    size_t W = t.shape[2];
+
+    std::vector<unsigned char> buffer(W * H * C);
+
+    for (size_t i = 0; i < buffer.size(); ++i) {
+        double val = read_scalar_at(t.impl->storage->data.get(), i, t.impl->dtype);
+        buffer[i] = static_cast<unsigned char>(std::clamp(val * 255.0, 0.0, 255.0));
+    }
+
+    stbi_write_png(path.c_str(), (int)W, (int)H, (int)C, buffer.data(), (int)(W * C));
+}
+//---------------from image file -------------------
+Tensor tensorio::from_image(const std::string& path, DType dtype) {
+    int w, h, c;
+    unsigned char* img_data = stbi_load(path.c_str(), &w, &h, &c, 0);
+    if (!img_data) {
+        throw std::runtime_error("Failed to load image: " + path);
+    }
+
+    size_t numel = (size_t)w * h * c;
+    Tensor t({(size_t)c, (size_t)h, (size_t)w}, dtype);
+
+    // Copy and convert
+    for (size_t i = 0; i < numel; ++i) {
+        write_scalar_at(t.impl->storage->data.get(), i, dtype , static_cast<double>(img_data[i]) / 255.0);
+    }
+
+    stbi_image_free(img_data);
+    return t;
 }
