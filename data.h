@@ -112,3 +112,40 @@ inline Tensor from_csv(const std::string& filename, DType dtype = DType::Float32
 
     return out;
 }
+// ---------- binary file (.bin) -> tensor ----------
+inline Tensor from_binary(const std::string& filename,
+                          const std::vector<size_t>& shape,
+                          DType dtype,
+                          bool requires_grad = false) {
+    std::ifstream ifs(filename, std::ios::binary);
+    if (!ifs) throw std::runtime_error("from_binary: cannot open file");
+
+    size_t numel = 1;
+    for (auto d : shape) numel *= d;
+
+    size_t type_size = 0;
+    switch (dtype) {
+        case DType::Int32: type_size = sizeof(int32_t); break;
+        case DType::Float32: type_size = sizeof(float); break;
+        case DType::Double64: type_size = sizeof(double); break;
+        default: throw std::runtime_error("from_binary: unsupported dtype");
+    }
+
+    std::vector<char> buffer(numel * type_size);
+    ifs.read(buffer.data(), buffer.size());
+    if (ifs.gcount() != static_cast<std::streamsize>(buffer.size()))
+        throw std::runtime_error("from_binary: unexpected EOF");
+
+    Tensor out(shape, dtype, requires_grad);
+    for (size_t i = 0; i < numel; ++i) {
+        double val = 0.0;
+        switch (dtype) {
+            case DType::Int32:   val = static_cast<double>(reinterpret_cast<int32_t*>(buffer.data())[i]); break;
+            case DType::Float32: val = static_cast<double>(reinterpret_cast<float*>(buffer.data())[i]); break;
+            case DType::Double64:val = reinterpret_cast<double*>(buffer.data())[i]; break;
+        }
+        write_scalar_at(out.impl->storage->data.get(), i, dtype, val);
+    }
+
+    return out;
+}
