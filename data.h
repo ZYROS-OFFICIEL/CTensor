@@ -72,3 +72,43 @@ Tensor from_3d_vector(const std::vector<std::vector<std::vector<T>>>& v3, DType 
                 write_scalar_at(out.impl->storage->data.get(), idx++, out.impl->dtype, static_cast<double>(v3[i][j][k]));
     return out;
 }
+// ---------- CSV (numeric) -> 2D tensor ----------
+inline Tensor from_csv(const std::string& filename, DType dtype = DType::Float32, bool has_header = false, char sep = ',') {
+    std::ifstream ifs(filename);
+    if (!ifs) throw std::runtime_error("from_csv: cannot open file");
+
+    std::string line;
+    std::vector<std::vector<double>> rows;
+    size_t cols = 0;
+    bool first_line = true;
+
+    while (std::getline(ifs, line)) {
+        if (first_line && has_header) { first_line = false; continue; }
+        if (line.empty()) continue;
+        std::stringstream ss(line);
+        std::string item;
+        std::vector<double> row;
+        while (std::getline(ss, item, sep)) {
+            // trim spaces (quick)
+            size_t a = item.find_first_not_of(" \t\r\n");
+            size_t b = item.find_last_not_of(" \t\r\n");
+            if (a == std::string::npos) { row.push_back(0.0); continue; }
+            std::string trimmed = item.substr(a, b - a + 1);
+            row.push_back(std::stod(trimmed));
+        }
+        if (first_line) { cols = row.size(); first_line = false; }
+        if (row.size() != cols) throw std::runtime_error("from_csv: inconsistent column count");
+        rows.push_back(std::move(row));
+    }
+
+    // build tensor
+    size_t R = rows.size();
+    size_t C = cols;
+    Tensor out({R, C}, dtype, false);
+    size_t idx = 0;
+    for (size_t r = 0; r < R; ++r)
+        for (size_t c = 0; c < C; ++c)
+            write_scalar_at(out.impl->storage->data.get(), idx++, out.impl->dtype, rows[r][c]);
+
+    return out;
+}
