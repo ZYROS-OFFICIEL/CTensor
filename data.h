@@ -149,3 +149,99 @@ inline Tensor from_binary(const std::string& filename,
 
     return out;
 }
+// ---------- NumPy .npy file -> tensor ----------
+inline Tensor from_npy(const std::string& filename, bool requires_grad = false) {
+    std::ifstream ifs(filename, std::ios::binary);
+    if (!ifs) throw std::runtime_error("from_npy: cannot open file");
+
+    // magic string
+    char magic[6];
+    ifs.read(magic, 6);
+    if (std::string(magic, 6) != "\x93NUMPY")
+        throw std::runtime_error("from_npy: invalid header");
+
+    // version
+    uint8_t major, minor;
+    ifs.read(reinterpret_cast<char*>(&major), 1);
+    ifs.read(reinterpret_cast<char*>(&minor), 1);
+
+    uint16_t header_len16;
+    uint32_t header_len32;
+    size_t header_len = 0;
+    if (major <= 1) {
+        ifs.read(reinterpret_cast<char*>(&header_len16), 2);
+        header_len = header_len16;
+    } else {
+        ifs.read(reinterpret_cast<char*>(&header_len32), 4);
+        header_len = header_len32;
+    }
+
+    std::string header(header_len, ' ');
+    ifs.read(header.data(), header_len);
+
+    // parse dtype
+    std::regex descr_re("'descr': *'([<>=|])([fiu])(\\d+)'");
+    std::smatch m;
+    if (!std::regex_search(header, m, descr_re))
+        throw std::runtime_error("from_npy: cannot parse dtype");
+    char endian = m[1].str()[0];
+    char typechar = m[2].str()[0];
+    int bits = std::stoi(m[3].str());
+
+    if (endian != '<' && endian != '|')
+        throw std::runtime_error("from_npy: only little-endian supported");
+
+    DType dtype;
+    if (typechar == 'f' && bits == 4) dtype = DType::Float32;
+    else if (typechar == 'f' && bits == 8) dtype = DType::Double64;
+    else if (typechar == 'i' && bits == 4) dtype = DType::Int32;
+    else throw std::runtime_error("from_npy: unsupported dtype");
+
+    // parse shape
+    std::regex shape_re("'shape': *\\(([^\\)]*)\\)");
+    std::smatch s;
+    if (!std::regex_search(header, s, shape_re))
+        throw std::runtime_error("from_npy: cannot parse shape");
+
+    std::string shape_str = s[1].str();
+    std::stringstream ss(shape_str);
+    std::vector<size_t> shape;
+    while (ss.good()) {
+        std::string dim;
+        std::getline(ss, dim, ',');
+        if (!dim.empty()) {
+            size_t val = std::stoul(dim);
+            shape.push_back(val);
+        }
+    }
+
+    size_t numel = 1;
+    for (auto d : shape) numel *= d;
+
+    // read data
+    size_t type_size = 0;
+    switch (dtype) {
+        case DType::Float32: type_size = 4; break;
+        case DType::Double64: type_size = 8; break;
+        case DType::Int32: type_size = 4; break;
+        default: throw std::runtime_error("from_npy: unsupported dtype size");
+    }
+
+    std::vector<char> buffer(numel * type_size);
+    ifs.read(buffer.data(), buffer.size());
+    if (ifs.gcount() != static_cast<std::streamsize>(buffer.size()))
+        throw std::runtime_error("from_npy: truncated data");
+
+    Tensor out(shape, dtype, requires_grad);
+    for (size_t i = 0; i < numel; ++i) {
+        double val = 0.0;
+        switch (dtype) {
+            case DType::Float32: val = static_cast<double>(reinterpret_cast<float*>(buffer.data())[i]); break;
+            case DType::Double64: val = reinterpret_cast<double*>(buffer.data())[i]; break;
+            case DType::Int32: val = static_cast<double>(reinterpret_cast<int32_t*>(buffer.data())[i]); break;
+        }
+        write_scalar_at(out.impl->storage->data.get(), i, dtype, val);
+    }
+
+    return out;
+}
