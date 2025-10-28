@@ -400,7 +400,7 @@ Tensor pow_(const Tensor& a_, const Tensor& b_) {
 
     return result;
 }
-Tensor matmul(const Tensor& A, const Tensor& B) {
+Tensor matmul_(const Tensor& A, const Tensor& B) {
     if (A.impl->ndim < 1 || B.impl->ndim < 1)
         throw std::invalid_argument("matmul: tensors must have at least 1 dimension");
 
