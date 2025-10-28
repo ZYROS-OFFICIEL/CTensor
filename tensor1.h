@@ -526,6 +526,42 @@ struct Tensor{
         out.impl = std::make_shared<Tensorimpl>(impl->storage, impl->offset, nsh, nst, impl->dtype, impl->requires_grad);
         return out;
     }
+    //--------------Backward :Compuational graph --------------
+    void backward() {
+        if (!impl->requires_grad)
+            throw std::runtime_error("Cannot call backward() on tensor that does not require grad");
+        
+        // Initialize grad to 1 (∂output/∂output = 1)
+        if (!impl->storage->grad) {
+            size_t n = numel();
+            impl->storage->grad = std::shared_ptr<void>(
+                std::malloc(n * dtype_size(impl->dtype)),
+                std::free
+            );
+            for (size_t i = 0; i < n; ++i)
+                write_scalar_at(impl->storage->grad.get(), i, impl->dtype, 1.0);
+        }
+    
+        // DFS traversal
+        std::vector<Tensor> stack = { *this };
+        std::vector<std::shared_ptr<GradFn>> visited;
+    
+        while (!stack.empty()) {
+            Tensor t = stack.back();
+            stack.pop_back();
+        
+            if (!t.impl->grad_fn) continue;
+            auto fn = t.impl->grad_fn;
+        
+            // call backward function for this operation
+            fn->backward(t);
+        
+            // push parents to stack
+            for (auto& p : fn->parents)
+                stack.push_back(p);
+        }
+    }
+
 };
 // ---------- printing utilities ----------
 
