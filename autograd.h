@@ -3,6 +3,7 @@
 #include <functional>
 #include <stack>
 #include <set>
+#include "tensor1.h"
 
 struct GradFn {
     std::string op;
