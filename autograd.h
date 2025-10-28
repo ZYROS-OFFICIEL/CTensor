@@ -30,15 +30,29 @@ struct GradFn {
 };
 
 struct GradAdd : GradFn {
-    Tensor a, b;  // inputs
+    Tensor a, b;
     GradAdd(const Tensor& a_, const Tensor& b_) : a(a_), b(b_) {}
 
     void backward(Tensor& grad_output) override {
-        if (a.requires_grad()) add_inplace(a.impl->grad, grad_output);
-        if (b.requires_grad()) add_inplace(b.impl->grad, grad_output);
+        if (a.requires_grad()) accumulate_grad(a, grad_output);
+        if (b.requires_grad()) accumulate_grad(b, grad_output);
     }
 };
 
+struct GradSub : GradFn {
+    Tensor a, b;
+    GradSub(const Tensor& a_, const Tensor& b_) : a(a_), b(b_) {}
+
+    void backward(Tensor& grad_output) override {
+        if (a.requires_grad()) accumulate_grad(a, grad_output);
+        if (b.requires_grad()) {
+            Tensor neg = grad_output.clone();
+            size_t n = neg.numel();
+            for (size_t i = 0; i < n; ++i) neg[i] = -neg[i];
+            accumulate_grad(b, neg);
+        }
+    }
+};
 
 
 // ------------------- Tensor::backward (add to your Tensor) -------------------
