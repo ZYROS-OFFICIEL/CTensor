@@ -53,6 +53,22 @@ struct GradSub : GradFn {
         }
     }
 };
+struct GradMul : GradFn {
+    Tensor a, b;
+    GradMul(const Tensor& a_, const Tensor& b_) : a(a_), b(b_) {}
+
+    void backward(Tensor& grad_output) override {
+        if (a.requires_grad()) {
+            Tensor ga = mul_(grad_output, b);
+            accumulate_grad(a, ga);
+        }
+        if (b.requires_grad()) {
+            Tensor gb = mul_(grad_output, a);
+            accumulate_grad(b, gb);
+        }
+    }
+};
+
 
 
 // ------------------- Tensor::backward (add to your Tensor) -------------------
