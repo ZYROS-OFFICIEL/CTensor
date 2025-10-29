@@ -88,7 +88,7 @@ struct Tensor {
     static Tensor full(const std::vector<size_t>& shape_, double value, DType dt = DType::Float32, bool requires_grad_ = false);
     static Tensor rand(const std::vector<size_t>& shape_, DType dt = DType::Float32, bool requires_grad_ = false);
     static Tensor empty(const std::vector<size_t>& shape_, DType dt = DType::Float32, bool requires_grad_ = false);
-
+    static Tensor from_vector(const std::vector<double>& data,const std::vector<size_t>& shape,DType dtype = DType::Float32,bool requires_grad = false);
     // clone (deep copy)
     Tensor clone() const;
 
