@@ -2,7 +2,7 @@
 #include <cmath>
 #include "tensor1.h"
 #include "ops1.h"
-#include "autograd.h"
+#include "autograd_core.h"
 
 static bool close(double a, double b, double tol=1e-5) {
     return std::fabs(a - b) < tol * std::max({1.0, std::fabs(a), std::fabs(b)});

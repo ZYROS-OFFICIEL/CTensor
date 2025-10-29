@@ -4,6 +4,7 @@
 #include <cmath>
 #include "tensor1.h"
 #include <immintrin.h>
+#include <cstring>
 
 // helper: produce result shape for elementwise binary op (a and b already padded to same ndim)
 static std::vector<size_t> compute_result_shape_padded(const Tensor& a, const Tensor& b) {
