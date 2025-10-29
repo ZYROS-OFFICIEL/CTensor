@@ -18,11 +18,44 @@ inline size_t dtype_size(DType dt) {
     }
     return sizeof(float);
 }
+// general SIMD width utility
+inline size_t simd_width(DType dt, bool avx512 = false) {
+    size_t bits = avx512 ? 512 : 256;   // AVX2 = 256, AVX-512 = 512
+    size_t bytes = dtype_size(dt);      // size of one element
+    return bits / (bytes * 8);          // elements per SIMD register
+}
+enum class Backend { SCALAR, AVX2, AVX512 };
+inline Backend select_backend(bool avx512_supported, bool avx2_supported) {
+    if (avx512_supported) return Backend::AVX512;
+    if (avx2_supported)   return Backend::AVX2;
+    return Backend::SCALAR;
+}
+// general SIMD width from backend
+inline size_t simd_width(DType dt, Backend backend) {
+    switch (backend) {
+        case Backend::SCALAR: return 1;
+        case Backend::AVX2:   return simd_width(dt, false);
+        case Backend::AVX512: return simd_width(dt, true);
+    }
+    return 1;
+}
+// read/write helpers convert via double (safe, simple)
+inline double read_scalar_at(const void* data, size_t idx, DType dt) {
+    switch (dt) {
+        case DType::Float32:  return static_cast<double>( static_cast<const float*>(data)[idx] );
+        case DType::Int32:    return static_cast<double>( static_cast<const int*>(data)[idx] );
+        case DType::Double64: return static_cast<double>( static_cast<const double*>(data)[idx] );
+    }
+    return 0.0;
+}
 
-// read/write helpers (small, header-safe)
-inline double read_scalar_at(const void* data, size_t idx, DType dt);
-inline void write_scalar_at(void* data, size_t idx, DType dt, double val);
-
+inline void write_scalar_at(void* data, size_t idx, DType dt, double val) {
+    switch (dt) {
+        case DType::Float32:  static_cast<float*>(data)[idx]  = static_cast<float>(val); break;
+        case DType::Int32:    static_cast<int*>(data)[idx]    = static_cast<int>(std::lrint(val)); break;
+        case DType::Double64: static_cast<double*>(data)[idx] = static_cast<double>(val); break;
+    }
+}
 // ----------------- forward for autograd node -----------------
 struct GradFn; // defined in autograd.cpp / autograd.h
 
@@ -140,24 +173,6 @@ struct Tensor {
     void backward(); // declared; implement in autograd.cpp or tensor1.cpp
 };
 
-// ----------------- inline small helpers implementations -----------------
-
-inline double read_scalar_at(const void* data, size_t idx, DType dt) {
-    switch (dt) {
-        case DType::Float32:  return static_cast<double>( static_cast<const float*>(data)[idx] );
-        case DType::Int32:    return static_cast<double>( static_cast<const int*>(data)[idx] );
-        case DType::Double64: return static_cast<double>( static_cast<const double*>(data)[idx] );
-    }
-    return 0.0;
-}
-
-inline void write_scalar_at(void* data, size_t idx, DType dt, double val) {
-    switch (dt) {
-        case DType::Float32:  static_cast<float*>(data)[idx]  = static_cast<float>(val); break;
-        case DType::Int32:    static_cast<int*>(data)[idx]    = static_cast<int>(std::lrint(val)); break;
-        case DType::Double64: static_cast<double*>(data)[idx] = static_cast<double>(val); break;
-    }
-}
 
 // small inline wrappers that use impl - forward-declare to .cpp for safety
 inline DType Tensor::_dtype() const {
