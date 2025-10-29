@@ -9,6 +9,9 @@
 #include <cassert>
 #include <memory>
 #include <ctime>
+#include "stb_image.h"
+#include "stb_image_write.h"
+#include "data.h"
 
 enum class DType { Float32, Int32, Double64 };
 
@@ -88,11 +91,7 @@ struct Storage {
         return s;
     }
 };
-struct GradFn {
-    std::string op;                       // operation name, e.g. "add", "mul"
-    std::vector<Tensor> parents;          // parent tensors
-    std::function<void(Tensor& self)> backward; // how to compute grad for this op
-};
+
 
 struct Tensorimpl {
     std::shared_ptr<Storage> storage;
@@ -102,7 +101,6 @@ struct Tensorimpl {
     size_t* strides = nullptr;
     bool requires_grad = false;
     DType dtype = DType::Float32;
-    std::shared_ptr<GradFn> grad_fn = nullptr;
 
     Tensorimpl(const std::vector<size_t>& shape_, DType dtype_ = DType::Float32, bool requires_grad_ = false)
         : offset(0), ndim(shape_.size()), requires_grad(requires_grad_), dtype(dtype_)

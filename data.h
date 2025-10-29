@@ -6,7 +6,8 @@
 #include <type_traits>
 #include <stdexcept>
 #include "tensor1.h"
-#include "image_io.h"
+#include "stb_image.h"
+#include "stb_image_write.h"
 // ---------- flat vector -> tensor ----------
 template<typename T>
 Tensor from_flat_vector(const std::vector<T>& data, const std::vector<size_t>& shape, DType dtype = DType::Float32, bool requires_grad = false) {
