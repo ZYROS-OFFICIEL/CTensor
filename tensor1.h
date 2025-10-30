@@ -126,23 +126,7 @@ struct Tensor {
     Tensor clone() const;
 
     // indexing proxy (must remain in header because it's templated)
-    template <bool Writable>
-    struct ProxyBase {
-        using TDataPtr = std::conditional_t<Writable, void*, const void*>;
-        std::shared_ptr<Tensorimpl> impl;
-        size_t offset;
-        size_t depth;
 
-        ProxyBase(std::shared_ptr<Tensorimpl> impl_, size_t off, size_t dp = 0)
-            : impl(std::move(impl_)), offset(off), depth(dp) {}
-
-        ProxyBase operator[](size_t i) const;
-        operator double() const;
-        template <bool W = Writable, typename = std::enable_if_t<W>>
-        ProxyBase& operator=(double val);
-        template <bool W = Writable, typename T, typename = std::enable_if_t<W>>
-        ProxyBase& operator=(T val);
-    };
 
     using Proxy = ProxyBase<true>;
     using ConstProxy = ProxyBase<false>;
@@ -172,8 +156,53 @@ struct Tensor {
     // backward: you may implement a convenience backward() that calls a free function in autograd.cpp
     void backward(); // declared; implement in autograd.cpp or tensor1.cpp
 };
+// ------------- Tensor Proxy for indexing -------------
+template <bool Writable>
+typename Tensor::template ProxyBase<Writable> Tensor::template ProxyBase<Writable>::operator[](size_t i) const {
+    if (!impl) throw std::runtime_error("Proxy: invalid tensor implementation");
+    if (depth >= impl->ndim) throw std::out_of_range("Proxy: too many indices");
+    if (i >= impl->shape[depth]) throw std::out_of_range("Proxy: index out of bounds");
+    size_t new_offset = offset + i * impl->strides[depth];
+    return Tensor::template ProxyBase<Writable>(impl, new_offset, depth + 1);
+}
 
+template <bool Writable>
+Tensor::template ProxyBase<Writable>::operator double() const {
+    if (!impl) throw std::runtime_error("Proxy: invalid tensor implementation");
+    if (depth != impl->ndim) throw std::out_of_range("Proxy: not at leaf index");
+    return read_scalar_at(impl->storage->data.get(), offset, impl->dtype);
+}
 
+template <bool Writable>
+template <bool W, typename>
+Tensor::template ProxyBase<Writable>& Tensor::template ProxyBase<Writable>::operator=(double val) {
+    static_assert(W, "Proxy::operator= is only enabled for writable proxies");
+    if (!impl) throw std::runtime_error("Proxy: invalid tensor implementation");
+    if (depth != impl->ndim) throw std::out_of_range("Proxy: not at leaf index");
+    write_scalar_at(impl->storage->data.get(), offset, impl->dtype, val);
+    return *this;
+}
+
+template <bool Writable>
+template <bool W, typename T, typename>
+Tensor::template ProxyBase<Writable>& Tensor::template ProxyBase<Writable>::operator=(T val) {
+    return operator=(static_cast<double>(val));
+}
+
+// Tensor indexing entry points (inline in header)
+inline Tensor::Proxy Tensor::operator[](size_t i) {
+    if (!impl) throw std::runtime_error("Tensor::operator[]: empty tensor");
+    if (impl->ndim == 0) throw std::out_of_range("Tensor::operator[]: tensor has no dimensions");
+    if (i >= impl->shape[0]) throw std::out_of_range("Tensor::operator[]: index out of bounds");
+    return Tensor::Proxy(impl, i * impl->strides[0], 1);
+}
+
+inline Tensor::ConstProxy Tensor::operator[](size_t i) const {
+    if (!impl) throw std::runtime_error("Tensor::operator[] const: empty tensor");
+    if (impl->ndim == 0) throw std::out_of_range("Tensor::operator[] const: tensor has no dimensions");
+    if (i >= impl->shape[0]) throw std::out_of_range("Tensor::operator[] const: index out of bounds");
+    return Tensor::ConstProxy(impl, i * impl->strides[0], 1);
+}
 // small inline wrappers that use impl - forward-declare to .cpp for safety
 inline DType Tensor::_dtype() const {
     if (!impl) throw std::runtime_error("Tensor is empty");
