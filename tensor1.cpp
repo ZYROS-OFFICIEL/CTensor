@@ -141,14 +141,14 @@ std::vector<size_t> Tensor::shape() const {
 }
 //-----------Clone constructor-----------
 // deep copy of tensor
-Tensor clone() const {
+Tensor Tensor::clone() const {
     Tensor out(shape(), _dtype(), impl->requires_grad);
     size_t n = numel();
     for (size_t i = 0; i < n; ++i)
         out[i] = (*this)[i];  // or use read_scalar_at / write_scalar_at
     return out;
 }
-void print_shape() const {
+void Tensor::print_shape() const {
     if (!impl) { std::cout << "()\n"; return; }
     std::cout << "(";
     for (size_t i = 0; i < impl->ndim; ++i) {
@@ -205,25 +205,25 @@ ConstProxy operator[](size_t i) const {
     if (impl->ndim == 0) throw std::out_of_range("Tensor has no dimensions");
     return ConstProxy(impl, i * impl->strides[0], 1);
 }
-static Tensor ones(const std::vector<size_t>& shape_, DType dt = DType::Float32, bool requires_grad_ = false){
+static Tensor Tensor::ones(const std::vector<size_t>& shape_, DType dt = DType::Float32, bool requires_grad_ = false){
     Tensor t(shape_, dt, requires_grad_);
     size_t n = t.numel();
     for (size_t i = 0; i < n; ++i) write_scalar_at(t.impl->storage->data.get(), i, dt, 1.0);
     return t;
 }
-static Tensor zeros(const std::vector<size_t>& shape_, DType dt = DType::Float32, bool requires_grad_ = false){
+static Tensor Tensor::zeros(const std::vector<size_t>& shape_, DType dt = DType::Float32, bool requires_grad_ = false){
     Tensor t(shape_, dt, requires_grad_);
     size_t n = t.numel();
     for (size_t i = 0; i < n; ++i) write_scalar_at(t.impl->storage->data.get(), i, dt, 0.0);
     return t;
 }
-static Tensor full(const std::vector<size_t>& shape_,float value,DType dt = DType::Float32, bool requires_grad_ = false){
+static Tensor Tensor::full(const std::vector<size_t>& shape_,float value,DType dt = DType::Float32, bool requires_grad_ = false){
     Tensor t(shape_, dt, requires_grad_);
     size_t n = t.numel();
     for (size_t i = 0; i < n; ++i) write_scalar_at(t.impl->storage->data.get(), i, dt, value);
     return t;
 }
-static Tensor rand(const std::vector<size_t>& shape_, DType dt = DType::Float32, bool requires_grad_ = false) {
+static Tensor Tensor::rand(const std::vector<size_t>& shape_, DType dt = DType::Float32, bool requires_grad_ = false) {
     Tensor t(shape_, dt, requires_grad_);
     size_t n = t.numel_();
     // seed only once per program would be better; simple here:
@@ -232,11 +232,11 @@ static Tensor rand(const std::vector<size_t>& shape_, DType dt = DType::Float32,
         write_scalar_at(t.impl->storage->data.get(), i, dt, static_cast<double>(std::rand()) / RAND_MAX);
     return t;
 }
-static Tensor empty(const std::vector<size_t>& shape_, DType dt = DType::Float32, bool requires_grad_ = false){
+static Tensor Tensor::empty(const std::vector<size_t>& shape_, DType dt = DType::Float32, bool requires_grad_ = false){
     Tensor t(shape_,dt,requires_grad_);
     return t;
 }
-static Tensor from_vector(const std::vector<double>& data,const std::vector<size_t>& shape,DType dtype = DType::Float32,bool requires_grad = false)
+static Tensor Tensor::from_vector(const std::vector<double>& data,const std::vector<size_t>& shape,DType dtype = DType::Float32,bool requires_grad = false)
 {
     size_t n = 1;
     for (auto s : shape) n *= s;
@@ -250,19 +250,19 @@ static Tensor from_vector(const std::vector<double>& data,const std::vector<size
     return t;
 }
     // ---------- dtype helpers ----------
-DType _dtype() const  { 
+DType Tensor::_dtype() const  { 
     if (!impl) throw std::runtime_error("Tensor is empty");
     return impl->dtype;  
 }
-    const char* dtype_name() const {
+const char* Tensor::dtype_name() const {
     return (_dtype()==DType::Float32) ? "Float32" : (_dtype()==DType::Int32 ? "Int32" : "Double64");
 }
-size_t dtype_bytes() const  { 
+size_t Tensor::dtype_bytes() const  { 
     if (!impl) throw std::runtime_error("Tensor is empty");
     return dtype_size(impl->dtype); 
 }
     // ---------- conversion: return new tensor ----------
-Tensor astype(DType new_dtype) const {
+Tensor Tensor::astype(DType new_dtype) const {
     if (!impl) throw std::runtime_error("Empty tensor");
     if (new_dtype == impl->dtype) return Tensor(*this); // copy
     Tensor out(shape(), new_dtype, impl->requires_grad);
@@ -282,7 +282,7 @@ Tensor astype(DType new_dtype) const {
     }
     return out;
 }
-void to_(DType new_dtype) {
+void Tensor::to_(DType new_dtype) {
     if (!impl) throw std::runtime_error("Empty tensor");
     if (new_dtype == impl->dtype) return;
     size_t n = numel_();
@@ -306,7 +306,7 @@ void to_(DType new_dtype) {
     impl->dtype = new_dtype;
 }
 //in place transpose 
-Tensor& t_() {
+Tensor& Tensor::t_() {
     if (!impl) throw std::runtime_error("Empty tensor");
     if (impl->ndim < 2)
         throw std::invalid_argument("t_: tensor must have at least 2 dimensions");
@@ -314,36 +314,36 @@ Tensor& t_() {
     std::swap(impl->strides[impl->ndim - 2], impl->strides[impl->ndim - 1]);
     return *this;
 }
-Tensor permute(const std::vector<size_t>& dims) const {
-if (!impl)
-    throw std::runtime_error("permute: tensor has no implementation");
-if (dims.size() != impl->ndim)
-    throw std::invalid_argument("permute: dims size must match ndim.");
-std::vector<bool> seen(impl->ndim, false);
-for (auto d : dims) {
-    if (d >= impl->ndim || seen[d])
-        throw std::invalid_argument("permute: invalid or duplicate dim.");
-    seen[d] = true;
-}
-std::vector<size_t> new_shape(impl->ndim);
-std::vector<size_t> new_strides(impl->ndim);
-for (size_t i = 0; i < impl->ndim; ++i) {
-    new_shape[i] = impl->shape[dims[i]];
-    new_strides[i] = impl->strides[dims[i]];
-}
-// use the new "view constructor"
-Tensor out;
-    out.impl = std::make_shared<Tensorimpl>(
-        impl->storage,
-        impl->offset,
-        new_shape,
-        new_strides,
-        impl->dtype,
-        impl->requires_grad);
-    return out;
+Tensor Tensor::permute(const std::vector<size_t>& dims) const {
+    if (!impl)
+        throw std::runtime_error("permute: tensor has no implementation");
+    if (dims.size() != impl->ndim)
+        throw std::invalid_argument("permute: dims size must match ndim.");
+    std::vector<bool> seen(impl->ndim, false);
+    for (auto d : dims) {
+        if (d >= impl->ndim || seen[d])
+            throw std::invalid_argument("permute: invalid or duplicate dim.");
+        seen[d] = true;
+    }
+    std::vector<size_t> new_shape(impl->ndim);
+    std::vector<size_t> new_strides(impl->ndim);
+    for (size_t i = 0; i < impl->ndim; ++i) {
+        new_shape[i] = impl->shape[dims[i]];
+        new_strides[i] = impl->strides[dims[i]];
+    }
+    // use the new "view constructor"
+    Tensor out;
+        out.impl = std::make_shared<Tensorimpl>(
+            impl->storage,
+            impl->offset,
+            new_shape,
+            new_strides,
+            impl->dtype,
+            impl->requires_grad);
+        return out;
 }
     // ------------- arange -------------
-static Tensor arange(double start, double end, double step = 1.0, DType dtype = DType::Float32) {
+static Tensor Tensor::arange(double start, double end, double step = 1.0, DType dtype = DType::Float32) {
     if (step == 0.0) throw std::invalid_argument("step must be non-zero");
     std::vector<double> vals;
     if (step > 0) {
@@ -356,7 +356,7 @@ static Tensor arange(double start, double end, double step = 1.0, DType dtype = 
     return t;
 }
 // ------------- reshape (returns view sharing storage but with contiguous strides) -------------
-Tensor reshape(const std::vector<size_t>& new_shape) const {
+Tensor Tensor::reshape(const std::vector<size_t>& new_shape) const {
     if (!impl) throw std::runtime_error("Empty tensor");
     size_t old_n = numel();
     size_t new_n = 1;
@@ -375,7 +375,7 @@ Tensor reshape(const std::vector<size_t>& new_shape) const {
     return out;
 }
 // ------------- select: remove dimension dim by indexing index -------------
-Tensor select(size_t dim, size_t index) const {
+Tensor Tensor::select(size_t dim, size_t index) const {
     if (!impl) throw std::runtime_error("Empty tensor");
     if (dim >= impl->ndim) throw std::out_of_range("select: dim out of range");
     if (index >= impl->shape[dim]) throw std::out_of_range("select: index out of range");
@@ -392,7 +392,7 @@ Tensor select(size_t dim, size_t index) const {
     return out;
 }
 // ------------- squeeze / unsqueeze / flatten -------------
-Tensor squeeze() const {
+Tensor Tensor::squeeze() const {
     if (!impl) throw std::runtime_error("Empty tensor");
     std::vector<size_t> nsh;
     std::vector<size_t> nst;
@@ -406,7 +406,7 @@ Tensor squeeze() const {
     out.impl = std::make_shared<Tensorimpl>(impl->storage, impl->offset, nsh, nst, impl->dtype, impl->requires_grad);
     return out;
 }
-Tensor unsqueeze(size_t dim) const {
+Tensor Tensor::unsqueeze(size_t dim) const {
     if (!impl) throw std::runtime_error("Empty tensor");
     if (dim > impl->ndim) throw std::out_of_range("unsqueeze: dim out of range");
     std::vector<size_t> nsh;
@@ -422,7 +422,7 @@ Tensor unsqueeze(size_t dim) const {
     out.impl = std::make_shared<Tensorimpl>(impl->storage, impl->offset, nsh, nst, impl->dtype, impl->requires_grad);
     return out;
 }
-Tensor flatten() const {
+Tensor Tensor::flatten() const {
     std::vector<size_t> nsh = { numel() };
     std::vector<size_t> nst = { 1 };
     Tensor out;
@@ -430,7 +430,7 @@ Tensor flatten() const {
     return out;
 }
 //--------------Backward :Compuational graph --------------
-void backward() {
+void Tensor::backward() {
     if (!impl->requires_grad)
         throw std::runtime_error("Cannot call backward() on tensor that does not require grad");
     
