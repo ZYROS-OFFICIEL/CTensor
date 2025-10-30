@@ -94,29 +94,28 @@ Tensorimpl::~Tensorimpl() {
 
 
     // --- Primary constructor (create a new impl) ---
-Tensor::Tensor(const std::vector<size_t>& shape_,
-       DType dtype_ = DType::,
-       bool requires_grad_ )
-    : impl(std::make_shared<Tensorimpl>(shape_, dtype_, requires_grad_))
-{}
+// --- Primary constructor ---
+Tensor::Tensor(const std::vector<size_t>& shape_, DType dtype_, bool requires_grad_)
+    : impl(std::make_shared<Tensorimpl>(shape_, dtype_, requires_grad_)) {}
+
 // --- Copy constructor ---
 Tensor::Tensor(const Tensor& other) = default;
 // --- Move constructor ---
 Tensor::Tensor(Tensor&& other) noexcept = default;
 // --- Copy assignment ---
-Tensor::Tensor& operator=(const Tensor& other) = default;
+Tensor& Tensor::operator=(const Tensor& other) = default;
 // --- Move assignment ---
-Tensor::Tensor& operator=(Tensor&& other) noexcept = default;
+Tensor& Tensor::operator=(Tensor&& other) noexcept = default;
 // ---Image constructor ---
 static Tensor Tensor::from_image(const std::string& path, DType dt = DType::Float32) {
     return tensorio::from_image(path, dt);
 }
-void save_image(const std::string& path) const {
+void Tensor::save_image(const std::string& path) const {
     tensorio::to_image(*this, path);
 }
 
 // --- Destructor ---
-~Tensor() = default;
+Tensor::~Tensor() = default;
 //helper wrapers
 inline double read_scalar(size_t idx) const {
     return read_scalar_at(impl->storage->data.get(), idx, impl->dtype);
@@ -125,18 +124,18 @@ inline void write_scalar(size_t idx, double val) {
     write_scalar_at(impl->storage->data.get(), idx, impl->dtype, val);
 }
 //Utulities
-size_t numel() const {
+size_t Tensor::numel() const {
     if (!impl) return 0;
     size_t n = 1;
     for (size_t i = 0; i < impl->ndim; ++i) n *= impl->shape[i];
     return n;
 }
-size_t numel_() const { return numel(); }
+size_t Tensor::numel_() const { return numel(); }
     inline std::vector<size_t> strides() const {
     if (!impl) return {};
     return std::vector<size_t>(impl->strides, impl->strides + impl->ndim);
 }
-std::vector<size_t> shape() const {
+std::vector<size_t> Tensor::shape() const {
     if (!impl) return {};
     return std::vector<size_t>(impl->shape, impl->shape + impl->ndim);
 }
