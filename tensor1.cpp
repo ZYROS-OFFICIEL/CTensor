@@ -205,25 +205,25 @@ ConstProxy operator[](size_t i) const {
     if (impl->ndim == 0) throw std::out_of_range("Tensor has no dimensions");
     return ConstProxy(impl, i * impl->strides[0], 1);
 }
-static Tensor Tensor::ones(const std::vector<size_t>& shape_, DType dt = DType::Float32, bool requires_grad_ = false){
+static Tensor Tensor::ones(const std::vector<size_t>& shape_, DType dt , bool requires_grad_ ){
     Tensor t(shape_, dt, requires_grad_);
     size_t n = t.numel();
     for (size_t i = 0; i < n; ++i) write_scalar_at(t.impl->storage->data.get(), i, dt, 1.0);
     return t;
 }
-static Tensor Tensor::zeros(const std::vector<size_t>& shape_, DType dt = DType::Float32, bool requires_grad_ = false){
+static Tensor Tensor::zeros(const std::vector<size_t>& shape_, DType dt , bool requires_grad_){
     Tensor t(shape_, dt, requires_grad_);
     size_t n = t.numel();
     for (size_t i = 0; i < n; ++i) write_scalar_at(t.impl->storage->data.get(), i, dt, 0.0);
     return t;
 }
-static Tensor Tensor::full(const std::vector<size_t>& shape_,float value,DType dt = DType::Float32, bool requires_grad_ = false){
+static Tensor Tensor::full(const std::vector<size_t>& shape_,float value,DType dt = DType, bool requires_grad_ ){
     Tensor t(shape_, dt, requires_grad_);
     size_t n = t.numel();
     for (size_t i = 0; i < n; ++i) write_scalar_at(t.impl->storage->data.get(), i, dt, value);
     return t;
 }
-static Tensor Tensor::rand(const std::vector<size_t>& shape_, DType dt = DType::Float32, bool requires_grad_ = false) {
+static Tensor Tensor::rand(const std::vector<size_t>& shape_, DType dt , bool requires_grad_ ) {
     Tensor t(shape_, dt, requires_grad_);
     size_t n = t.numel_();
     // seed only once per program would be better; simple here:
@@ -232,11 +232,11 @@ static Tensor Tensor::rand(const std::vector<size_t>& shape_, DType dt = DType::
         write_scalar_at(t.impl->storage->data.get(), i, dt, static_cast<double>(std::rand()) / RAND_MAX);
     return t;
 }
-static Tensor Tensor::empty(const std::vector<size_t>& shape_, DType dt = DType::Float32, bool requires_grad_ = false){
+static Tensor Tensor::empty(const std::vector<size_t>& shape_, DType dt , bool requires_grad_){
     Tensor t(shape_,dt,requires_grad_);
     return t;
 }
-static Tensor Tensor::from_vector(const std::vector<double>& data,const std::vector<size_t>& shape,DType dtype = DType::Float32,bool requires_grad = false)
+static Tensor Tensor::from_vector(const std::vector<double>& data,const std::vector<size_t>& shape,DType dtype,bool requires_grad)
 {
     size_t n = 1;
     for (auto s : shape) n *= s;
