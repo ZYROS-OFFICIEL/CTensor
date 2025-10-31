@@ -1,6 +1,5 @@
 #include "tensor1.h"
-#include "stb_image.h"
-#include "stb_image_write.h"
+#include "data.h"
 #include <cstdlib>
 #include <ctime>
 #include <cstring>
@@ -340,13 +339,8 @@ Tensor Tensor::flatten() const {
 // convenience from_image/save_image are best delegated to data.cpp (tensorio)
 // but implement wrappers that call tensorio if available (link time)
 // The declarations exist in header; implementations can simply call external functions if present.
-
 void Tensor::save_image(const std::string& path) const {
-    // implemented in data.cpp via tensorio::to_image, but keep wrapper
-    // If tensorio not present at link, remove or provide alternative.
-    extern void tensorio_to_image_wrapper(const Tensor&, const std::string&); // weak forward
-    // try-catch in case not available; or call directly if you have tensorio.
-    tensorio_to_image_wrapper(*this, path);
+    tensorio::to_image(*this, path);   // ✅ use namespace function directly
 }
 
 // simple backward convenience (you also have autograd free functions, choose one)

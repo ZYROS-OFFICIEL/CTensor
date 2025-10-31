@@ -9,6 +9,8 @@
 #include <cassert>
 #include "tensor1.h"
 #include "data.h"
+#define STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image.h"
 #include "stb_image_write.h"
 // ---------- flat vector -> tensor ----------
@@ -253,9 +255,9 @@ inline Tensor from_npy(const std::string& filename, bool requires_grad ) {
 void tensorio::to_image(const Tensor& t, const std::string& path) {
     assert(t.impl->ndim == 3 && "Expected [C,H,W] tensor");
 
-    size_t C = t.shape[0];
-    size_t H = t.shape[1];
-    size_t W = t.shape[2];
+    size_t C = t.impl->shape[0];
+    size_t H = t.impl->shape[1];
+    size_t W = t.impl->shape[2];
 
     std::vector<unsigned char> buffer(W * H * C);
 

@@ -7,6 +7,8 @@
 #include <immintrin.h>
 
 //------------------ Helpers --------------------------------------------
+//Verify requires_grad
+Tensor setup_autograd(const Tensor& out, const std::string& op, const std::vector<Tensor>& parents);
 
 // Compute result shape for elementwise binary op (a and b already padded)
 std::vector<size_t> compute_result_shape_padded(const Tensor& a, const Tensor& b);

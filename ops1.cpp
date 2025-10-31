@@ -28,6 +28,21 @@ static bool broadcastable(const std::vector<size_t>& a, const std::vector<size_t
     }
     return true;
 }
+Tensor setup_autograd(const Tensor& out, const std::string& op, const std::vector<Tensor>& parents) {
+    Tensor result = out;
+    bool requires_grad = false;
+    for (auto& p : parents)
+        if (p.requires_grad())
+            requires_grad = true;
+
+    if (requires_grad) {
+        result.set_requires_grad(true);
+        result.impl->op = op;
+        result.impl->parents = parents;
+    }
+    return result;
+}
+
 // --- helper: broadcast batch shapes ---
 static std::vector<size_t> broadcast_batch_shape_from_vectors(
     const std::vector<size_t>& a,
@@ -165,7 +180,8 @@ Tensor add_(const Tensor& a_, const Tensor& b_) {
         write_scalar_at(result.impl->storage->data.get(), flat, result.impl->dtype, va + vb);
     }
 
-    return result;
+    return setup_autograd(result, "add_", { a_, b_ });
+;
 }
 
 Tensor diff_(const Tensor& a_, const Tensor& b_) {
