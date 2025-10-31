@@ -6,6 +6,7 @@
 #include <stdexcept>
 #include <cstdint>
 #include <regex>
+#include <cassert>
 #include "tensor1.h"
 #include "data.h"
 #include "stb_image.h"
@@ -119,7 +120,7 @@ inline Tensor from_csv(const std::string& filename, DType dtype , bool has_heade
 inline Tensor from_binary(const std::string& filename,
                           const std::vector<size_t>& shape,
                           DType dtype,
-                          bool requires_grad = false) {
+                          bool requires_grad) {
     std::ifstream ifs(filename, std::ios::binary);
     if (!ifs) throw std::runtime_error("from_binary: cannot open file");
 
@@ -153,7 +154,7 @@ inline Tensor from_binary(const std::string& filename,
     return out;
 }
 // ---------- NumPy .npy file -> tensor ----------
-inline Tensor from_npy(const std::string& filename, bool requires_grad = false) {
+inline Tensor from_npy(const std::string& filename, bool requires_grad ) {
     std::ifstream ifs(filename, std::ios::binary);
     if (!ifs) throw std::runtime_error("from_npy: cannot open file");
 
@@ -250,7 +251,7 @@ inline Tensor from_npy(const std::string& filename, bool requires_grad = false) 
 }
 //---------------tensor -> image  ---------------
 void tensorio::to_image(const Tensor& t, const std::string& path) {
-    assert(t.ndim == 3 && "Expected [C,H,W] tensor");
+    assert(t.impl->ndim == 3 && "Expected [C,H,W] tensor");
 
     size_t C = t.shape[0];
     size_t H = t.shape[1];
