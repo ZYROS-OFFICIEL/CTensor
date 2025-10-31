@@ -7,11 +7,12 @@
 #include <cstdint>
 #include <regex>
 #include "tensor1.h"
+#include "data.h"
 #include "stb_image.h"
 #include "stb_image_write.h"
 // ---------- flat vector -> tensor ----------
 template<typename T>
-Tensor from_flat_vector(const std::vector<T>& data, const std::vector<size_t>& shape, DType dtype = DType::Float32, bool requires_grad = false) {
+Tensor from_flat_vector(const std::vector<T>& data, const std::vector<size_t>& shape, DType dtype, bool requires_grad ) {
     // compute expected size
     size_t expected = 1;
     for (auto d : shape) expected *= d;
@@ -26,7 +27,7 @@ Tensor from_flat_vector(const std::vector<T>& data, const std::vector<size_t>& s
 }
 // ---------- raw pointer -> tensor ----------
 template<typename T>
-Tensor from_raw_ptr(const T* ptr, size_t count, const std::vector<size_t>& shape, DType dtype = DType::Float32, bool requires_grad = false) {
+Tensor from_raw_ptr(const T* ptr, size_t count, const std::vector<size_t>& shape, DType dtype , bool requires_grad ) {
     size_t expected = 1;
     for (auto d : shape) expected *= d;
     if (expected != count) throw std::invalid_argument("from_raw_ptr: shape does not match count");
@@ -39,7 +40,7 @@ Tensor from_raw_ptr(const T* ptr, size_t count, const std::vector<size_t>& shape
 }
 // ---------- 2D nested vector -> tensor ----------
 template<typename T>
-Tensor from_2d_vector(const std::vector<std::vector<T>>& v2, DType dtype = DType::Float32, bool requires_grad = false) {
+Tensor from_2d_vector(const std::vector<std::vector<T>>& v2, DType dtype , bool requires_grad ) {
     size_t rows = v2.size();
     size_t cols = (rows == 0) ? 0 : v2[0].size();
     for (size_t r = 0; r < rows; ++r) {
@@ -56,7 +57,7 @@ Tensor from_2d_vector(const std::vector<std::vector<T>>& v2, DType dtype = DType
 }
 // ---------- 3D nested vector -> tensor ----------
 template<typename T>
-Tensor from_3d_vector(const std::vector<std::vector<std::vector<T>>>& v3, DType dtype = DType::Float32, bool requires_grad = false) {
+Tensor from_3d_vector(const std::vector<std::vector<std::vector<T>>>& v3, DType dtype , bool requires_grad ) {
     size_t d0 = v3.size();
     size_t d1 = (d0 == 0) ? 0 : v3[0].size();
     size_t d2 = (d1 == 0) ? 0 : v3[0][0].size();
@@ -75,7 +76,7 @@ Tensor from_3d_vector(const std::vector<std::vector<std::vector<T>>>& v3, DType 
     return out;
 }
 // ---------- CSV (numeric) -> 2D tensor ----------
-inline Tensor from_csv(const std::string& filename, DType dtype = DType::Float32, bool has_header = false, char sep = ',') {
+inline Tensor from_csv(const std::string& filename, DType dtype , bool has_header , char sep ) {
     std::ifstream ifs(filename);
     if (!ifs) throw std::runtime_error("from_csv: cannot open file");
 
