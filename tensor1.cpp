@@ -1,51 +1,38 @@
-#include <iostream>
-#include <cstddef>
-#include <cstring>
-#include <vector>
-#include <cmath>
-#include <cstdlib>
-#include <stdexcept>
-#include <cassert>
-#include <memory>
-#include <ctime>
+#include "tensor1.h"
 #include "stb_image.h"
 #include "stb_image_write.h"
-#include "data.h"
+#include <cstdlib>
+#include <ctime>
+#include <cstring>
+#include <algorithm>
 
+// Storage implementation
+std::shared_ptr<Storage> Storage::allocate(size_t n, DType dt, bool requires_grad) {
+    auto s = std::make_shared<Storage>();
+    s->size = n * dtype_size(dt);
 
+    // allocate data
+    void* p = std::malloc(s->size);
+    if (!p && s->size) throw std::bad_alloc();
+    std::memset(p, 0, s->size);
+    s->data = std::shared_ptr<void>(p, std::free);
 
+    // optional grad
+    if (requires_grad) {
+        void* g = std::malloc(s->size);
+        if (!g && s->size) throw std::bad_alloc();
+        std::memset(g, 0, s->size);
+        s->grad = std::shared_ptr<void>(g, std::free);
+    } else {
+        s->grad = nullptr;
+    }
+    return s;
+}
 
-
-std::shared_ptr<Storage> Storage::allocate(size_t n, DType dt, bool requires_grad ) {
-        
-        auto s = std::make_shared<Storage>();
-        s->size = n * dtype_size(dt);
-
-        // allocate data
-        void* p = std::malloc(s->size);
-        if (!p && s->size) throw std::bad_alloc();
-        std::memset(p, 0, s->size);
-        s->data = std::shared_ptr<void>(p, std::free);
-
-        // optional grad
-        if (requires_grad) {
-            void* g = std::malloc(s->size);
-            if (!g && s->size) throw std::bad_alloc();
-            std::memset(g, 0, s->size);
-            s->grad = std::shared_ptr<void>(g, std::free);
-        } else {
-            s->grad = nullptr;
-        }
-
-        return s;
-};
-
-
-
-Tensorimpl::Tensorimpl(const std::vector<size_t>& shape_, DType dtype_ , bool requires_grad_ )
-    : offset(0), ndim(shape_.size()), requires_grad(requires_grad_), dtype(dtype_)
+// Tensorimpl constructors / destructor
+Tensorimpl::Tensorimpl(const std::vector<size_t>& shape_, DType dtype_, bool requires_grad_)
+    : offset(0), ndim(shape_.size()), requires_grad(requires_grad_), dtype(dtype_) 
 {
-    // allocate shape & strides
     shape = static_cast<size_t*>(std::malloc(ndim * sizeof(size_t)));
     strides = static_cast<size_t*>(std::malloc(ndim * sizeof(size_t)));
     if ((!shape && ndim) || (!strides && ndim)) {
@@ -62,6 +49,7 @@ Tensorimpl::Tensorimpl(const std::vector<size_t>& shape_, DType dtype_ , bool re
     for (auto v : shape_) numel *= v;
     storage = Storage::allocate(numel, dtype, requires_grad);
 }
+
 Tensorimpl::Tensorimpl(std::shared_ptr<Storage> storage_,
            size_t offset_,
            const std::vector<size_t>& shape_,
@@ -85,69 +73,38 @@ Tensorimpl::Tensorimpl(std::shared_ptr<Storage> storage_,
         strides[i] = strides_[i];
     }
 }
+
 Tensorimpl::~Tensorimpl() {
     std::free(shape);
     std::free(strides);
 }
 
+// Tensor methods implementations
 
-
-
-    // --- Primary constructor (create a new impl) ---
-// --- Primary constructor ---
 Tensor::Tensor(const std::vector<size_t>& shape_, DType dtype_, bool requires_grad_)
-    : impl(std::make_shared<Tensorimpl>(shape_, dtype_, requires_grad_)) {}
+    : impl(std::make_shared<Tensorimpl>(shape_, dtype_, requires_grad_))
+{}
 
-// --- Copy constructor ---
-Tensor::Tensor(const Tensor& other) = default;
-// --- Move constructor ---
-Tensor::Tensor(Tensor&& other) noexcept = default;
-// --- Copy assignment ---
-Tensor& Tensor::operator=(const Tensor& other) = default;
-// --- Move assignment ---
-Tensor& Tensor::operator=(Tensor&& other) noexcept = default;
-// ---Image constructor ---
-static Tensor Tensor::from_image(const std::string& path, DType dt = DType::Float32) {
-    return tensorio::from_image(path, dt);
-}
-void Tensor::save_image(const std::string& path) const {
-    tensorio::to_image(*this, path);
-}
-
-// --- Destructor ---
-Tensor::~Tensor() = default;
-//helper wrapers
-inline double read_scalar(size_t idx) const {
-    return read_scalar_at(impl->storage->data.get(), idx, impl->dtype);
-}
-inline void write_scalar(size_t idx, double val) {
-    write_scalar_at(impl->storage->data.get(), idx, impl->dtype, val);
-}
-//Utulities
 size_t Tensor::numel() const {
     if (!impl) return 0;
     size_t n = 1;
     for (size_t i = 0; i < impl->ndim; ++i) n *= impl->shape[i];
     return n;
 }
-size_t Tensor::numel_() const { return numel(); }
-    inline std::vector<size_t> strides() const {
-    if (!impl) return {};
-    return std::vector<size_t>(impl->strides, impl->strides + impl->ndim);
-}
+
 std::vector<size_t> Tensor::shape() const {
     if (!impl) return {};
     return std::vector<size_t>(impl->shape, impl->shape + impl->ndim);
 }
-//-----------Clone constructor-----------
-// deep copy of tensor
+
 Tensor Tensor::clone() const {
     Tensor out(shape(), _dtype(), impl->requires_grad);
     size_t n = numel();
     for (size_t i = 0; i < n; ++i)
-        out[i] = (*this)[i];  // or use read_scalar_at / write_scalar_at
+        out[i] = (*this)[i];
     return out;
 }
+
 void Tensor::print_shape() const {
     if (!impl) { std::cout << "()\n"; return; }
     std::cout << "(";
@@ -157,122 +114,80 @@ void Tensor::print_shape() const {
     }
     std::cout << ")\n";
 }
-    // ---------------- Templated Proxy ----------------
-template <bool Writable>
-struct ProxyBase {
-    using TDataPtr = std::conditional_t<Writable, void*, const void*>;
-    std::shared_ptr<Tensorimpl> impl;
-    size_t offset;
-    size_t depth;
-    ProxyBase(std::shared_ptr<Tensorimpl> impl_, size_t off, size_t dp = 0)
-        : impl(std::move(impl_)), offset(off), depth(dp) {}
-    ProxyBase operator[](size_t i) const {
-        if (!impl) throw std::runtime_error("Invalid tensor");
-        if (depth >= impl->ndim) throw std::out_of_range("Too many indices");
-        if (i >= impl->shape[depth]) throw std::out_of_range("Index out of bounds");
-        size_t new_offset = offset + i * impl->strides[depth];
-        return ProxyBase(impl, new_offset, depth + 1);
-    }
-    // Convert to double (read access)
-    operator double() const {
-        if (!impl) throw std::runtime_error("Invalid tensor");
-        if (depth != impl->ndim) throw std::out_of_range("Not at leaf index");
-        return read_scalar_at(impl->storage->data.get(), offset, impl->dtype);
-    }
-    // Only enabled for writable proxies
-    template <bool W = Writable, typename = std::enable_if_t<W>>
-    ProxyBase& operator=(double val) {
-        if (!impl) throw std::runtime_error("Invalid tensor");
-        if (depth != impl->ndim) throw std::out_of_range("Not at leaf index");
-        write_scalar_at(impl->storage->data.get(), offset, impl->dtype, val);
-        return *this;
-    }
-    template <bool W = Writable, typename T, typename = std::enable_if_t<W>>
-    ProxyBase& operator=(T val) {
-        return operator=(static_cast<double>(val));
-    }
-};
-using Proxy = ProxyBase<true>;
-using ConstProxy = ProxyBase<false>;
-// ---------------- Tensor indexing ----------------
-Proxy operator[](size_t i) {
+
+// Indexing entry points (non-template wrappers)
+Tensor::Proxy Tensor::operator[](size_t i) {
     if (!impl) throw std::runtime_error("Empty tensor");
     if (impl->ndim == 0) throw std::out_of_range("Tensor has no dimensions");
+    if (i >= impl->shape[0]) throw std::out_of_range("Index out of bounds");
     return Proxy(impl, i * impl->strides[0], 1);
 }
-ConstProxy operator[](size_t i) const {
+
+Tensor::ConstProxy Tensor::operator[](size_t i) const {
     if (!impl) throw std::runtime_error("Empty tensor");
     if (impl->ndim == 0) throw std::out_of_range("Tensor has no dimensions");
+    if (i >= impl->shape[0]) throw std::out_of_range("Index out of bounds");
     return ConstProxy(impl, i * impl->strides[0], 1);
 }
-static Tensor Tensor::ones(const std::vector<size_t>& shape_, DType dt , bool requires_grad_ ){
+
+// Convenience constructors
+Tensor Tensor::ones(const std::vector<size_t>& shape_, DType dt, bool requires_grad_){
     Tensor t(shape_, dt, requires_grad_);
     size_t n = t.numel();
     for (size_t i = 0; i < n; ++i) write_scalar_at(t.impl->storage->data.get(), i, dt, 1.0);
     return t;
 }
-static Tensor Tensor::zeros(const std::vector<size_t>& shape_, DType dt , bool requires_grad_){
+
+Tensor Tensor::zeros(const std::vector<size_t>& shape_, DType dt, bool requires_grad_){
     Tensor t(shape_, dt, requires_grad_);
     size_t n = t.numel();
     for (size_t i = 0; i < n; ++i) write_scalar_at(t.impl->storage->data.get(), i, dt, 0.0);
     return t;
 }
-static Tensor Tensor::full(const std::vector<size_t>& shape_,float value,DType dt = DType, bool requires_grad_ ){
+
+Tensor Tensor::full(const std::vector<size_t>& shape_, double value, DType dt, bool requires_grad_){
     Tensor t(shape_, dt, requires_grad_);
     size_t n = t.numel();
     for (size_t i = 0; i < n; ++i) write_scalar_at(t.impl->storage->data.get(), i, dt, value);
     return t;
 }
-static Tensor Tensor::rand(const std::vector<size_t>& shape_, DType dt , bool requires_grad_ ) {
+
+Tensor Tensor::rand(const std::vector<size_t>& shape_, DType dt, bool requires_grad_) {
     Tensor t(shape_, dt, requires_grad_);
     size_t n = t.numel_();
-    // seed only once per program would be better; simple here:
     std::srand((unsigned int)std::time(nullptr));
     for (size_t i = 0; i < n; ++i)
         write_scalar_at(t.impl->storage->data.get(), i, dt, static_cast<double>(std::rand()) / RAND_MAX);
     return t;
 }
-static Tensor Tensor::empty(const std::vector<size_t>& shape_, DType dt , bool requires_grad_){
+
+Tensor Tensor::empty(const std::vector<size_t>& shape_, DType dt, bool requires_grad_){
     Tensor t(shape_,dt,requires_grad_);
     return t;
 }
-static Tensor Tensor::from_vector(const std::vector<double>& data,const std::vector<size_t>& shape,DType dtype,bool requires_grad)
+
+Tensor Tensor::from_vector(const std::vector<double>& data,const std::vector<size_t>& shape,DType dtype, bool requires_grad)
 {
     size_t n = 1;
     for (auto s : shape) n *= s;
     if (data.size() != n)
         throw std::invalid_argument("from_vector: data size does not match shape");
-    // allocate new tensor
     Tensor t(shape, dtype, requires_grad);
-    // copy elements into tensor storage
     for (size_t i = 0; i < n; ++i)
         write_scalar_at(t.impl->storage->data.get(), i, dtype, data[i]);
     return t;
 }
-    // ---------- dtype helpers ----------
-DType Tensor::_dtype() const  { 
-    if (!impl) throw std::runtime_error("Tensor is empty");
-    return impl->dtype;  
-}
-const char* Tensor::dtype_name() const {
-    return (_dtype()==DType::Float32) ? "Float32" : (_dtype()==DType::Int32 ? "Int32" : "Double64");
-}
-size_t Tensor::dtype_bytes() const  { 
-    if (!impl) throw std::runtime_error("Tensor is empty");
-    return dtype_size(impl->dtype); 
-}
-    // ---------- conversion: return new tensor ----------
+
+// dtype conversion
 Tensor Tensor::astype(DType new_dtype) const {
     if (!impl) throw std::runtime_error("Empty tensor");
-    if (new_dtype == impl->dtype) return Tensor(*this); // copy
+    if (new_dtype == impl->dtype) return Tensor(*this);
     Tensor out(shape(), new_dtype, impl->requires_grad);
     size_t n = numel_();
-    // straightforward convert elementwise
     for (size_t i = 0; i < n; ++i) {
         double v = read_scalar_at(impl->storage->data.get(), i, impl->dtype);
         write_scalar_at(out.impl->storage->data.get(), i, out.impl->dtype, v);
     }
-    // grad not copied by default; if you want to copy grad, convert similarly:
     if (impl->requires_grad && impl->storage->grad) {
         if (!out.impl->storage->grad && n) throw std::bad_alloc();
         for (size_t i = 0; i < n; ++i) {
@@ -282,30 +197,26 @@ Tensor Tensor::astype(DType new_dtype) const {
     }
     return out;
 }
+
 void Tensor::to_(DType new_dtype) {
     if (!impl) throw std::runtime_error("Empty tensor");
     if (new_dtype == impl->dtype) return;
     size_t n = numel_();
-    size_t new_tsize = dtype_size(new_dtype);
-    // allocate new storage buffer (shared_ptr)
     auto new_storage = Storage::allocate(n, new_dtype, impl->requires_grad);
-    // elementwise convert data
     for (size_t i = 0; i < n; ++i) {
         double v = read_scalar_at(impl->storage->data.get(), i, impl->dtype);
         write_scalar_at(new_storage->data.get(), i, new_dtype, v);
     }
-    // optional: convert gradient if it exists
     if (impl->requires_grad && impl->storage->grad) {
         for (size_t i = 0; i < n; ++i) {
             double gv = read_scalar_at(impl->storage->grad.get(), i, impl->dtype);
             write_scalar_at(new_storage->grad.get(), i, new_dtype, gv);
         }
     }
-    // replace old storage & dtype
     impl->storage = new_storage;
     impl->dtype = new_dtype;
 }
-//in place transpose 
+
 Tensor& Tensor::t_() {
     if (!impl) throw std::runtime_error("Empty tensor");
     if (impl->ndim < 2)
@@ -314,6 +225,7 @@ Tensor& Tensor::t_() {
     std::swap(impl->strides[impl->ndim - 2], impl->strides[impl->ndim - 1]);
     return *this;
 }
+
 Tensor Tensor::permute(const std::vector<size_t>& dims) const {
     if (!impl)
         throw std::runtime_error("permute: tensor has no implementation");
@@ -331,19 +243,18 @@ Tensor Tensor::permute(const std::vector<size_t>& dims) const {
         new_shape[i] = impl->shape[dims[i]];
         new_strides[i] = impl->strides[dims[i]];
     }
-    // use the new "view constructor"
     Tensor out;
-        out.impl = std::make_shared<Tensorimpl>(
-            impl->storage,
-            impl->offset,
-            new_shape,
-            new_strides,
-            impl->dtype,
-            impl->requires_grad);
-        return out;
+    out.impl = std::make_shared<Tensorimpl>(
+        impl->storage,
+        impl->offset,
+        new_shape,
+        new_strides,
+        impl->dtype,
+        impl->requires_grad);
+    return out;
 }
-    // ------------- arange -------------
-static Tensor Tensor::arange(double start, double end, double step = 1.0, DType dtype = DType::Float32) {
+
+Tensor Tensor::arange(double start, double end, double step, DType dtype) {
     if (step == 0.0) throw std::invalid_argument("step must be non-zero");
     std::vector<double> vals;
     if (step > 0) {
@@ -355,26 +266,24 @@ static Tensor Tensor::arange(double start, double end, double step = 1.0, DType 
     for (size_t i = 0; i < vals.size(); ++i) write_scalar_at(t.impl->storage->data.get(), i, dtype, vals[i]);
     return t;
 }
-// ------------- reshape (returns view sharing storage but with contiguous strides) -------------
+
 Tensor Tensor::reshape(const std::vector<size_t>& new_shape) const {
     if (!impl) throw std::runtime_error("Empty tensor");
     size_t old_n = numel();
     size_t new_n = 1;
     for (auto v: new_shape) new_n *= v;
     if (old_n != new_n) throw std::invalid_argument("reshape: number of elements mismatch");
-    // compute contiguous strides for new shape (C-contiguous)
     std::vector<size_t> nst(new_shape.size());
     if (!new_shape.empty()) {
         nst.back() = 1;
         for (int i = (int)new_shape.size()-2; i >= 0; --i)
             nst[i] = nst[i+1] * new_shape[i+1];
     }
-    // share storage and same offset
     Tensor out;
     out.impl = std::make_shared<Tensorimpl>(impl->storage, impl->offset, new_shape, nst, impl->dtype, impl->requires_grad);
     return out;
 }
-// ------------- select: remove dimension dim by indexing index -------------
+
 Tensor Tensor::select(size_t dim, size_t index) const {
     if (!impl) throw std::runtime_error("Empty tensor");
     if (dim >= impl->ndim) throw std::out_of_range("select: dim out of range");
@@ -391,7 +300,7 @@ Tensor Tensor::select(size_t dim, size_t index) const {
     out.impl = std::make_shared<Tensorimpl>(impl->storage, noffset, nsh, nst, impl->dtype, impl->requires_grad);
     return out;
 }
-// ------------- squeeze / unsqueeze / flatten -------------
+
 Tensor Tensor::squeeze() const {
     if (!impl) throw std::runtime_error("Empty tensor");
     std::vector<size_t> nsh;
@@ -401,27 +310,25 @@ Tensor Tensor::squeeze() const {
         nsh.push_back(impl->shape[i]);
         nst.push_back(impl->strides[i]);
     }
-    if (nsh.empty()) { nsh.push_back(1); nst.push_back(1); } // keep at least 1-d tensor
+    if (nsh.empty()) { nsh.push_back(1); nst.push_back(1); }
     Tensor out;
     out.impl = std::make_shared<Tensorimpl>(impl->storage, impl->offset, nsh, nst, impl->dtype, impl->requires_grad);
     return out;
 }
+
 Tensor Tensor::unsqueeze(size_t dim) const {
     if (!impl) throw std::runtime_error("Empty tensor");
     if (dim > impl->ndim) throw std::out_of_range("unsqueeze: dim out of range");
-    std::vector<size_t> nsh;
-    std::vector<size_t> nst;
-    // naive approach: create contiguous strides for new shape to be safe
-    nsh = shape();
+    std::vector<size_t> nsh = shape();
     nsh.insert(nsh.begin() + dim, 1);
-    // compute contiguous strides for nsh
-    nst.resize(nsh.size());
+    std::vector<size_t> nst(nsh.size());
     nst.back() = 1;
     for (int i = (int)nst.size()-2; i >= 0; --i) nst[i] = nst[i+1] * nsh[i+1];
     Tensor out;
     out.impl = std::make_shared<Tensorimpl>(impl->storage, impl->offset, nsh, nst, impl->dtype, impl->requires_grad);
     return out;
 }
+
 Tensor Tensor::flatten() const {
     std::vector<size_t> nsh = { numel() };
     std::vector<size_t> nst = { 1 };
@@ -429,105 +336,22 @@ Tensor Tensor::flatten() const {
     out.impl = std::make_shared<Tensorimpl>(impl->storage, impl->offset, nsh, nst, impl->dtype, impl->requires_grad);
     return out;
 }
-//--------------Backward :Compuational graph --------------
+
+// convenience from_image/save_image are best delegated to data.cpp (tensorio)
+// but implement wrappers that call tensorio if available (link time)
+// The declarations exist in header; implementations can simply call external functions if present.
+
+void Tensor::save_image(const std::string& path) const {
+    // implemented in data.cpp via tensorio::to_image, but keep wrapper
+    // If tensorio not present at link, remove or provide alternative.
+    extern void tensorio_to_image_wrapper(const Tensor&, const std::string&); // weak forward
+    // try-catch in case not available; or call directly if you have tensorio.
+    tensorio_to_image_wrapper(*this, path);
+}
+
+// simple backward convenience (you also have autograd free functions, choose one)
 void Tensor::backward() {
-    if (!impl->requires_grad)
-        throw std::runtime_error("Cannot call backward() on tensor that does not require grad");
-    
-    // Initialize grad to 1 (∂output/∂output = 1)
-    if (!impl->storage->grad) {
-        size_t n = numel();
-        impl->storage->grad = std::shared_ptr<void>(
-            std::malloc(n * dtype_size(impl->dtype)),
-            std::free
-        );
-        for (size_t i = 0; i < n; ++i)
-            write_scalar_at(impl->storage->grad.get(), i, impl->dtype, 1.0);
-    }
-
-    // DFS traversal
-    std::vector<Tensor> stack = { *this };
-    std::vector<std::shared_ptr<GradFn>> visited;
-
-    while (!stack.empty()) {
-        Tensor t = stack.back();
-        stack.pop_back();
-    
-        if (!t.impl->grad_fn) continue;
-        auto fn = t.impl->grad_fn;
-    
-        // call backward function for this operation
-        fn->backward(t);
-    
-        // push parents to stack
-        for (auto& p : fn->parents)
-            stack.push_back(p);
-    }
+    // keep simple: delegate to autograd::backward if implemented (free function)
+    extern void backward(Tensor&); // forward reference to free function
+    backward(*this);
 }
-// ---------- printing utilities ----------
-
-inline void print_flat(const Tensor& t) {
-    size_t n = t.numel_();
-    std::cout << "[";
-    for (size_t i = 0; i < n; ++i) {
-        double v = read_scalar_at(t.impl->storage->data.get(), i, t.impl->dtype);
-        std::cout << v;
-        if (i + 1 != n) std::cout << ", ";
-    }
-    std::cout << "]\n";
-}
-
-// internal helper for recursive printing
-static void print_recursive_braces(const Tensor& t, std::vector<size_t>& idx, size_t dim) {
-    std::cout << "{";
-    size_t dim_size = t.shape()[dim];
-
-    for (size_t i = 0; i < dim_size; ++i) {
-        idx[dim] = i;
-
-        if (dim + 1 == t.impl->ndim) {
-            // compute flat offset
-            size_t offset = t.impl->offset;
-                for (size_t k = 0; k < t.impl->ndim; ++k)
-                    offset += idx[k] * t.impl->strides[k];
-
-
-            double v = read_scalar_at(t.impl->storage->data.get(), offset, t.impl->dtype);
-
-            if (t.impl->dtype == DType::Int32)
-                std::cout << static_cast<long long>(std::lrint(v));
-            else
-                std::cout << v;
-        } else {
-            print_recursive_braces(t, idx, dim + 1);
-        }
-
-        if (i + 1 != dim_size)
-            std::cout << ", ";
-    }
-    std::cout << "}";
-}
-
-// main print function — wraps recursive version in []
-inline void print_(const Tensor& t) {
-    // scalar (0D)
-    if (t.impl->ndim == 0) {
-        double v = read_scalar_at(t.impl->storage->data.get(), 0, t.impl->dtype);
-        if (t.impl->dtype == DType::Int32)
-            std::cout << static_cast<long long>(std::lrint(v)) << "\n";
-        else
-            std::cout << v << "\n";
-        return;
-    }
-
-    // empty tensor
-    for (size_t i = 0; i < t.impl->ndim; ++i)
-        if (t.shape()[i] == 0) { std::cout << "[]\n"; return; }
-
-    // general case
-    std::vector<size_t> idx(t.impl->ndim, 0);
-    std::cout << "[ ";
-    print_recursive_braces(t, idx, 0);
-    std::cout << " ]\n";
-}
-
