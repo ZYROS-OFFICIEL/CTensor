@@ -28,6 +28,25 @@ static bool broadcastable(const std::vector<size_t>& a, const std::vector<size_t
     }
     return true;
 }
+// --- helper: broadcast batch shapes ---
+static std::vector<size_t> broadcast_batch_shape_from_vectors(
+    const std::vector<size_t>& a,
+    const std::vector<size_t>& b) {
+
+    size_t ndimA = a.size();
+    size_t ndimB = b.size();
+    size_t ndim = std::max(ndimA, ndimB);
+
+    std::vector<size_t> result(ndim);
+    for (size_t i = 0; i < ndim; ++i) {
+        size_t dimA = (i < ndim - ndimA) ? 1 : a[i - (ndim - ndimA)];
+        size_t dimB = (i < ndim - ndimB) ? 1 : b[i - (ndim - ndimB)];
+        if (dimA != dimB && dimA != 1 && dimB != 1)
+            throw std::invalid_argument("Incompatible batch shapes for broadcasting");
+        result[i] = std::max(dimA, dimB);
+    }
+    return result;
+}
 
 static std::vector<size_t> broadcast_shape(const std::vector<size_t>& a, const std::vector<size_t>& b) {
     size_t na = a.size(), nb = b.size();

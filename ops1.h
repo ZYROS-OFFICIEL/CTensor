@@ -18,7 +18,10 @@ bool broadcastable(const std::vector<size_t>& a, const std::vector<size_t>& b);
 std::vector<size_t> broadcast_shape(const std::vector<size_t>& a, const std::vector<size_t>& b);
 
 // Compute broadcast shape for batch dimensions (helper for matmul)
-std::vector<size_t> broadcast_batch_shape_from_vectors(const std::vector<size_t>& a, const std::vector<size_t>& b);
+// --- helper: broadcast batch shapes ---
+static std::vector<size_t> broadcast_batch_shape_from_vectors(
+    const std::vector<size_t>& a,
+    const std::vector<size_t>& b) ;
 
 //------------------ Tensor Operations ----------------------------------
 
