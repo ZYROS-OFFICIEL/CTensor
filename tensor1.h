@@ -60,6 +60,7 @@ struct Tensorimpl {
     size_t* strides = nullptr;
     bool requires_grad = false;
     DType dtype = DType::Float32;
+    std::shared_ptr<GradFn> grad_fn;
 
     // constructors / destructor implemented in tensor1.cpp
     Tensorimpl(const std::vector<size_t>& shape_, DType dtype_ = DType::Float32, bool requires_grad_ = false);
