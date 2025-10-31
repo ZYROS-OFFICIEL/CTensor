@@ -202,3 +202,82 @@ inline bool Tensor::requires_grad() const {
     if (!impl) throw std::runtime_error("Tensor is empty");
     return impl->requires_grad;
 }
+// helper: compute linear index in original tensor for a given multi-index (padded left with 1s)
+// 'orig' may have fewer dims than padded_idx.size(); we treat orig as left-padded with 1s.
+inline size_t linear_index_from_padded(const Tensor& orig, const std::vector<size_t>& padded_idx) {
+    if (!orig.impl) throw std::runtime_error("linear_index_from_padded: orig undefined");
+    size_t pad = 0;
+    if (padded_idx.size() < orig.impl->ndim) 
+        throw std::invalid_argument("linear_index_from_padded: padded_idx smaller than orig.ndim");
+
+    pad = padded_idx.size() - orig.impl->ndim;
+    size_t offset = orig.impl->offset;
+    for (size_t i = 0; i < orig.impl->ndim; ++i) {
+        size_t idx = padded_idx[pad + i];
+        size_t dim = orig.impl->shape[i];
+        // if original dim == 1, broadcasted index maps to 0
+        size_t use_idx = (dim == 1 ? 0 : idx);
+        offset += use_idx * orig.impl->strides[i];
+    }
+    return offset;
+}
+
+// pad_to_ndim: expand tensor to target_ndim by left-padding dimensions of size 1
+inline Tensor pad_to_ndim(const Tensor& t, size_t target_ndim) {
+    if (!t.impl) throw std::runtime_error("pad_to_ndim: tensor undefined");
+    size_t src_nd = t.impl->ndim;
+    if (src_nd == target_ndim) return Tensor(t); // copy
+    if (src_nd > target_ndim) 
+        throw std::invalid_argument("pad_to_ndim: target_ndim smaller than tensor ndim");
+
+    // Left-pad shape with 1s
+    std::vector<size_t> new_shape(target_ndim, 1);
+    for (size_t i = 0; i < src_nd; ++i)
+        new_shape[target_ndim - src_nd + i] = t.impl->shape[i];
+
+    // Create result tensor with same dtype and requires_grad flag
+    Tensor result(new_shape, t.impl->dtype, t.impl->requires_grad);
+
+    // Number of elements in result
+    size_t N = result.numel_();
+    std::vector<size_t> idx(target_ndim, 0);
+
+    // Iterate flat over result, compute multi-index, map to src linear index and copy value
+    for (size_t flat = 0; flat < N; ++flat) {
+        size_t rem = flat;
+        for (int d = (int)target_ndim - 1; d >= 0; --d) {
+            idx[d] = rem % new_shape[d];
+            rem /= new_shape[d];
+        }
+        // compute source linear index inside t (handles left-padding with ones and broadcasting)
+        size_t src_linear = linear_index_from_padded(t, idx);
+
+        double v = read_scalar_at(t.impl->storage->data.get(), src_linear, t.impl->dtype);
+        write_scalar_at(result.impl->storage->data.get(), flat, result.impl->dtype, v);
+    }
+
+    // If source had a grad buffer and we want to preserve grad in result, copy it too.
+    // (This mirrors copying data; gradients are optional — uncomment if desired.)
+    if (t.impl->requires_grad && t.impl->storage->grad) {
+        // allocate grad in result storage if not already (Storage::allocate created it based on requires_grad flag)
+        // We wrote into result.impl->storage->data above; now copy gradients similarly (if result has grad buffer).
+        if (!result.impl->storage->grad) {
+            // result was created with same requires_grad flag so this should normally be present.
+            // If not, skip or allocate as necessary.
+        } else {
+            // copy elementwise using same mapping
+            for (size_t flat = 0; flat < N; ++flat) {
+                size_t rem = flat;
+                for (int d = (int)target_ndim - 1; d >= 0; --d) {
+                    idx[d] = rem % new_shape[d];
+                    rem /= new_shape[d];
+                }
+                size_t src_linear = linear_index_from_padded(t, idx);
+                double gv = read_scalar_at(t.impl->storage->grad.get(), src_linear, t.impl->dtype);
+                write_scalar_at(result.impl->storage->grad.get(), flat, result.impl->dtype, gv);
+            }
+        }
+    }
+
+    return result;
+}
