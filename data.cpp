@@ -1,10 +1,11 @@
-#pragma once
 #include <vector>
 #include <string>
 #include <fstream>
 #include <sstream>
 #include <type_traits>
 #include <stdexcept>
+#include <cstdint>
+#include <regex>
 #include "tensor1.h"
 #include "stb_image.h"
 #include "stb_image_write.h"
