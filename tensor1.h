@@ -166,7 +166,7 @@ struct Tensor {
     Tensor squeeze() const;
     Tensor unsqueeze(size_t dim) const;
     Tensor flatten() const;
-
+    void print_shape() const;
     // I/O helpers: implemented in data.cpp, NOT in tensor1.cpp
     static Tensor from_image(const std::string& path, DType dt = DType::Float32);
     void save_image(const std::string& path) const;
