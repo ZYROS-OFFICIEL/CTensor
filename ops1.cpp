@@ -470,8 +470,8 @@ Tensor sum(const Tensor& t, int dim = -1) {
         std::vector<size_t> new_shape(t.impl->shape, t.impl->shape + t.impl->ndim);
         new_shape.erase(new_shape.begin() + dim);
         if (new_shape.empty()) new_shape.push_back(1);
-
-        Tensor out(new_shape, t.impl->dtype, false);
+        bool req = t.requires_grad();
+        Tensor out(new_shape, t.impl->dtype, req);
         memset(out.impl->storage->data.get(), 0, out.numel_() * dtype_size(t.impl->dtype));
 
         // manual reduction
