@@ -380,18 +380,7 @@ struct GradSum : GradFn {
     int dim;
     GradSum(const Tensor& t_, int dim_) : t(t_), dim(dim_) { parents = {t}; }
 
-    void backward(const Tensor& self) override {
-        if (!self.impl->storage->grad)
-            throw std::runtime_error("GradSum: missing self grad");
-
-        // broadcast gradient back to shape of t
-        Tensor grad_input(t.impl->shape, t.impl->dtype, false);
-        size_t n = t.numel_();
-        double g = read_scalar_at(self.impl->storage->grad.get(), 0, t.impl->dtype);
-        for (size_t i = 0; i < n; ++i)
-            write_scalar_at(grad_input.impl->storage->data.get(), i, t.impl->dtype, g);
-        accumulate_grad(t, grad_input);
-    }
+    void backward(const Tensor& self) override ;
 };
 
 
@@ -411,6 +400,28 @@ static void topo_sort_from(const Tensor& root, std::vector<Tensor>& topo) {
     };
     dfs(root);
 }
+void GradSum::backward(const Tensor& self) {
+    // self.impl->storage->grad must exist (scalar gradient)
+    if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
+        throw std::runtime_error("GradSum: missing self grad");
+
+    if (!t.impl || !t.requires_grad()) return;
+
+    // scalar gradient value (assume scalar stored at index 0)
+    double g = read_scalar_at(self.impl->storage->grad.get(), 0, self.impl->dtype);
+
+    // create grad tensor of same shape as t and fill with g
+    std::vector<size_t> shape_vec(t.impl->shape, t.impl->shape + t.impl->ndim);
+    Tensor grad_input(shape_vec, t.impl->dtype, false); // grad itself does not require grad
+
+    size_t n = t.numel_();
+    for (size_t i = 0; i < n; ++i)
+        write_scalar_at(grad_input.impl->storage->data.get(), i, grad_input.impl->dtype, g);
+
+    // accumulate into t's grad storage via existing helper
+    accumulate_grad(t, grad_input);
+}
+
 
 // ------------------ backward ------------------
 void backward(Tensor& loss) {

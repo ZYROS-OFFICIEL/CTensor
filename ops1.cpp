@@ -2,6 +2,7 @@
 #include <stdexcept>
 #include <cmath>
 #include "tensor1.h"
+#include "autograd.h"
 #include <immintrin.h>
 #include <cstring>
 
@@ -452,7 +453,7 @@ Tensor matmul_(const Tensor& A, const Tensor& B) {
 
     return C;
 }
-Tensor sum(const Tensor& t, int dim = -1) {
+Tensor sum(const Tensor& t, int dim ) {
     if (dim == -1) {
         // reduce all elements
         double s = 0.0;
@@ -463,7 +464,7 @@ Tensor sum(const Tensor& t, int dim = -1) {
         Tensor out({1}, t.impl->dtype, req);
         write_scalar_at(out.impl->storage->data.get(), 0, t.impl->dtype, s);
         if (req)
-            out.impl->grad_fn = std::make_shared<GradSum>(t, dim);
+            out.impl->grad_fn = std::make_shared<GradSum>(t, -1);
         return out;
     } else {
         if (dim >= (int)t.impl->ndim)
@@ -496,7 +497,7 @@ Tensor sum(const Tensor& t, int dim = -1) {
         return out;
     }
 }
-Tensor mean(const Tensor& t, int dim = -1) {
+Tensor mean(const Tensor& t, int dim ) {
     Tensor s = sum(t, dim);
     double denom = (dim == -1) ? (double)t.numel_() : (double)t.impl->shape[dim];
     size_t n = s.numel_();
@@ -506,7 +507,7 @@ Tensor mean(const Tensor& t, int dim = -1) {
     }
     return s;
 }
-Tensor max(const Tensor& t, int dim = -1) {
+Tensor max(const Tensor& t, int dim ) {
     if (dim == -1) {
         double m = read_scalar_at(t.impl->storage->data.get(), 0, t.impl->dtype);
         for (size_t i = 1; i < t.numel_(); ++i) {
@@ -545,7 +546,7 @@ Tensor max(const Tensor& t, int dim = -1) {
         return out;
     }
 }
-Tensor min(const Tensor& t, int dim = -1) {
+Tensor min(const Tensor& t, int dim ) {
     if (dim == -1) {
         double m = read_scalar_at(t.impl->storage->data.get(), 0, t.impl->dtype);
         for (size_t i = 1; i < t.numel_(); ++i) {

@@ -11,13 +11,13 @@
 Tensor setup_autograd(const Tensor& out, const std::string& op, const std::vector<Tensor>& parents);
 
 // Compute result shape for elementwise binary op (a and b already padded)
-std::vector<size_t> compute_result_shape_padded(const Tensor& a, const Tensor& b);
+static std::vector<size_t> compute_result_shape_padded(const Tensor& a, const Tensor& b);
 
 // Check if two shapes are broadcastable
-bool broadcastable(const std::vector<size_t>& a, const std::vector<size_t>& b);
+static bool broadcastable(const std::vector<size_t>& a, const std::vector<size_t>& b);
 
 // Compute broadcasted shape of two tensors
-std::vector<size_t> broadcast_shape(const std::vector<size_t>& a, const std::vector<size_t>& b);
+static std::vector<size_t> broadcast_shape(const std::vector<size_t>& a, const std::vector<size_t>& b);
 
 // Compute broadcast shape for batch dimensions (helper for matmul)
 // --- helper: broadcast batch shapes ---
@@ -44,7 +44,7 @@ Tensor min(const Tensor& t, int dim = -1);
 
 //------------------ Other Tensor Utilities -------------------------------
 
-Tensor cat(const std::vector<Tensor>& tensors, size_t dim);
+static Tensor cat(const std::vector<Tensor>& tensors, size_t dim);
 
 //------------------ Operator Overloads ----------------------------------
 
