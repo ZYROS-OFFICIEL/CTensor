@@ -73,6 +73,12 @@ struct GradMatMul : GradFn {
     GradMatMul(const Tensor& a_, const Tensor& b_);
     void backward(const Tensor& self) override;
 };
+struct GradSum : GradFn {
+    Tensor x;
+    int dim; // -1 means reduce-all
+    GradSum(const Tensor& x_, int dim_ = -1) : x(x_), dim(dim_) { parents = { x }; }
+    void backward(const Tensor& self) override;
+};
 
 // ------------------ topo sort helper ------------------
 void topo_sort_from(const Tensor& root, std::vector<Tensor>& topo);
