@@ -459,8 +459,8 @@ Tensor sum(const Tensor& t, int dim = -1) {
         size_t n = t.numel_();
         for (size_t i = 0; i < n; ++i)
             s += read_scalar_at(t.impl->storage->data.get(), i, t.impl->dtype);
-
-        Tensor out({1}, t.impl->dtype, false);
+        bool req = t.requires_grad();
+        Tensor out({1}, t.impl->dtype, req);
         write_scalar_at(out.impl->storage->data.get(), 0, t.impl->dtype, s);
         if (req)
             out.impl->grad_fn = std::make_shared<GradSum>(t, dim);
