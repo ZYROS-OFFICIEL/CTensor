@@ -462,6 +462,8 @@ Tensor sum(const Tensor& t, int dim = -1) {
 
         Tensor out({1}, t.impl->dtype, false);
         write_scalar_at(out.impl->storage->data.get(), 0, t.impl->dtype, s);
+        if (req)
+            out.impl->grad_fn = std::make_shared<GradSum>(t, dim);
         return out;
     } else {
         if (dim >= (int)t.impl->ndim)
