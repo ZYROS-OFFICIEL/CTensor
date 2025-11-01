@@ -97,7 +97,8 @@ Tensor add(const Tensor& a_, const Tensor& b_) {
     }
 
     // --- Step 5: create result tensor ---
-    Tensor result(result_shape, a.impl->dtype, false);
+    bool req = a.requires_grad() || b.requires_grad();
+    Tensor result(result_shape, a.impl->dtype, req);
 
     // --- Step 6: iterate using flat index and precomputed strides ---
     size_t n = result.numel_();
