@@ -375,6 +375,25 @@ struct GradMatMul : GradFn {
         }
     }
 };
+struct GradSum : GradFn {
+    Tensor t;
+    int dim;
+    GradSum(const Tensor& t_, int dim_) : t(t_), dim(dim_) { parents = {t}; }
+
+    void backward(const Tensor& self) override {
+        if (!self.impl->storage->grad)
+            throw std::runtime_error("GradSum: missing self grad");
+
+        // broadcast gradient back to shape of t
+        Tensor grad_input(t.impl->shape, t.impl->dtype, false);
+        size_t n = t.numel_();
+        double g = read_scalar_at(self.impl->storage->grad.get(), 0, t.impl->dtype);
+        for (size_t i = 0; i < n; ++i)
+            write_scalar_at(grad_input.impl->storage->data.get(), i, t.impl->dtype, g);
+        accumulate_grad(t, grad_input);
+    }
+};
+
 
 // ------------------ topo sort helper ------------------
 static void topo_sort_from(const Tensor& root, std::vector<Tensor>& topo) {
