@@ -29,6 +29,22 @@ inline void ensure_grad_buffer(Tensor &t, bool zero) {
         std::memset(t.impl->storage->grad.get(), 0, nbytes);
     }
 }
+// Helper: create a tensor whose DATA is copied from self.grad
+// ------------------------------------------------------------
+inline Tensor tensor_from_grad(const Tensor& self) {
+    if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
+        throw std::runtime_error("tensor_from_grad: missing grad buffer");
+
+    Tensor grad_tensor(self.shape(), self._dtype(), false);
+    size_t n = self.numel_();
+
+    for (size_t i = 0; i < n; ++i) {
+        double gv = read_scalar_at(self.impl->storage->grad.get(), i, self._dtype());
+        write_scalar_at(grad_tensor.impl->storage->data.get(), i, grad_tensor._dtype(), gv);
+    }
+
+    return grad_tensor;
+}
 
 // copy .data -> .grad (allocate grad buffer and copy values)
 // after calling this the gradient values are available in impl->storage->grad
