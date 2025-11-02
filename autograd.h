@@ -22,10 +22,10 @@ inline void ensure_grad_buffer(Tensor &t, bool zero = true);
 inline void copy_data_to_grad(Tensor &t);
 
 // reduce `t` by summing over axes but keeping dims
-Tensor reduce_sum_axes_keepdims(Tensor t, std::vector<int> axes);
+static Tensor reduce_sum_axes_keepdims(Tensor t, std::vector<int> axes);
 
 // fetch dimension value of `target` as if left-padded to `nd` dimensions
-size_t dim_in_padded(const Tensor& target, size_t nd, size_t idx);
+static size_t dim_in_padded(const Tensor& target, size_t nd, size_t idx);
 
 // accumulate gradient from grad_src into target (broadcast-aware)
 void accumulate_grad(Tensor& target, const Tensor& grad_src);
@@ -40,8 +40,12 @@ struct GradFn {
 // ------------------ Backward nodes ------------------
 struct GradAdd : GradFn {
     Tensor a, b;
-    GradAdd(const Tensor& a_, const Tensor& b_);
-    void backward(const Tensor& self) override;
+    GradAdd(const Tensor& a_, const Tensor& b_) : a(a_), b(b_) { parents = {a, b}; }
+    void backward(const Tensor& self) override {
+        if (!self.impl->storage->grad) throw std::runtime_error("GradAdd: missing self grad");
+        if (a.requires_grad()) accumulate_grad(a, self);
+        if (b.requires_grad()) accumulate_grad(b, self);
+    }
 };
 
 struct GradSub : GradFn {

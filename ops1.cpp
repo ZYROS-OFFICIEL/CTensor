@@ -140,8 +140,13 @@ Tensor add_(const Tensor& a_, const Tensor& b_) {
     std::vector<size_t> result_shape = broadcast_shape(shape_a, shape_b);
 
     // --- Step 4: create result tensor ---
-    Tensor result(result_shape, a.impl->dtype, false);
-
+    bool req = a_.requires_grad() || b_.requires_grad();
+    Tensor result(result_shape, a.impl->dtype, req);
+    
+    // attach grad_fn if needed (so autograd can traverse)
+    if (req) {
+        result.impl->grad_fn = std::make_shared<GradAdd>(a_, b_);
+    }
     // --- Step 5: iterate over result elements ---
     size_t n = result.numel_();
     std::vector<size_t> idx(ndim_result, 0);
@@ -169,7 +174,6 @@ Tensor add_(const Tensor& a_, const Tensor& b_) {
     }
 
     return result;
-;
 }
 
 Tensor diff_(const Tensor& a_, const Tensor& b_) {
@@ -240,7 +244,13 @@ Tensor mult_(const Tensor& a_, const Tensor& b_) {
     std::vector<size_t> result_shape = broadcast_shape(shape_a, shape_b);
 
     // --- Step 4: create result tensor ---
-    Tensor result(result_shape, a.impl->dtype, false);
+    bool req = a_.requires_grad() || b_.requires_grad();
+    Tensor result(result_shape, a.impl->dtype, req);
+    
+    // attach grad_fn if needed (so autograd can traverse)
+    if (req) {
+        result.impl->grad_fn = std::make_shared<GradMul>(a_, b_);
+    }
 
     // --- Step 5: iterate over result elements ---
     size_t n = result.numel_();

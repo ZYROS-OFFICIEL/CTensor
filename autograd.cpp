@@ -9,14 +9,14 @@
 #include <cstring>
 #include <algorithm>
 #include <cmath>
-
+#include "autograd.h"
 #include "tensor1.h"
 #include "ops1.h"
 
 // -------------------- helpers --------------------
 
 // ensure grad buffer exists on tensor; if zero=true fill with zeros
-inline void ensure_grad_buffer(Tensor &t, bool zero = true) {
+inline void ensure_grad_buffer(Tensor &t, bool zero) {
     if (!t.impl) throw std::runtime_error("ensure_grad_buffer: tensor undefined");
     if (!t.impl->storage->grad) {
         size_t nbytes = t.numel() * t.dtype_bytes();
@@ -184,78 +184,58 @@ inline void accumulate_grad(Tensor& target, const Tensor& grad_src) {
     }
 }
 
-// ------------------ GradFn base ------------------
-struct GradFn {
-    std::vector<Tensor> parents;              // used for DFS/topo traversal
-    virtual void backward(const Tensor& self) = 0; // self is the tensor whose grad is in self.impl->storage->grad
-    virtual ~GradFn() = default;
-};
 
 // ------------------ Backward nodes (use ops1 names) ------------------
 
 // Add
-struct GradAdd : GradFn {
-    Tensor a, b;
-    GradAdd(const Tensor& a_, const Tensor& b_) : a(a_), b(b_) { parents = {a,b}; }
-    void backward(const Tensor& self) override {
-        // self.impl->storage->grad must exist
-        if (!self.impl->storage->grad) throw std::runtime_error("GradAdd: missing self grad");
-        if (a.requires_grad()) accumulate_grad(a, self);
-        if (b.requires_grad()) accumulate_grad(b, self);
-    }
-};
 
 // Sub (diff_)
-struct GradSub : GradFn {
-    Tensor a, b;
-    GradSub(const Tensor& a_, const Tensor& b_) : a(a_), b(b_) { parents = {a,b}; }
-    void backward(const Tensor& self) override {
-        if (!self.impl->storage->grad) throw std::runtime_error("GradSub: missing self grad");
-        if (a.requires_grad()) accumulate_grad(a, self);
-        if (b.requires_grad()) {
-            // negated grad: create neg = -self.data (we can use diff_ with zero tensor)
-            Tensor neg = self.clone();
-            size_t n = neg.numel();
-            for (size_t i = 0; i < n; ++i) {
-                double v = read_scalar_at(self.impl->storage->grad.get(), i, self._dtype());
-                write_scalar_at(neg.impl->storage->data.get(), i, neg._dtype(), -v);
-            }
-            // copy data to grad buffer for accumulate
-            copy_data_to_grad(neg);
-            accumulate_grad(b, neg);
+
+GradSub::GradSub(const Tensor& a_, const Tensor& b_) : a(a_), b(b_) { parents = {a,b}; }
+void GradSub::backward(const Tensor& self) {
+    if (!self.impl->storage->grad) throw std::runtime_error("GradSub: missing self grad");
+    if (a.requires_grad()) accumulate_grad(a, self);
+    if (b.requires_grad()) {
+        // negated grad: create neg = -self.data (we can use diff_ with zero tensor)
+        Tensor neg = self.clone();
+        size_t n = neg.numel();
+        for (size_t i = 0; i < n; ++i) {
+            double v = read_scalar_at(self.impl->storage->grad.get(), i, self._dtype());
+            write_scalar_at(neg.impl->storage->data.get(), i, neg._dtype(), -v);
         }
+        // copy data to grad buffer for accumulate
+        copy_data_to_grad(neg);
+        accumulate_grad(b, neg);
     }
-};
+}
+
 
 // Mul
-struct GradMul : GradFn {
-    Tensor a, b;
-    GradMul(const Tensor& a_, const Tensor& b_) : a(a_), b(b_) { parents = {a,b}; }
-    void backward(const Tensor& self) override {
-        if (!self.impl->storage->grad) throw std::runtime_error("GradMul: missing self grad");
-        size_t n = self.numel();
 
-        // create grad_self as a Tensor whose .data is irrelevant but .grad has the gradients from self
-        Tensor grad_self = self.clone();
-        copy_data_to_grad(grad_self); // copy self.data or grad into grad buffer? Here self.impl->storage->grad holds backprop grad, so copy it:
-        // But copy_data_to_grad copies data -> grad. For safety, we instead ensure grad_self.impl->storage->grad equals self.impl->storage->grad
-        // (cheap pointer aliasing is OK since read-only). We'll alias to avoid copy:
-        grad_self.impl->storage->grad = self.impl->storage->grad;
-
-        if (a.requires_grad()) {
-            // ga = grad_self * b (forward elementwise)
-            Tensor ga = mult_(grad_self, b);
-            // ga.data contains the gradient values; move to grad buffer
-            copy_data_to_grad(ga);
-            accumulate_grad(a, ga);
-        }
-        if (b.requires_grad()) {
-            Tensor gb = mult_(grad_self, a);
-            copy_data_to_grad(gb);
-            accumulate_grad(b, gb);
-        }
+GradMul::GradMul(const Tensor& a_, const Tensor& b_) : a(a_), b(b_) { parents = {a,b}; }
+void GradMul::backward(const Tensor& self) override {
+    if (!self.impl->storage->grad) throw std::runtime_error("GradMul: missing self grad");
+    size_t n = self.numel();
+    // create grad_self as a Tensor whose .data is irrelevant but .grad has the gradients from self
+    Tensor grad_self = self.clone();
+    copy_data_to_grad(grad_self); // copy self.data or grad into grad buffer? Here self.impl->storage->grad holds backprop grad, so copy it:
+    // But copy_data_to_grad copies data -> grad. For safety, we instead ensure grad_self.impl->storage->grad equals self.impl->storage->grad
+    // (cheap pointer aliasing is OK since read-only). We'll alias to avoid copy:
+    grad_self.impl->storage->grad = self.impl->storage->grad;
+    if (a.requires_grad()) {
+        // ga = grad_self * b (forward elementwise)
+        Tensor ga = mult_(grad_self, b);
+        // ga.data contains the gradient values; move to grad buffer
+        copy_data_to_grad(ga);
+        accumulate_grad(a, ga);
     }
-};
+    if (b.requires_grad()) {
+        Tensor gb = mult_(grad_self, a);
+        copy_data_to_grad(gb);
+        accumulate_grad(b, gb);
+    }
+}
+
 
 // Div
 struct GradDiv : GradFn {
