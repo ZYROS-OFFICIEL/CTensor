@@ -287,46 +287,46 @@ void GradDiv::backward(const Tensor& self)  {
 // da = b * a^(b-1) * grad_self
 // db = a^b * ln(a) * grad_self
 GradPow::GradPow(const Tensor& a_, const Tensor& b_) : a(a_), b(b_) { parents = {a,b}; }
-void GradPow::backward(const Tensor& self)  {
-    if (!self.impl->storage->grad) throw std::runtime_error("GradPow: missing self grad");
-    // alias grad buffer
-    Tensor grad_self = self.clone();
-    grad_self.impl->storage->grad = self.impl->storage->grad;
+void GradPow::backward(const Tensor& self) {
+    if (!self.impl->storage->grad)
+        throw std::runtime_error("GradPow: missing self grad");
+
     size_t n = self.numel();
-    if (a.requires_grad()) {
-        // a_pow = a^(b-1)
-        // compute b-1 as a data tensor: b_minus = b.data - 1
-        Tensor b_minus = b.clone();
-        for (size_t i = 0; i < n; ++i) {
-            double vb = read_scalar_at(b.impl->storage->data.get(), i, b._dtype());
-            write_scalar_at(b_minus.impl->storage->data.get(), i, b_minus._dtype(), vb - 1.0);
-        }
-        Tensor a_pow = pow_(a, b_minus); // pow_(a, b-1)
-        // multiply by b: tmp = b * a_pow
-        Tensor tmp = mult_(b, a_pow);
-        // ga = grad_self * tmp
-        Tensor ga = mult_(grad_self, tmp);
-        copy_data_to_grad(ga);
-        accumulate_grad(a, ga);
+
+    // 1️⃣ ∂Loss/∂y (grad from next layer)
+    Tensor grad_y(self.shape(), self._dtype(), false);
+    for (size_t i = 0; i < n; ++i) {
+        double gy = read_scalar_at(self.impl->storage->grad.get(), i, self._dtype());
+        write_scalar_at(grad_y.impl->storage->data.get(), i, grad_y._dtype(), gy);
     }
-    if (b.requires_grad()) {
-        // db = a^b * ln(a) * grad_self
-        // compute ln(a) elementwise into log_a (requires a > 0 for real ln)
-        Tensor log_a = a.clone();
+
+    // 2️⃣ ∂Loss/∂a = grad_y * b * a^(b-1)
+    if (a.requires_grad()) {
+        Tensor grad_a(self.shape(), self._dtype(), false);
         for (size_t i = 0; i < n; ++i) {
             double va = read_scalar_at(a.impl->storage->data.get(), i, a._dtype());
-            // numerical safety: if va <= 0 replace with small positive to avoid nan/infs
-            double safe_va = (va <= 0.0) ? 1e-12 : va;
-            write_scalar_at(log_a.impl->storage->data.get(), i, log_a._dtype(), std::log(safe_va));
+            double vb = read_scalar_at(b.impl->storage->data.get(), i, b._dtype());
+            double gy = read_scalar_at(grad_y.impl->storage->data.get(), i, grad_y._dtype());
+            double da = gy * vb * std::pow(va, vb - 1.0);
+            write_scalar_at(grad_a.impl->storage->data.get(), i, grad_a._dtype(), da);
         }
-        // a_pow_b = self.data (already forward a^b is stored in self.impl->storage->data)
-        Tensor a_pow_b = self.clone(); // contains data of a^b
-        // compute tmp = a_pow_b * log_a
-        Tensor tmp = mult_(a_pow_b, log_a);
-        // db = tmp * grad_self
-        Tensor db = mult_(tmp, grad_self);
-        copy_data_to_grad(db);
-        accumulate_grad(b, db);
+        copy_data_to_grad(grad_a);
+        accumulate_grad(a, grad_a);
+    }
+
+    // 3️⃣ ∂Loss/∂b = grad_y * a^b * ln(a)
+    if (b.requires_grad()) {
+        Tensor grad_b(self.shape(), self._dtype(), false);
+        for (size_t i = 0; i < n; ++i) {
+            double va = read_scalar_at(a.impl->storage->data.get(), i, a._dtype());
+            double vb = read_scalar_at(b.impl->storage->data.get(), i, b._dtype());
+            double gy = read_scalar_at(grad_y.impl->storage->data.get(), i, grad_y._dtype());
+            double safe_va = (va <= 0.0) ? 1e-12 : va;
+            double db = gy * std::pow(va, vb) * std::log(safe_va);
+            write_scalar_at(grad_b.impl->storage->data.get(), i, grad_b._dtype(), db);
+        }
+        copy_data_to_grad(grad_b);
+        accumulate_grad(b, grad_b);
     }
 }
 
