@@ -281,6 +281,49 @@ void GradDiv::backward(const Tensor& self)  {
         accumulate_grad(b, db);
     }
 }
+GradMatMul::GradMatMul(const Tensor& a_, const Tensor& b_)
+    : a(a_), b(b_) {
+    parents = {a, b};
+}
+
+void GradMatMul::backward(const Tensor& self) {
+    if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
+        throw std::runtime_error("GradMatMul: missing self grad");
+
+    // --- Step 1: Extract gradient wrt output (dL/dY) ---
+    Tensor grad_y = tensor_from_grad(self); // creates a tensor with grad data in .data
+
+    // --- Step 2: Define a small helper to transpose the last two dims ---
+    auto transpose_last_two = [](const Tensor &t) -> Tensor {
+        if (!t.impl)
+            throw std::runtime_error("transpose_last_two: undefined tensor");
+        if (t.impl->ndim < 2)
+            return t.clone(); // nothing to transpose
+
+        std::vector<size_t> perm(t.impl->ndim);
+        for (size_t i = 0; i < t.impl->ndim; ++i)
+            perm[i] = i;
+        std::swap(perm[t.impl->ndim - 2], perm[t.impl->ndim - 1]);
+        return t.permute(perm);
+    };
+
+    // --- Step 3: Compute grad w.r.t A ---
+    if (a.requires_grad()) {
+        Tensor bt = transpose_last_two(b);
+        Tensor grad_a = matmul_(grad_y, bt);   // ∂L/∂A = ∂L/∂Y @ B^T
+        copy_data_to_grad(grad_a);
+        accumulate_grad(a, grad_a);
+    }
+
+    // --- Step 4: Compute grad w.r.t B ---
+    if (b.requires_grad()) {
+        Tensor at = transpose_last_two(a);
+        Tensor grad_b = matmul_(at, grad_y);   // ∂L/∂B = A^T @ ∂L/∂Y
+        copy_data_to_grad(grad_b);
+        accumulate_grad(b, grad_b);
+    }
+}
+
 
 
 // Pow elementwise: z = a^b (both tensors)
