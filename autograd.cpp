@@ -269,96 +269,80 @@ void GradDiv::backward(const Tensor& self)  {
 // Pow elementwise: z = a^b (both tensors)
 // da = b * a^(b-1) * grad_self
 // db = a^b * ln(a) * grad_self
-struct GradPow : GradFn {
-    Tensor a, b;
-    GradPow(const Tensor& a_, const Tensor& b_) : a(a_), b(b_) { parents = {a,b}; }
-    void backward(const Tensor& self) override {
-        if (!self.impl->storage->grad) throw std::runtime_error("GradPow: missing self grad");
-        // alias grad buffer
-        Tensor grad_self = self.clone();
-        grad_self.impl->storage->grad = self.impl->storage->grad;
-        size_t n = self.numel();
-
-        if (a.requires_grad()) {
-            // a_pow = a^(b-1)
-            // compute b-1 as a data tensor: b_minus = b.data - 1
-            Tensor b_minus = b.clone();
-            for (size_t i = 0; i < n; ++i) {
-                double vb = read_scalar_at(b.impl->storage->data.get(), i, b._dtype());
-                write_scalar_at(b_minus.impl->storage->data.get(), i, b_minus._dtype(), vb - 1.0);
-            }
-            Tensor a_pow = pow_(a, b_minus); // pow_(a, b-1)
-            // multiply by b: tmp = b * a_pow
-            Tensor tmp = mult_(b, a_pow);
-            // ga = grad_self * tmp
-            Tensor ga = mult_(grad_self, tmp);
-            copy_data_to_grad(ga);
-            accumulate_grad(a, ga);
+GradPow::GradPow(const Tensor& a_, const Tensor& b_) : a(a_), b(b_) { parents = {a,b}; }
+void GradPow::backward(const Tensor& self)  {
+    if (!self.impl->storage->grad) throw std::runtime_error("GradPow: missing self grad");
+    // alias grad buffer
+    Tensor grad_self = self.clone();
+    grad_self.impl->storage->grad = self.impl->storage->grad;
+    size_t n = self.numel();
+    if (a.requires_grad()) {
+        // a_pow = a^(b-1)
+        // compute b-1 as a data tensor: b_minus = b.data - 1
+        Tensor b_minus = b.clone();
+        for (size_t i = 0; i < n; ++i) {
+            double vb = read_scalar_at(b.impl->storage->data.get(), i, b._dtype());
+            write_scalar_at(b_minus.impl->storage->data.get(), i, b_minus._dtype(), vb - 1.0);
         }
-
-        if (b.requires_grad()) {
-            // db = a^b * ln(a) * grad_self
-            // compute ln(a) elementwise into log_a (requires a > 0 for real ln)
-            Tensor log_a = a.clone();
-            for (size_t i = 0; i < n; ++i) {
-                double va = read_scalar_at(a.impl->storage->data.get(), i, a._dtype());
-                // numerical safety: if va <= 0 replace with small positive to avoid nan/infs
-                double safe_va = (va <= 0.0) ? 1e-12 : va;
-                write_scalar_at(log_a.impl->storage->data.get(), i, log_a._dtype(), std::log(safe_va));
-            }
-            // a_pow_b = self.data (already forward a^b is stored in self.impl->storage->data)
-            Tensor a_pow_b = self.clone(); // contains data of a^b
-            // compute tmp = a_pow_b * log_a
-            Tensor tmp = mult_(a_pow_b, log_a);
-            // db = tmp * grad_self
-            Tensor db = mult_(tmp, grad_self);
-            copy_data_to_grad(db);
-            accumulate_grad(b, db);
-        }
+        Tensor a_pow = pow_(a, b_minus); // pow_(a, b-1)
+        // multiply by b: tmp = b * a_pow
+        Tensor tmp = mult_(b, a_pow);
+        // ga = grad_self * tmp
+        Tensor ga = mult_(grad_self, tmp);
+        copy_data_to_grad(ga);
+        accumulate_grad(a, ga);
     }
-};
+    if (b.requires_grad()) {
+        // db = a^b * ln(a) * grad_self
+        // compute ln(a) elementwise into log_a (requires a > 0 for real ln)
+        Tensor log_a = a.clone();
+        for (size_t i = 0; i < n; ++i) {
+            double va = read_scalar_at(a.impl->storage->data.get(), i, a._dtype());
+            // numerical safety: if va <= 0 replace with small positive to avoid nan/infs
+            double safe_va = (va <= 0.0) ? 1e-12 : va;
+            write_scalar_at(log_a.impl->storage->data.get(), i, log_a._dtype(), std::log(safe_va));
+        }
+        // a_pow_b = self.data (already forward a^b is stored in self.impl->storage->data)
+        Tensor a_pow_b = self.clone(); // contains data of a^b
+        // compute tmp = a_pow_b * log_a
+        Tensor tmp = mult_(a_pow_b, log_a);
+        // db = tmp * grad_self
+        Tensor db = mult_(tmp, grad_self);
+        copy_data_to_grad(db);
+        accumulate_grad(b, db);
+    }
+}
 
 // MatMul
-struct GradMatMul : GradFn {
-    Tensor a, b;
-    GradMatMul(const Tensor& a_, const Tensor& b_) : a(a_), b(b_) { parents = {a,b}; }
-    void backward(const Tensor& self) override {
-        if (!self.impl->storage->grad) throw std::runtime_error("GradMatMul: missing self grad");
-        // alias grad buffer
-        Tensor grad_self = self.clone();
-        grad_self.impl->storage->grad = self.impl->storage->grad;
-
-        // transpose last two dims of b and a using permute
-        auto transpose_last_two = [](const Tensor &t)->Tensor {
-            if (!t.impl) throw std::runtime_error("transpose_last_two: undefined tensor");
-            if (t.impl->ndim < 2) return t.clone();
-            std::vector<size_t> perm(t.impl->ndim);
-            for (size_t i = 0; i < t.impl->ndim; ++i) perm[i] = i;
-            std::swap(perm[t.impl->ndim - 2], perm[t.impl->ndim - 1]);
-            return t.permute(perm);
-        };
-
-        if (a.requires_grad()) {
-            Tensor bt = transpose_last_two(b);
-            Tensor da = matmul_(grad_self, bt);
-            copy_data_to_grad(da);
-            accumulate_grad(a, da);
-        }
-        if (b.requires_grad()) {
-            Tensor at = transpose_last_two(a);
-            Tensor db = matmul_(at, grad_self);
-            copy_data_to_grad(db);
-            accumulate_grad(b, db);
-        }
+GradMatMul::GradMatMul(const Tensor& a_, const Tensor& b_) : a(a_), b(b_) { parents = {a,b}; }
+void backward(const Tensor& self)  {
+    if (!self.impl->storage->grad) throw std::runtime_error("GradMatMul: missing self grad");
+    // alias grad buffer
+    Tensor grad_self = self.clone();
+    grad_self.impl->storage->grad = self.impl->storage->grad;
+    // transpose last two dims of b and a using permute
+    auto transpose_last_two = [](const Tensor &t)->Tensor {
+        if (!t.impl) throw std::runtime_error("transpose_last_two: undefined tensor");
+        if (t.impl->ndim < 2) return t.clone();
+        std::vector<size_t> perm(t.impl->ndim);
+        for (size_t i = 0; i < t.impl->ndim; ++i) perm[i] = i;
+        std::swap(perm[t.impl->ndim - 2], perm[t.impl->ndim - 1]);
+        return t.permute(perm);
+    };
+    if (a.requires_grad()) {
+        Tensor bt = transpose_last_two(b);
+        Tensor da = matmul_(grad_self, bt);
+        copy_data_to_grad(da);
+        accumulate_grad(a, da);
     }
-};
-struct GradSum : GradFn {
-    Tensor t;
-    int dim;
-    GradSum(const Tensor& t_, int dim_) : t(t_), dim(dim_) { parents = {t}; }
+    if (b.requires_grad()) {
+        Tensor at = transpose_last_two(a);
+        Tensor db = matmul_(at, grad_self);
+        copy_data_to_grad(db);
+        accumulate_grad(b, db);
+    }
+}
 
-    void backward(const Tensor& self) override ;
-};
 
 
 // ------------------ topo sort helper ------------------
