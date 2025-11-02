@@ -31,7 +31,7 @@ inline void ensure_grad_buffer(Tensor &t, bool zero) {
 }
 // Helper: create a tensor whose DATA is copied from self.grad
 // ------------------------------------------------------------
-inline Tensor tensor_from_grad(const Tensor& self) {
+static Tensor tensor_from_grad(const Tensor& self) {
     if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
         throw std::runtime_error("tensor_from_grad: missing grad buffer");
 
@@ -48,7 +48,7 @@ inline Tensor tensor_from_grad(const Tensor& self) {
 
 // copy .data -> .grad (allocate grad buffer and copy values)
 // after calling this the gradient values are available in impl->storage->grad
-inline void copy_data_to_grad(Tensor &t) {
+static void copy_data_to_grad(Tensor &t) {
     if (!t.impl) throw std::runtime_error("copy_data_to_grad: undefined tensor");
     size_t n = t.numel();
     ensure_grad_buffer(t, false);
@@ -236,11 +236,7 @@ void GradMul::backward(const Tensor& self) {
     size_t n = self.numel();
 
     // Create grad_self whose DATA holds incoming gradient values
-    Tensor grad_self(self.shape(), self._dtype(), false);
-    for (size_t i = 0; i < n; ++i) {
-        double gv = read_scalar_at(self.impl->storage->grad.get(), i, self._dtype());
-        write_scalar_at(grad_self.impl->storage->data.get(), i, grad_self._dtype(), gv);
-    }
+    Tensor grad_self= tensor_from_grad(self);  
 
     // ga = grad_self * b
     if (a.requires_grad()) {
