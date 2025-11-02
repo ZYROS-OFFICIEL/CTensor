@@ -86,7 +86,7 @@ struct GradSum : GradFn {
 };
 
 // ------------------ topo sort helper ------------------
-void topo_sort_from(const Tensor& root, std::vector<Tensor>& topo);
+static void topo_sort_from(const Tensor& root, std::vector<Tensor>& topo);
 
 // ------------------ backward ------------------
 void backward(Tensor& loss);

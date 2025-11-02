@@ -213,22 +213,27 @@ void GradSub::backward(const Tensor& self) {
 // Mul
 
 GradMul::GradMul(const Tensor& a_, const Tensor& b_) : a(a_), b(b_) { parents = {a,b}; }
-void GradMul::backward(const Tensor& self)  {
-    if (!self.impl->storage->grad) throw std::runtime_error("GradMul: missing self grad");
+void GradMul::backward(const Tensor& self) {
+    if (!self.impl->storage->grad)
+        throw std::runtime_error("GradMul: missing self grad");
+
     size_t n = self.numel();
-    // create grad_self as a Tensor whose .data is irrelevant but .grad has the gradients from self
-    Tensor grad_self = self.clone();
-    copy_data_to_grad(grad_self); // copy self.data or grad into grad buffer? Here self.impl->storage->grad holds backprop grad, so copy it:
-    // But copy_data_to_grad copies data -> grad. For safety, we instead ensure grad_self.impl->storage->grad equals self.impl->storage->grad
-    // (cheap pointer aliasing is OK since read-only). We'll alias to avoid copy:
-    grad_self.impl->storage->grad = self.impl->storage->grad;
+
+    // Create grad_self whose DATA holds incoming gradient values
+    Tensor grad_self(self.shape(), self._dtype(), false);
+    for (size_t i = 0; i < n; ++i) {
+        double gv = read_scalar_at(self.impl->storage->grad.get(), i, self._dtype());
+        write_scalar_at(grad_self.impl->storage->data.get(), i, grad_self._dtype(), gv);
+    }
+
+    // ga = grad_self * b
     if (a.requires_grad()) {
-        // ga = grad_self * b (forward elementwise)
         Tensor ga = mult_(grad_self, b);
-        // ga.data contains the gradient values; move to grad buffer
-        copy_data_to_grad(ga);
+        copy_data_to_grad(ga);   // copy ga.data → ga.grad
         accumulate_grad(a, ga);
     }
+
+    // gb = grad_self * a
     if (b.requires_grad()) {
         Tensor gb = mult_(grad_self, a);
         copy_data_to_grad(gb);
@@ -313,35 +318,6 @@ void GradPow::backward(const Tensor& self)  {
     }
 }
 
-// MatMul
-GradMatMul::GradMatMul(const Tensor& a_, const Tensor& b_) : a(a_), b(b_) { parents = {a,b}; }
-void backward(const Tensor& self)  {
-    if (!self.impl->storage->grad) throw std::runtime_error("GradMatMul: missing self grad");
-    // alias grad buffer
-    Tensor grad_self = self.clone();
-    grad_self.impl->storage->grad = self.impl->storage->grad;
-    // transpose last two dims of b and a using permute
-    auto transpose_last_two = [](const Tensor &t)->Tensor {
-        if (!t.impl) throw std::runtime_error("transpose_last_two: undefined tensor");
-        if (t.impl->ndim < 2) return t.clone();
-        std::vector<size_t> perm(t.impl->ndim);
-        for (size_t i = 0; i < t.impl->ndim; ++i) perm[i] = i;
-        std::swap(perm[t.impl->ndim - 2], perm[t.impl->ndim - 1]);
-        return t.permute(perm);
-    };
-    if (a.requires_grad()) {
-        Tensor bt = transpose_last_two(b);
-        Tensor da = matmul_(grad_self, bt);
-        copy_data_to_grad(da);
-        accumulate_grad(a, da);
-    }
-    if (b.requires_grad()) {
-        Tensor at = transpose_last_two(a);
-        Tensor db = matmul_(at, grad_self);
-        copy_data_to_grad(db);
-        accumulate_grad(b, db);
-    }
-}
 
 
 
