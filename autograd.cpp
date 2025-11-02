@@ -213,7 +213,7 @@ void GradSub::backward(const Tensor& self) {
 // Mul
 
 GradMul::GradMul(const Tensor& a_, const Tensor& b_) : a(a_), b(b_) { parents = {a,b}; }
-void GradMul::backward(const Tensor& self) override {
+void GradMul::backward(const Tensor& self)  {
     if (!self.impl->storage->grad) throw std::runtime_error("GradMul: missing self grad");
     size_t n = self.numel();
     // create grad_self as a Tensor whose .data is irrelevant but .grad has the gradients from self
@@ -238,36 +238,33 @@ void GradMul::backward(const Tensor& self) override {
 
 
 // Div
-struct GradDiv : GradFn {
-    Tensor a, b;
-    GradDiv(const Tensor& a_, const Tensor& b_) : a(a_), b(b_) { parents = {a,b}; }
-    void backward(const Tensor& self) override {
-        if (!self.impl->storage->grad) throw std::runtime_error("GradDiv: missing self grad");
-        Tensor grad_self = self.clone();
-        // alias grad buffer
-        grad_self.impl->storage->grad = self.impl->storage->grad;
-
-        if (a.requires_grad()) {
-            Tensor da = div_(grad_self, b); // (grad_self) / b
-            copy_data_to_grad(da);
-            accumulate_grad(a, da);
-        }
-        if (b.requires_grad()) {
-            // db = - grad_self * a / (b*b)
-            Tensor num = mult_(grad_self, a);   // grad_self * a
-            Tensor den = mult_(b, b);           // b*b
-            Tensor db = div_(num, den);         // (grad*a)/(b*b)
-            // negate data in db.data
-            size_t m = db.numel();
-            for (size_t i = 0; i < m; ++i) {
-                double v = read_scalar_at(db.impl->storage->data.get(), i, db._dtype());
-                write_scalar_at(db.impl->storage->data.get(), i, db._dtype(), -v);
-            }
-            copy_data_to_grad(db);
-            accumulate_grad(b, db);
-        }
+GradDiv::GradDiv(const Tensor& a_, const Tensor& b_) : a(a_), b(b_) { parents = {a,b}; }
+void GradDiv::backward(const Tensor& self)  {
+    if (!self.impl->storage->grad) throw std::runtime_error("GradDiv: missing self grad");
+    Tensor grad_self = self.clone();
+    // alias grad buffer
+    grad_self.impl->storage->grad = self.impl->storage->grad;
+    if (a.requires_grad()) {
+        Tensor da = div_(grad_self, b); // (grad_self) / b
+        copy_data_to_grad(da);
+        accumulate_grad(a, da);
     }
-};
+    if (b.requires_grad()) {
+        // db = - grad_self * a / (b*b)
+        Tensor num = mult_(grad_self, a);   // grad_self * a
+        Tensor den = mult_(b, b);           // b*b
+        Tensor db = div_(num, den);         // (grad*a)/(b*b)
+        // negate data in db.data
+        size_t m = db.numel();
+        for (size_t i = 0; i < m; ++i) {
+            double v = read_scalar_at(db.impl->storage->data.get(), i, db._dtype());
+            write_scalar_at(db.impl->storage->data.get(), i, db._dtype(), -v);
+        }
+        copy_data_to_grad(db);
+        accumulate_grad(b, db);
+    }
+}
+
 
 // Pow elementwise: z = a^b (both tensors)
 // da = b * a^(b-1) * grad_self
