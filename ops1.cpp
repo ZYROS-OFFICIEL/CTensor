@@ -409,8 +409,13 @@ Tensor matmul_(const Tensor& A, const Tensor& B) {
     std::vector<size_t> outShape = batchShape;
     outShape.push_back(m);
     outShape.push_back(n);
-    Tensor C(outShape, A.impl->dtype, false);
-
+    bool req = A.requires_grad() || B.requires_grad();
+    Tensor C(outShape, A.impl->dtype, req);
+    
+    // attach grad_fn if needed (so autograd can traverse)
+    if (req) {
+        C.impl->grad_fn = std::make_shared<GradMatMul>(A, B);
+    }
     // convenience
     size_t batchRank = batchShape.size();
     size_t totalBatch = 1;
