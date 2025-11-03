@@ -262,14 +262,14 @@ void GradDiv::backward(const Tensor& self)  {
     // alias grad buffer
     grad_self.impl->storage->grad = self.impl->storage->grad;
     if (a.requires_grad()) {
-        Tensor da = div_(grad_self, b); // (grad_self) / b
+        Tensor da = div_(grad_self.detach(), b.detach); // (grad_self) / b
         copy_data_to_grad(da);
         accumulate_grad(a, da);
     }
     if (b.requires_grad()) {
         // db = - grad_self * a / (b*b)
-        Tensor num = mult_(grad_self, a);   // grad_self * a
-        Tensor den = mult_(b, b);           // b*b
+        Tensor num = mult_(grad_self.detach(), a.detach());   // grad_self * a
+        Tensor den = mult_(b.detach(), b.detach());           // b*b
         Tensor db = div_(num, den);         // (grad*a)/(b*b)
         // negate data in db.data
         size_t m = db.numel();

@@ -179,19 +179,15 @@ Tensor Tensor::from_vector(const std::vector<double>& data,const std::vector<siz
 
 //Deatch from computation graph
 Tensor Tensor::detach() const {
-    if (!impl) throw std::runtime_error("detach: tensor has no implementation");
-    // share storage, shape, strides, dtype — but no grad_fn and no requires_grad
-    auto new_impl = std::make_shared<Tensorimpl>(
-        impl->storage, impl->offset,
-        std::vector<size_t>(impl->shape, impl->shape + impl->ndim),
-        std::vector<size_t>(impl->strides, impl->strides + impl->ndim),
-        impl->dtype,
-        false // requires_grad = false
-    );
-    Tensor out;
-    out.impl = new_impl;
+    Tensor out = *this;
+    if (out.impl) {
+        out.impl = std::make_shared<Tensorimpl>(*out.impl);
+        out.impl->requires_grad = false;
+        out.impl->grad_fn = nullptr;
+    }
     return out;
 }
+
 
 
 // dtype conversion
