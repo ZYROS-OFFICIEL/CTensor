@@ -260,8 +260,7 @@ void GradDiv::backward(const Tensor& self) {
     if (!self.impl->storage->grad)
         throw std::runtime_error("GradDiv: missing self grad");
 
-    Tensor grad_self = self.clone();
-    grad_self.impl->storage->grad = self.impl->storage->grad;
+    Tensor grad_self= tensor_from_grad(self);  
 
     // ---- In-place “detach” ----
     bool old_grad_a = a.impl->requires_grad;
