@@ -48,6 +48,13 @@ void check_grad_mul() {
     std::cout << "Grad a: [" << ga[0] << ", " << ga[1] << "] expected b = [4,5]\n";
     std::cout << "Grad b: [" << gb[0] << ", " << gb[1] << "] expected a = [2,3]\n";
 }
+void mul_sclar() {
+    std::cout << "=== scalr check: Mul ===\n";
+    Tensor a = Tensor::from_vector({2.0, 3.0}, {2}, DType::Float32, true);
+    Tensor b = Tensor::from_vector({4.0, 5.0}, {2}, DType::Float32, true);
+    Tensor y = a*5;
+    std::cout << " y: [" << y[0] << ", " << y[1] << "] \n";
+}
 void check_grad_div() {
     std::cout << "=== Grad check: Div ===\n";
     Tensor a = Tensor::from_vector({2.0, 3.0}, {2}, DType::Float32, true);
@@ -94,6 +101,7 @@ int main() {
     check_grad_add();
     check_grad_diff();
     check_grad_mul();
+    mul_sclar();
     check_grad_div();
     check_grad_pow();
     check_grad_matmul();
