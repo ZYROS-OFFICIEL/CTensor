@@ -53,5 +53,6 @@ Tensor operator+(const Tensor& a, const Tensor& b);
 Tensor operator-(const Tensor& a, const Tensor& b);
 Tensor operator*(const Tensor& a, const Tensor& b);
 Tensor operator*(const Tensor& a, double scalar);
+Tensor operator*(double scalar,const Tensor& a );
 Tensor operator/(const Tensor& a, const Tensor& b);
 Tensor operator^(const Tensor& a, const Tensor& b);

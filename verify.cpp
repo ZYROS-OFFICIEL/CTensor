@@ -52,7 +52,7 @@ void mul_sclar() {
     std::cout << "=== scalr check: Mul ===\n";
     Tensor a = Tensor::from_vector({2.0, 3.0}, {2}, DType::Float32, true);
     Tensor b = Tensor::from_vector({4.0, 5.0}, {2}, DType::Float32, true);
-    Tensor y = a*5;
+    Tensor y = 5*a;      // elementwise multiply
     std::cout << " y: [" << y[0] << ", " << y[1] << "] \n";
 }
 void check_grad_div() {
