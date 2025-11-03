@@ -24,12 +24,35 @@ void check_grad_add() {
     std::cout << "Grad a: [" << ga[0] << ", " << ga[1] << "]\n";
     std::cout << "Grad b: [" << gb[0] << ", " << gb[1] << "]\n";
 }
-
+void check_grad_diff() {
+    std::cout << "=== Grad check: Diff ===\n";
+    Tensor a = Tensor::from_vector({2.0, 3.0}, {2}, DType::Float32, true);
+    Tensor b = Tensor::from_vector({4.0, 5.0}, {2}, DType::Float32, true);
+    Tensor y = diff_(a, b);       // forward
+    Tensor loss = sum(y);        // scalar loss
+    backward(loss);              // compute backward
+    float* ga = (float*)a.impl->storage->grad.get();
+    float* gb = (float*)b.impl->storage->grad.get();
+    std::cout << "Grad a: [" << ga[0] << ", " << ga[1] << "]\n";
+    std::cout << "Grad b: [" << gb[0] << ", " << gb[1] << "]\n";
+}
 void check_grad_mul() {
     std::cout << "=== Grad check: Mul ===\n";
     Tensor a = Tensor::from_vector({2.0, 3.0}, {2}, DType::Float32, true);
     Tensor b = Tensor::from_vector({4.0, 5.0}, {2}, DType::Float32, true);
     Tensor y = mult_(a, b);      // elementwise multiply
+    Tensor loss = sum(y);
+    backward(loss);
+    float* ga = (float*)a.impl->storage->grad.get();
+    float* gb = (float*)b.impl->storage->grad.get();
+    std::cout << "Grad a: [" << ga[0] << ", " << ga[1] << "] expected b = [4,5]\n";
+    std::cout << "Grad b: [" << gb[0] << ", " << gb[1] << "] expected a = [2,3]\n";
+}
+void check_grad_div() {
+    std::cout << "=== Grad check: Div ===\n";
+    Tensor a = Tensor::from_vector({2.0, 3.0}, {2}, DType::Float32, true);
+    Tensor b = Tensor::from_vector({4.0, 5.0}, {2}, DType::Float32, true);
+    Tensor y = div_(a, b);      // elementwise multiply
     Tensor loss = sum(y);
     backward(loss);
     float* ga = (float*)a.impl->storage->grad.get();
@@ -69,7 +92,9 @@ void check_grad_matmul() {
 
 int main() {
     check_grad_add();
+    check_grad_diff();
     check_grad_mul();
+    check_grad_div();
     check_grad_pow();
     check_grad_matmul();
     std::cout << "All grad checks done.\n";
