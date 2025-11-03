@@ -256,31 +256,47 @@ void GradMul::backward(const Tensor& self) {
 
 // Div
 GradDiv::GradDiv(const Tensor& a_, const Tensor& b_) : a(a_), b(b_) { parents = {a,b}; }
-void GradDiv::backward(const Tensor& self)  {
-    if (!self.impl->storage->grad) throw std::runtime_error("GradDiv: missing self grad");
+void GradDiv::backward(const Tensor& self) {
+    if (!self.impl->storage->grad)
+        throw std::runtime_error("GradDiv: missing self grad");
+
     Tensor grad_self = self.clone();
-    // alias grad buffer
     grad_self.impl->storage->grad = self.impl->storage->grad;
-    if (a.requires_grad()) {
-        Tensor da = div_(grad_self.detach(), b.detach); // (grad_self) / b
+
+    // ---- In-place “detach” ----
+    bool old_grad_a = a.impl->requires_grad;
+    bool old_grad_b = b.impl->requires_grad;
+
+    a.impl->requires_grad = false;
+    b.impl->requires_grad = false;
+
+    // ---- Compute gradients ----
+    if (old_grad_a) {
+        Tensor da = div_(grad_self, b);  // grad_self / b
         copy_data_to_grad(da);
         accumulate_grad(a, da);
     }
-    if (b.requires_grad()) {
-        // db = - grad_self * a / (b*b)
-        Tensor num = mult_(grad_self.detach(), a.detach());   // grad_self * a
-        Tensor den = mult_(b.detach(), b.detach());           // b*b
-        Tensor db = div_(num, den);         // (grad*a)/(b*b)
-        // negate data in db.data
+    if (old_grad_b) {
+        Tensor num = mult_(grad_self, a);   // grad_self * a
+        Tensor den = mult_(b, b);           // b * b
+        Tensor db = div_(num, den);         // (grad * a) / (b * b)
+
+        // negate db
         size_t m = db.numel();
         for (size_t i = 0; i < m; ++i) {
             double v = read_scalar_at(db.impl->storage->data.get(), i, db._dtype());
             write_scalar_at(db.impl->storage->data.get(), i, db._dtype(), -v);
         }
+
         copy_data_to_grad(db);
         accumulate_grad(b, db);
     }
+
+    // ---- Restore flags ----
+    a.impl->requires_grad = old_grad_a;
+    b.impl->requires_grad = old_grad_b;
 }
+
 GradMatMul::GradMatMul(const Tensor& a_, const Tensor& b_)
     : a(a_), b(b_) {
     parents = {a, b};
