@@ -108,7 +108,8 @@ struct Tensor {
 
     // clone (deep copy)
     Tensor clone() const;
-
+    //Detach from computation graph (no grad_fn, no grad buffer)
+    Tensor detach() const ;
     // ---------------- Templated Proxy ----------------
     template <bool Writable>
     struct ProxyBase {

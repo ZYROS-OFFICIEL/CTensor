@@ -57,8 +57,8 @@ void check_grad_div() {
     backward(loss);
     float* ga = (float*)a.impl->storage->grad.get();
     float* gb = (float*)b.impl->storage->grad.get();
-    std::cout << "Grad a: [" << ga[0] << ", " << ga[1] << "] expected b = [4,5]\n";
-    std::cout << "Grad b: [" << gb[0] << ", " << gb[1] << "] expected a = [2,3]\n";
+    std::cout << "Grad a: [" << ga[0] << ", " << ga[1] << "] \n";
+    std::cout << "Grad b: [" << gb[0] << ", " << gb[1] << "] \n";
 }
 
 void check_grad_pow() {
