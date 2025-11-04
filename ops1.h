@@ -29,6 +29,7 @@ static std::vector<size_t> broadcast_batch_shape_from_vectors(
 
 Tensor add(const Tensor& a, const Tensor& b);
 Tensor add_(const Tensor& a, const Tensor& b);
+Tensor add_scalar(const Tensor& a, double scalar);
 Tensor diff_(const Tensor& a, const Tensor& b);
 Tensor mult_(const Tensor& a, const Tensor& b);
 Tensor mult_scalar(const Tensor& a, double scalar);
@@ -50,6 +51,8 @@ static Tensor cat(const std::vector<Tensor>& tensors, size_t dim);
 //------------------ Operator Overloads ----------------------------------
 
 Tensor operator+(const Tensor& a, const Tensor& b);
+Tensor operator+(const Tensor& a, double scalar);
+Tensor operator+(double scalar,const Tensor& a );
 Tensor operator-(const Tensor& a, const Tensor& b);
 Tensor operator*(const Tensor& a, const Tensor& b);
 Tensor operator*(const Tensor& a, double scalar);
