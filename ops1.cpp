@@ -463,6 +463,25 @@ Tensor div_scalar(const Tensor& a, double scalar) {
 
     return result;
 }
+Tensor scalar_div(double scalar, const Tensor& a) {
+    if (!a.impl)
+        throw std::runtime_error("scalar_div: null tensor implementation");
+
+    Tensor result(a.shape(), a._dtype(), a.requires_grad());
+    size_t n = a.numel_();
+
+    for (size_t i = 0; i < n; ++i) {
+        double va = read_scalar_at(a.impl->storage->data.get(), i, a._dtype());
+        if (va == 0.0) throw std::runtime_error("scalar_div: division by zero");
+        write_scalar_at(result.impl->storage->data.get(), i, result._dtype(), scalar / va);
+    }
+
+    if (a.requires_grad()) {
+        result.impl->grad_fn = std::make_shared<GradScalarDiv>(a, scalar);
+    }
+
+    return result;
+}
 
 
 Tensor pow_(const Tensor& a_, const Tensor& b_) {
