@@ -26,7 +26,7 @@ static std::vector<size_t> broadcast_batch_shape_from_vectors(
     const std::vector<size_t>& b) ;
 
 //------------------ Tensor Operations ----------------------------------
-
+Tensor apply_scalar_op(const Tensor& a,double scalar,std::function<double(double, double)> forward_op,std::function<std::shared_ptr<GradFn>(const Tensor&, double)> grad_fn_ctorensor );
 Tensor add(const Tensor& a, const Tensor& b);
 Tensor add_(const Tensor& a, const Tensor& b);
 Tensor add_scalar(const Tensor& a, double scalar);
