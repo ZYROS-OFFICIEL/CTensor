@@ -175,6 +175,25 @@ Tensor add_(const Tensor& a_, const Tensor& b_) {
 
     return result;
 }
+Tensor add_scalar(const Tensor& a, double scalar) {
+    if (!a.impl)
+        throw std::runtime_error("add_scalar: null tensor implementation");
+
+    Tensor result(a.shape(), a.impl->dtype, a.requires_grad());
+
+    size_t n = a.numel_();
+    for (size_t i = 0; i < n; ++i) {
+        double va = read_scalar_at(a.impl->storage->data.get(), i, a.impl->dtype);
+        write_scalar_at(result.impl->storage->data.get(), i, result.impl->dtype, va + scalar);
+    }
+
+    // attach grad_fn if needed (so autograd can traverse)
+    /*if (a.requires_grad()) {
+        result.impl->grad_fn = std::make_shared<GradMulScalar>(a, scalar);
+    }*/
+
+    return result;
+}
 
 Tensor diff_(const Tensor& a_, const Tensor& b_) {
     if (!a_.impl || !b_.impl)
@@ -674,8 +693,11 @@ static Tensor cat(const std::vector<Tensor>& tensors, size_t dim) {
 
 Tensor operator+(const Tensor& a, const Tensor& b) { return add_(a,b); }
 Tensor operator-(const Tensor& a, const Tensor& b) { return diff_(a,b); }
+
+// Multiplication
 Tensor operator*(const Tensor& a, const Tensor& b) { return mult_(a,b); }
 Tensor operator*(const Tensor& a, double scalar) { return mult_scalar(a,scalar); }
 Tensor operator*(double scalar,const Tensor& a ) { return mult_scalar(a,scalar); }
+
 Tensor operator/(const Tensor& a, const Tensor& b) { return div_(a,b); }
 Tensor operator^(const Tensor& a, const Tensor& b) { return pow_(a,b); }
