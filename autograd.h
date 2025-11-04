@@ -93,19 +93,19 @@ struct GradSum : GradFn {
 struct GradAddScalar : GradFn {
     Tensor a;
     double scalar;
-    GradMulScalar(const Tensor& a_, double scalar_) : a(a_), scalar(scalar_) { parents = {a}; }
+    GradAddScalar(const Tensor& a_, double scalar_) : a(a_), scalar(scalar_) { parents = {a}; }
+    void backward(const Tensor& self) override;
+};
+struct GradSubScalar : GradFn {
+    Tensor a;
+    double scalar;
+    GradSubScalar(const Tensor& a_, double scalar_) : a(a_), scalar(scalar_) { parents = {a}; }
     void backward(const Tensor& self) override;
 };
 struct GradSubAfterScalar : GradFn {
     Tensor a;
     double scalar;
-    GradMulScalar(const Tensor& a_, double scalar_) : a(a_), scalar(scalar_) { parents = {a}; }
-    void backward(const Tensor& self) override;
-};
-struct GradSubAfterScalar : GradFn {
-    Tensor a;
-    double scalar;
-    GradMulScalar(const Tensor& a_, double scalar_) : a(a_), scalar(scalar_) { parents = {a}; }
+    GradSubAfterScalar(double scalar_,  const Tensor& a_) : scalar(scalar_), a(a_) { parents = {a}; }
     void backward(const Tensor& self) override;
 };
 struct GradMulScalar : GradFn {
@@ -113,6 +113,23 @@ struct GradMulScalar : GradFn {
     double scalar;
     GradMulScalar(const Tensor& a_, double scalar_) : a(a_), scalar(scalar_) { parents = {a}; }
     void backward(const Tensor& self) override;
+};
+struct GradDivScalar : GradFn {
+    Tensor a;
+    double scalar;
+    GradDivScalar(const Tensor& a_, double scalar_) : a(a_), scalar(scalar_) {
+        parents = {a};
+    }
+
+    void backward(const Tensor& self) override {
+        if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
+            throw std::runtime_error("GradDivScalar: missing self grad");
+        if (!a.impl || !a.requires_grad()) return;
+
+        Tensor grad_self = tensor_from_grad(self);
+        Tensor grad_input = grad_self * (1.0 / scalar);
+        accumulate_grad(a, grad_input);
+    }
 };
 
 // ------------------ topo sort helper ------------------
