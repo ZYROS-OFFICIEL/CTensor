@@ -538,6 +538,27 @@ Tensor pow_(const Tensor& a_, const Tensor& b_) {
 
     return result;
 }
+
+Tensor pow_scalar(const Tensor& a, double scalar) {
+    if (!a.impl)
+        throw std::runtime_error("pow_scalar: null tensor implementation");
+
+    Tensor result(a.shape(), a._dtype(), a.requires_grad());
+    size_t n = a.numel_();
+
+    for (size_t i = 0; i < n; ++i) {
+        double va = read_scalar_at(a.impl->storage->data.get(), i, a._dtype());
+        write_scalar_at(result.impl->storage->data.get(), i, result._dtype(), std::pow(va, scalar));
+    }
+
+    if (a.requires_grad()) {
+        result.impl->grad_fn = std::make_shared<GradPowScalar>(a, scalar);
+    }
+
+    return result;
+}
+
+
 Tensor matmul_(const Tensor& A, const Tensor& B) {
     if (A.impl->ndim < 1 || B.impl->ndim < 1)
         throw std::invalid_argument("matmul: tensors must have at least 1 dimension");
