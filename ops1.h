@@ -66,3 +66,54 @@ Tensor operator/(double scalar, const Tensor& a) { return scalar_div(scalar, a);
 Tensor operator^(const Tensor& a, const Tensor& b);
 Tensor operator^(const Tensor& a, double scalar) { return pow_scalar(a, scalar); }
 Tensor operator^(double scalar, const Tensor& a) { return scalar_pow(scalar, a); }
+// --- Compound assignment operators ---
+
+// Addition
+Tensor& operator+=(Tensor& a, const Tensor& b) {
+    a = add_(a, b);
+    return a;
+}
+Tensor& operator+=(Tensor& a, double scalar) {
+    a = add_scalar(a, scalar);
+    return a;
+}
+
+// Subtraction
+Tensor& operator-=(Tensor& a, const Tensor& b) {
+    a = diff_(a, b);
+    return a;
+}
+Tensor& operator-=(Tensor& a, double scalar) {
+    a = sub_scalar(a, scalar);
+    return a;
+}
+
+// Multiplication
+Tensor& operator*=(Tensor& a, const Tensor& b) {
+    a = mult_(a, b);
+    return a;
+}
+Tensor& operator*=(Tensor& a, double scalar) {
+    a = mult_scalar(a, scalar);
+    return a;
+}
+
+// Division
+Tensor& operator/=(Tensor& a, const Tensor& b) {
+    a = div_(a, b);
+    return a;
+}
+Tensor& operator/=(Tensor& a, double scalar) {
+    a = div_scalar(a, scalar);
+    return a;
+}
+
+// Power
+Tensor& operator^=(Tensor& a, const Tensor& b) {
+    a = pow_(a, b);
+    return a;
+}
+Tensor& operator^=(Tensor& a, double scalar) {
+    a = pow_scalar(a, scalar);
+    return a;
+}
