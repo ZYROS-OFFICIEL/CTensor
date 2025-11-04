@@ -692,6 +692,9 @@ static Tensor cat(const std::vector<Tensor>& tensors, size_t dim) {
 }
 
 Tensor operator+(const Tensor& a, const Tensor& b) { return add_(a,b); }
+Tensor operator+(const Tensor& a, double scalar) { return add_scalar(a,scalar); }
+Tensor operator+(double scalar,const Tensor& a ) { return add_scalar(a,scalar); }
+
 Tensor operator-(const Tensor& a, const Tensor& b) { return diff_(a,b); }
 
 // Multiplication
