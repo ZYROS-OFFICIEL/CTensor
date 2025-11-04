@@ -156,6 +156,33 @@ struct GradScalarDiv : GradFn {
         accumulate_grad(a, grad_input);
     }
 };
+struct GradPowScalar : GradFn {
+    Tensor a;
+    double scalar;
+
+    GradPowScalar(const Tensor& a_, double scalar_) : a(a_), scalar(scalar_) {
+        parents = {a};
+    }
+
+    void backward(const Tensor& self) override {
+        if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
+            throw std::runtime_error("GradPowScalar: missing self grad");
+        if (!a.impl || !a.requires_grad()) return;
+
+        Tensor grad_self = tensor_from_grad(self);
+        size_t n = a.numel_();
+        Tensor grad_input(a.shape(), a._dtype(), false);
+
+        for (size_t i = 0; i < n; ++i) {
+            double gv = read_scalar_at(grad_self.impl->storage->data.get(), i, grad_self._dtype());
+            double va = read_scalar_at(a.impl->storage->data.get(), i, a._dtype());
+            write_scalar_at(grad_input.impl->storage->data.get(), i, grad_input._dtype(),
+                            gv * scalar * std::pow(va, scalar - 1.0));
+        }
+
+        accumulate_grad(a, grad_input);
+    }
+};
 
 // ------------------ topo sort helper ------------------
 static void topo_sort_from(const Tensor& root, std::vector<Tensor>& topo);
