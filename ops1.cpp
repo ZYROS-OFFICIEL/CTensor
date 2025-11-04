@@ -64,6 +64,31 @@ static std::vector<size_t> broadcast_shape(const std::vector<size_t>& a, const s
     }
     return result;
 }
+
+Tensor apply_scalar_op(
+    const Tensor& a,
+    double scalar,
+    std::function<double(double, double)> forward_op,
+    std::function<std::shared_ptr<GradFn>(const Tensor&, double)> grad_fn_ctor
+) {
+    if (!a.impl)
+        throw std::runtime_error("apply_scalar_op: null tensor implementation");
+
+    Tensor result(a.shape(), a.impl->dtype, a.requires_grad());
+
+    size_t n = a.numel_();
+    for (size_t i = 0; i < n; ++i) {
+        double va = read_scalar_at(a.impl->storage->data.get(), i, a.impl->dtype);
+        write_scalar_at(result.impl->storage->data.get(), i, result.impl->dtype, forward_op(va, scalar));
+    }
+
+    if (a.requires_grad())
+        result.impl->grad_fn = grad_fn_ctor(a, scalar);
+
+    return result;
+}
+
+
 Tensor add(const Tensor& a_, const Tensor& b_) {
     if (!a_.impl || !b_.impl)
         throw std::runtime_error("add_: null tensor implementation");
