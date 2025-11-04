@@ -61,6 +61,12 @@ struct GradMul : GradFn {
     GradMul(const Tensor& a_, const Tensor& b_);
     void backward(const Tensor& self) override;
 };
+struct GradMulScalar : GradFn {
+    Tensor a;
+    double scalar;
+    GradMulScalar(const Tensor& a_, double scalar_) : a(a_), scalar(scalar_) { parents = {a}; }
+    void backward(const Tensor& self) override;
+};
 
 struct GradDiv : GradFn {
     Tensor a, b;
