@@ -24,6 +24,24 @@ void check_grad_add() {
     std::cout << "Grad a: [" << ga[0] << ", " << ga[1] << "]\n";
     std::cout << "Grad b: [" << gb[0] << ", " << gb[1] << "]\n";
 }
+void check_grad_mul_scalar() {
+    std::cout << "=== Grad check: MulScalar ===\n";
+
+    // Create test tensor
+    Tensor a = Tensor::from_vector({2.0, 3.0}, {2}, DType::Float32, true);
+    double scalar = 4.0;
+
+    // Forward: y = a * scalar
+    Tensor y = mult_scalar(a, scalar); // your operator for scalar mult
+    Tensor loss = sum(y);              // simple sum to make grad = dy/da * dloss/dy
+    backward(loss);
+
+    // Read gradients
+    float* ga = (float*)a.impl->storage->grad.get();
+
+    std::cout << "Grad a: [" << ga[0] << ", " << ga[1] << "]\n";
+}
+
 void check_grad_diff() {
     std::cout << "=== Grad check: Diff ===\n";
     Tensor a = Tensor::from_vector({2.0, 3.0}, {2}, DType::Float32, true);
@@ -102,6 +120,7 @@ int main() {
     check_grad_diff();
     check_grad_mul();
     mul_sclar();
+    check_grad_mul_scalar();
     check_grad_div();
     check_grad_pow();
     check_grad_matmul();
