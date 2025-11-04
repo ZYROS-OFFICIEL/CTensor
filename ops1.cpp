@@ -276,7 +276,7 @@ Tensor diff_(const Tensor& a_, const Tensor& b_) {
 
     return result;
 }
-Tensor sub_afterscalar(const Tensor& a, double scalar) {
+Tensor sub_scalar(const Tensor& a, double scalar) {
     if (!a.impl)
         throw std::runtime_error("add_scalar: null tensor implementation");
 
@@ -290,12 +290,12 @@ Tensor sub_afterscalar(const Tensor& a, double scalar) {
 
     // attach grad_fn if needed (so autograd can traverse)
     if (a.requires_grad()) {
-        result.impl->grad_fn = std::make_shared<GradSubAfterScalar>(a, scalar);
+        result.impl->grad_fn = std::make_shared<GradSubScalar>(a, scalar);
     }
 
     return result;
 }
-Tensor sub_prescalar(double scalar ,const Tensor& a ) {
+Tensor sub_afterscalar(double scalar ,const Tensor& a ) {
     if (!a.impl)
         throw std::runtime_error("add_scalar: null tensor implementation");
 
@@ -309,7 +309,7 @@ Tensor sub_prescalar(double scalar ,const Tensor& a ) {
 
     // attach grad_fn if needed (so autograd can traverse)
     if (a.requires_grad()) {
-        result.impl->grad_fn = std::make_shared<GradSubPreScalar>(a, scalar);
+        result.impl->grad_fn = std::make_shared<GradSubAfterScalar>(a, scalar);
     }
 
     return result;
@@ -443,6 +443,27 @@ Tensor div_(const Tensor& a_, const Tensor& b_) {
 
     return result;
 }
+Tensor div_scalar(const Tensor& a, double scalar) {
+    if (!a.impl)
+        throw std::runtime_error("div_scalar: null tensor implementation");
+    if (scalar == 0.0)
+        throw std::runtime_error("div_scalar: division by zero");
+
+    Tensor result(a.shape(), a._dtype(), a.requires_grad());
+    size_t n = a.numel_();
+
+    for (size_t i = 0; i < n; ++i) {
+        double va = read_scalar_at(a.impl->storage->data.get(), i, a._dtype());
+        write_scalar_at(result.impl->storage->data.get(), i, result._dtype(), va / scalar);
+    }
+
+    if (a.requires_grad()) {
+        result.impl->grad_fn = std::make_shared<GradDivScalar>(a, scalar);
+    }
+
+    return result;
+}
+
 
 Tensor pow_(const Tensor& a_, const Tensor& b_) {
     if (!a_.impl || !b_.impl)
