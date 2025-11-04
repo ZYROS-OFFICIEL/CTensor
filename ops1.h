@@ -54,8 +54,15 @@ Tensor operator+(const Tensor& a, const Tensor& b);
 Tensor operator+(const Tensor& a, double scalar);
 Tensor operator+(double scalar,const Tensor& a );
 Tensor operator-(const Tensor& a, const Tensor& b);
+Tensor operator-(const Tensor& a, double scalar) { return sub_scalar(a, scalar); }
+Tensor operator-(double scalar, const Tensor& a) { return sub_afterscalar(scalar, a); }
+Tensor operator-(const Tensor& a) { return mult_scalar(a, -1.0); }
 Tensor operator*(const Tensor& a, const Tensor& b);
 Tensor operator*(const Tensor& a, double scalar);
 Tensor operator*(double scalar,const Tensor& a );
 Tensor operator/(const Tensor& a, const Tensor& b);
+Tensor operator/(const Tensor& a, double scalar) { return div_scalar(a, scalar); }
+Tensor operator/(double scalar, const Tensor& a) { return scalar_div(scalar, a); }
 Tensor operator^(const Tensor& a, const Tensor& b);
+Tensor operator^(const Tensor& a, double scalar) { return pow_scalar(a, scalar); }
+Tensor operator^(double scalar, const Tensor& a) { return scalar_pow(scalar, a); }
