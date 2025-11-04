@@ -213,9 +213,9 @@ Tensor add_scalar(const Tensor& a, double scalar) {
     }
 
     // attach grad_fn if needed (so autograd can traverse)
-    /*if (a.requires_grad()) {
-        result.impl->grad_fn = std::make_shared<GradMulScalar>(a, scalar);
-    }*/
+    if (a.requires_grad()) {
+        result.impl->grad_fn = std::make_shared<GradAddScalar>(a, scalar);
+    }
 
     return result;
 }
