@@ -388,6 +388,18 @@ void GradPow::backward(const Tensor& self) {
     }
 }
 
+//Scalar
+
+void GradMulScalar::backward(const Tensor& self) {
+    if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
+        throw std::runtime_error("GradMulScalar: missing self grad");
+    if (!a.impl || !a.requires_grad()) return;
+
+    Tensor grad_input = tensor_from_grad(self);
+    grad_input *= scalar;  // reuse existing op
+    accumulate_grad(a, grad_input);
+}
+
 
 
 
