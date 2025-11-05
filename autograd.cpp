@@ -481,7 +481,7 @@ void GradSqrt::backward(const Tensor& self) {
     for (size_t i = 0; i < n; ++i) {
         double gv = read_scalar_at(g_data, i, grad_input._dtype());
         double tv = read_scalar_at(t_data, i, t._dtype());
-        write_scalar_at(g_data, i, grad_input._dtype(), gv * std::exp(tv));
+        write_scalar_at(g_data, i, grad_input._dtype(), gv * 1.0 / (2.0 * std::sqrt(tv)));
     }
 
     accumulate_grad(t, grad_input);
