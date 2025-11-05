@@ -692,7 +692,7 @@ Tensor cos_(const Tensor& a_) {
 }
 Tensor tan_(const Tensor& a_) {
     if (!a_.impl)
-        throw std::runtime_error("cos_: null tensor implementation");
+        throw std::runtime_error("tan_: null tensor implementation");
 
     size_t n = a_.numel_();  // total number of elements
     bool req = a_.requires_grad();
