@@ -576,52 +576,47 @@ Tensor scalar_pow(double scalar, const Tensor& a) {
     return result;
 }
 Tensor ln_(const Tensor& a_) {
-    if (!a_.impl )
-        throw std::runtime_error("add_: null tensor implementation");
+    if (!a_.impl)
+        throw std::runtime_error("ln_: null tensor implementation");
 
-    // --- Step 1: pad shapes to same ndim ---
-    size_t ndim_result = std::max(a_.impl->ndim);
-    Tensor a = pad_to_ndim(a_, ndim_result);
+    size_t n = a_.numel_();  // total number of elements
+    bool req = a_.requires_grad();
 
-    // --- Step 2: wrap shape pointers into vectors ---
-    std::vector<size_t> shape_a(a.impl->shape, a.impl->shape + a.impl->ndim);
+    Tensor result(a_.impl->shape, a_.impl->dtype, req);
 
-    // --- Step 3: compute broadcasted shape ---
-    if (!broadcastable(shape_a))
-        throw std::runtime_error("add_: shapes are not broadcastable");
-    std::vector<size_t> result_shape = broadcast_shape(shape_a);
-
-    // --- Step 4: create result tensor ---
-    bool req = a_.requires_grad() ;
-    Tensor result(result_shape, a.impl->dtype, req);
-    
-    // attach grad_fn if needed (so autograd can traverse)
     if (req) {
         result.impl->grad_fn = std::make_shared<GradLn>(a_);
     }
-    // --- Step 5: iterate over result elements ---
-    size_t n = result.numel_();
-    std::vector<size_t> idx(ndim_result, 0);
 
-    for (size_t flat = 0; flat < n; ++flat) {
-        // convert flat index -> multi-dimensional index
-        size_t rem = flat;
-        for (int i = (int)ndim_result - 1; i >= 0; --i) {
-            idx[i] = rem % result_shape[i];
-            rem /= result_shape[i];
-        }
+    auto* a_data = a_.impl->storage->data.get();
+    auto* r_data = result.impl->storage->data.get();
 
-        // compute flat index for a and b using broadcasting
-        size_t index_a = 0, index_b = 0;
-        for (size_t i = 0; i < ndim_result; ++i) {
-            size_t idx_a = (a.impl->shape[i] == 1 ? 0 : idx[i]);
-            size_t idx_b = (b.impl->shape[i] == 1 ? 0 : idx[i]);
-            index_a += idx_a * a.impl->strides[i];
-            index_b += idx_b * b.impl->strides[i];
-        }
+    for (size_t i = 0; i < n; ++i) {
+        double val = read_scalar_at(a_data, i, a_.impl->dtype);
+        write_scalar_at(r_data, i, result.impl->dtype, std::log(val));
+    }
 
-        double va = read_scalar_at(a.impl->storage->data.get(), index_a, a.impl->dtype);
-        write_scalar_at(result.impl->storage->data.get(), flat, result.impl->dtype, log(va));
+    return result;
+}
+Tensor exp_(const Tensor& a_) {
+    if (!a_.impl)
+        throw std::runtime_error("exp_: null tensor implementation");
+
+    size_t n = a_.numel_();  // total number of elements
+    bool req = a_.requires_grad();
+
+    Tensor result(a_.impl->shape, a_.impl->dtype, req);
+
+    if (req) {
+        result.impl->grad_fn = std::make_shared<GradExp>(a_);
+    }
+
+    auto* a_data = a_.impl->storage->data.get();
+    auto* r_data = result.impl->storage->data.get();
+
+    for (size_t i = 0; i < n; ++i) {
+        double val = read_scalar_at(a_data, i, a_.impl->dtype);
+        write_scalar_at(r_data, i, result.impl->dtype, std::exp(val));
     }
 
     return result;
