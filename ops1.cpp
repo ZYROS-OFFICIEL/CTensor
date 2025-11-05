@@ -723,7 +723,7 @@ Tensor acos_(const Tensor& a_) {
     Tensor result(a_.impl->shape, a_.impl->dtype, req);
 
     if (req) {
-        result.impl->grad_fn = std::make_shared<GradCos>(a_);
+        result.impl->grad_fn = std::make_shared<GradACos>(a_);
     }
 
     auto* a_data = a_.impl->storage->data.get();
