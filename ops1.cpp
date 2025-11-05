@@ -714,7 +714,29 @@ Tensor tan_(const Tensor& a_) {
     return result;
 }
 
+Tensor atan_(const Tensor& a_) {
+    if (!a_.impl)
+        throw std::runtime_error("atan_: null tensor implementation");
 
+    size_t n = a_.numel_();  // total number of elements
+    bool req = a_.requires_grad();
+
+    Tensor result(a_.impl->shape, a_.impl->dtype, req);
+
+    if (req) {
+        result.impl->grad_fn = std::make_shared<GradATan>(a_);
+    }
+
+    auto* a_data = a_.impl->storage->data.get();
+    auto* r_data = result.impl->storage->data.get();
+
+    for (size_t i = 0; i < n; ++i) {
+        double val = read_scalar_at(a_data, i, a_.impl->dtype);
+        write_scalar_at(r_data, i, result.impl->dtype, std::atan(val));
+    }
+
+    return result;
+}
 
 Tensor matmul_(const Tensor& A, const Tensor& B) {
     if (A.impl->ndim < 1 || B.impl->ndim < 1)
