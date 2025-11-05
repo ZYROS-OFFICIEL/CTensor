@@ -118,6 +118,12 @@ struct GradCos : GradFn {
 
     void backward(const Tensor& self) override;
 };
+struct GradTan : GradFn {
+    Tensor t;
+    GradTan(const Tensor& t_) : t(t_) { parents = {t}; }
+
+    void backward(const Tensor& self) override;
+};
 struct GradAddScalar : GradFn {
     Tensor a;
     double scalar;
