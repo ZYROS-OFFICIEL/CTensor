@@ -124,6 +124,12 @@ struct GradCos : GradFn {
 
     void backward(const Tensor& self) override;
 };
+struct GradACos : GradFn {
+    Tensor t;
+    GradACos(const Tensor& t_) : t(t_) { parents = {t}; }
+
+    void backward(const Tensor& self) override;
+};
 struct GradTan : GradFn {
     Tensor t;
     GradTan(const Tensor& t_) : t(t_) { parents = {t}; }
