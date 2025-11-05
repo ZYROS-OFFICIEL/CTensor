@@ -100,6 +100,12 @@ struct GradExp : GradFn {
 
     void backward(const Tensor& self) override;
 };
+struct GradSqrt : GradFn {
+    Tensor t;
+    GradSqrt(const Tensor& t_) : t(t_) { parents = {t}; }
+
+    void backward(const Tensor& self) override;
+};
 struct GradAddScalar : GradFn {
     Tensor a;
     double scalar;
