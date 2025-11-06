@@ -19,7 +19,7 @@
 inline void ensure_grad_buffer(Tensor &t, bool zero = true);
 
 // Helper: create a tensor whose DATA is copied from self.grad
-static Tensor tensor_from_grad(const Tensor& self);
+Tensor tensor_from_grad(const Tensor& self);
 // copy .data -> .grad (allocate grad buffer and copy values)
 static void copy_data_to_grad(Tensor &t);
 
