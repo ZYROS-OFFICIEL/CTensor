@@ -182,7 +182,7 @@ struct GradSubScalar : GradFn {
 struct GradSubAfterScalar : GradFn {
     Tensor a;
     double scalar;
-    GradSubAfterScalar(double scalar_,  const Tensor& a_) : scalar(scalar_), a(a_) { parents = {a}; }
+    GradSubAfterScalar(const Tensor& a_, double scalar_ ) : a(a_) , scalar(scalar_)  { parents = {a}; }
     void backward(const Tensor& self) override;
 };
 struct GradMulScalar : GradFn {
