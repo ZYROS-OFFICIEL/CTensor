@@ -10,13 +10,20 @@ Tensor Loss::MSE(const Tensor& pred_, const Tensor& target_) {
 
     bool req = pred_.requires_grad();
     Tensor result({1}, pred_.impl->dtype, req);
-    size_t n = pred_.numel_();
 
-    result = Tensor sum(pow((pred_ - target_),2),-1);
+    // Compute (pred - target)^2
+    Tensor temp = pow_scalar(pred_ - target_, 2);
 
-    double mse = result / static_cast<double>(n);
-    write_scalar_at(result.impl->storage->data.get(), 0, result._dtype(), mse);
+    // Sum all elements
+    Tensor summed = sum(temp, -1);
 
+    // Divide by number of elements to get MSE
+    double mse_value = read_scalar_at(summed.impl->storage->data.get(), 0, summed._dtype()) 
+                       / static_cast<double>(pred_.numel_());
+
+    write_scalar_at(result.impl->storage->data.get(), 0, result._dtype(), mse_value);
+
+    // Attach backward function if needed
     if (req)
         result.impl->grad_fn = std::make_shared<GradMSE>(pred_, target_);
 
