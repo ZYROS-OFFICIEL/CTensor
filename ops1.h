@@ -31,11 +31,31 @@ Tensor add(const Tensor& a, const Tensor& b);
 Tensor add_(const Tensor& a, const Tensor& b);
 Tensor add_scalar(const Tensor& a, double scalar);
 Tensor diff_(const Tensor& a, const Tensor& b);
+Tensor sub_scalar(const Tensor& a, double scalar);
+Tensor sub_afterscalar(double scalar ,const Tensor& a );
 Tensor mult_(const Tensor& a, const Tensor& b);
 Tensor mult_scalar(const Tensor& a, double scalar);
 Tensor div_(const Tensor& a, const Tensor& b);
+Tensor div_scalar(const Tensor& a, double scalar);
+Tensor scalar_div(double scalar, const Tensor& a);
 Tensor pow_(const Tensor& a, const Tensor& b);
+Tensor pow_scalar(const Tensor& a, double scalar);
+Tensor scalar_pow(double scalar, const Tensor& a);
 Tensor matmul_(const Tensor& A, const Tensor& B);
+
+Tensor ln_(const Tensor& a_);
+Tensor exp_(const Tensor& a_);
+Tensor sqrt_(const Tensor& a_);
+Tensor sin_(const Tensor& a_);
+Tensor asin_(const Tensor& a_);
+Tensor cos_(const Tensor& a_);
+Tensor acos_(const Tensor& a_);
+Tensor tan_(const Tensor& a_);
+Tensor atan_(const Tensor& a_);
+Tensor tanh_(const Tensor& a_);
+Tensor sigmoid_(const Tensor& a_);
+Tensor Relu_(const Tensor& a_);
+Tensor softplus_(const Tensor& a_);
 
 //------------------ Reduction Operations --------------------------------
 
