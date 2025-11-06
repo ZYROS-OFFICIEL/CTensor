@@ -1,0 +1,28 @@
+#include "tensor1.h"
+#include <vector>
+#include <stdexcept>
+#include <cmath>
+#include "autograd.h"
+#include <immintrin.h>
+#include <cstring>
+#include "ops1.h"
+
+#pragma once
+#include "tensor1.h"
+
+// Base class containing all available loss functions
+class Loss {
+public:
+    static Tensor MSE(const Tensor& pred, const Tensor& target);
+    // Later you can add:
+    // static Tensor CrossEntropy(const Tensor& pred, const Tensor& target);
+};
+
+// Gradient function for MSE
+struct GradMSE : GradFn {
+    Tensor pred, target;
+    GradMSE(const Tensor& pred_, const Tensor& target_) : pred(pred_), target(target_) {
+        parents = {pred};
+    }
+    void backward(const Tensor& self) override;
+};
