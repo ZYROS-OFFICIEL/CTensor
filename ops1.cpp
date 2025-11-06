@@ -582,7 +582,7 @@ Tensor ln_(const Tensor& a_) {
     size_t n = a_.numel_();  // total number of elements
     bool req = a_.requires_grad();
 
-    Tensor result(a_.impl->shape, a_.impl->dtype, req);
+    Tensor result(a_.impl->shape,a_.impl->ndim,a_.impl->dtype, req);
 
     if (req) {
         result.impl->grad_fn = std::make_shared<GradLn>(a_);
@@ -605,7 +605,7 @@ Tensor exp_(const Tensor& a_) {
     size_t n = a_.numel_();  // total number of elements
     bool req = a_.requires_grad();
 
-    Tensor result(a_.impl->shape, a_.impl->dtype, req);
+    Tensor result(a_.impl->shape,a_.impl->ndim, a_.impl->dtype, req);
 
     if (req) {
         result.impl->grad_fn = std::make_shared<GradExp>(a_);
@@ -628,7 +628,7 @@ Tensor sqrt_(const Tensor& a_) {
     size_t n = a_.numel_();  // total number of elements
     bool req = a_.requires_grad();
 
-    Tensor result(a_.impl->shape, a_.impl->dtype, req);
+    Tensor result(a_.impl->shape,a_.impl->ndim, a_.impl->dtype, req);
 
     if (req) {
         result.impl->grad_fn = std::make_shared<GradSqrt>(a_);
@@ -651,7 +651,7 @@ Tensor sin_(const Tensor& a_) {
     size_t n = a_.numel_();  // total number of elements
     bool req = a_.requires_grad();
 
-    Tensor result(a_.impl->shape, a_.impl->dtype, req);
+    Tensor result(a_.impl->shape, a_.impl->ndim,a_.impl->dtype, req);
 
     if (req) {
         result.impl->grad_fn = std::make_shared<GradSin>(a_);
@@ -674,7 +674,7 @@ Tensor asin_(const Tensor& a_) {
     size_t n = a_.numel_();  // total number of elements
     bool req = a_.requires_grad();
 
-    Tensor result(a_.impl->shape, a_.impl->dtype, req);
+    Tensor result(a_.impl->shape,a_.impl->ndim, a_.impl->dtype, req);
 
     if (req) {
         result.impl->grad_fn = std::make_shared<GradASin>(a_);
@@ -697,7 +697,7 @@ Tensor cos_(const Tensor& a_) {
     size_t n = a_.numel_();  // total number of elements
     bool req = a_.requires_grad();
 
-    Tensor result(a_.impl->shape, a_.impl->dtype, req);
+    Tensor result(a_.impl->shape,a_.impl->ndim, a_.impl->dtype, req);
 
     if (req) {
         result.impl->grad_fn = std::make_shared<GradCos>(a_);
@@ -720,7 +720,7 @@ Tensor acos_(const Tensor& a_) {
     size_t n = a_.numel_();  // total number of elements
     bool req = a_.requires_grad();
 
-    Tensor result(a_.impl->shape, a_.impl->dtype, req);
+    Tensor result(a_.impl->shape,a_.impl->ndim, a_.impl->dtype, req);
 
     if (req) {
         result.impl->grad_fn = std::make_shared<GradACos>(a_);
@@ -743,7 +743,7 @@ Tensor tan_(const Tensor& a_) {
     size_t n = a_.numel_();  // total number of elements
     bool req = a_.requires_grad();
 
-    Tensor result(a_.impl->shape, a_.impl->dtype, req);
+    Tensor result(a_.impl->shape,a_.impl->ndim, a_.impl->dtype, req);
 
     if (req) {
         result.impl->grad_fn = std::make_shared<GradTan>(a_);
