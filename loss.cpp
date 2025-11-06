@@ -12,7 +12,7 @@ Tensor Loss::MSE(const Tensor& pred_, const Tensor& target_) {
     Tensor result({1}, pred_.impl->dtype, req);
     size_t n = pred_.numel_();
 
-    reslut = sum(pow((pred_ - target_),2),-1);
+    result = Tensor sum(pow((pred_ - target_),2),-1);
 
     double mse = result / static_cast<double>(n);
     write_scalar_at(result.impl->storage->data.get(), 0, result._dtype(), mse);
