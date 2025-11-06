@@ -84,6 +84,9 @@ struct Tensor {
     Tensor(Tensor&& other) noexcept = default;
     Tensor& operator=(const Tensor& other) = default;
     Tensor& operator=(Tensor&& other) noexcept = default;
+    Tensor(const size_t* shape_ptr, size_t ndim, DType dtype, bool requires_grad)
+    : Tensor(std::vector<size_t>(shape_ptr, shape_ptr + ndim), dtype, requires_grad) {}
+
     ~Tensor() = default;
 
     // Basic accessors (can be inline wrappers)
