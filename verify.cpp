@@ -4,7 +4,7 @@
 #include "ops1.h"
 #include "autograd.h"
 #include "loss.h"
-
+#include <functional>
 static bool close(double a, double b, double tol=1e-5) {
     return std::fabs(a - b) < tol * std::max({1.0, std::fabs(a), std::fabs(b)});
 }
@@ -12,7 +12,17 @@ static bool close(double a, double b, double tol=1e-5) {
 double numerical_grad(std::function<double(double)> f, double x, double eps=1e-6) {
     return (f(x + eps) - f(x - eps)) / (2 * eps);
 }
+void check_mse() {
+    std::cout << "=== MSE Loss Check ===\n";
+    Tensor pred = Tensor::from_vector({2.0, 3.0}, {2}, DType::Float32, true);
+    Tensor target = Tensor::from_vector({4.0, 5.0}, {2}, DType::Float32, false);
+    Tensor loss = Loss::MSE(pred, target);
+    std::cout << "MSE Loss: " << loss.read_scalar(0) << " expected 4.5\n";
 
+    backward(loss);
+    float* gpred = (float*)pred.impl->storage->grad.get();
+    std::cout << "Grad pred: [" << gpred[0] << ", " << gpred[1] << "] expected [-2.0, -2.0]\n";
+}
 void check_grad_add() {
     std::cout << "=== Grad check: Add ===\n";
     Tensor a = Tensor::from_vector({2.0, 3.0}, {2}, DType::Float32, true);
@@ -117,6 +127,7 @@ void check_grad_matmul() {
 }
 
 int main() {
+    check_mse();
     check_grad_add();
     check_grad_diff();
     check_grad_mul();

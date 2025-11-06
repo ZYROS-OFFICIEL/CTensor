@@ -5,7 +5,7 @@
 #include <cstring>
 #include "tensor1.h"
 #include <immintrin.h>
-
+#include <functional>
 //------------------ Helpers --------------------------------------------
 //Verify requires_grad
 Tensor setup_autograd(const Tensor& out, const std::string& op, const std::vector<Tensor>& parents);
