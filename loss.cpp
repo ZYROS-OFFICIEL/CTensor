@@ -29,6 +29,38 @@ Tensor Loss::MSE(const Tensor& pred_, const Tensor& target_) {
 
     return result;
 }
+static Tensor MAE(const Tensor& pred, const Tensor& target,string reduction = "mean"); {
+    if (!pred.impl || !target.impl)
+        throw std::runtime_error("Loss::MAE: null tensor implementation");
+
+    if (pred.impl->ndim != target.impl->ndim)
+        throw std::runtime_error("Loss::MAE: dimension mismatch");
+
+    bool req = pred.requires_grad();
+    Tensor result({1}, pred.impl->dtype, req);
+
+    // Compute |pred - target|
+    Tensor temp = abs_(pred - target);
+
+    // Sum all elements
+    Tensor summed = sum(temp, -1);
+
+    double mae_value = read_scalar_at(summed.impl->storage->data.get(), 0, summed._dtype());
+
+    if(reduction == "mean") {
+        mae_value /= static_cast<double>(pred.numel_());
+    }
+
+    write_scalar_at(result.impl->storage->data.get(), 0, result._dtype(), mae_value);
+
+    // Attach backward function if needed
+    if (req) {
+        // You would implement and attach a GradMAE class similar to GradMSE
+        // result.impl->grad_fn = std::make_shared<GradMAE>(pred, target);
+    }
+
+    return result;
+}
 Tensor Loss::CrossEntropy(const Tensor& pred_, const Tensor& target_) {
     if (!pred_.impl || !target_.impl)
         throw std::runtime_error("Loss::CrossEntropy: null tensor implementation");
