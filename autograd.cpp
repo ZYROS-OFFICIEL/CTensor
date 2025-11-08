@@ -30,16 +30,10 @@ inline void ensure_grad_buffer(Tensor &t, bool zero) {
     }
 }
 
-Tensor tensor_from_grad(const Tensor& self) {
-    if (!self.impl || !self.impl->storage->grad)
-        throw std::runtime_error("tensor_from_grad: missing grad");
-    Tensor out = self.clone();
-    out.impl->storage->data = self.impl->storage->grad;  // or copy appropriately
-    return out;
-}
+
 // Helper: create a tensor whose DATA is copied from self.grad
 // ------------------------------------------------------------
-static Tensor tensor_from_grad(const Tensor& self) {
+Tensor tensor_from_grad(const Tensor& self) {
     if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
         throw std::runtime_error("tensor_from_grad: missing grad buffer");
 

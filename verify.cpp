@@ -5,6 +5,8 @@
 #include "autograd.h"
 #include "loss.h"
 #include <functional>
+#include <iomanip>
+
 static bool close(double a, double b, double tol=1e-5) {
     return std::fabs(a - b) < tol * std::max({1.0, std::fabs(a), std::fabs(b)});
 }
@@ -14,6 +16,7 @@ double numerical_grad(std::function<double(double)> f, double x, double eps=1e-6
 }
 void check_mse() {
     std::cout << "=== MSE Loss Check ===\n";
+    std::cout << std::fixed << std::setprecision(1);
     Tensor pred = Tensor::from_vector({2.0, 3.0}, {2}, DType::Float32, true);
     Tensor target = Tensor::from_vector({4.0, 5.0}, {2}, DType::Float32, false);
     Tensor loss = Loss::MSE(pred, target);
