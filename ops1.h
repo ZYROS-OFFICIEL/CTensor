@@ -43,6 +43,8 @@ Tensor pow_scalar(const Tensor& a, double scalar);
 Tensor scalar_pow(double scalar, const Tensor& a);
 Tensor matmul_(const Tensor& A, const Tensor& B);
 
+Tensor abs_(const Tensor& A);
+
 Tensor ln_(const Tensor& a_);
 Tensor exp_(const Tensor& a_);
 Tensor sqrt_(const Tensor& a_);
