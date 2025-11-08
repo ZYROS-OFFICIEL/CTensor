@@ -14,6 +14,27 @@ static bool close(double a, double b, double tol=1e-5) {
 double numerical_grad(std::function<double(double)> f, double x, double eps=1e-6) {
     return (f(x + eps) - f(x - eps)) / (2 * eps);
 }
+void test_cross_entropy() {
+    using namespace std;
+
+    cout << "=== Testing CrossEntropy Loss ===" << endl;
+
+    Tensor pred = Tensor::from_vector({2.0, 1.0, 0.1,0.5, 2.5, 0.3}, {2, 3}, DType::Float32, true);
+    Tensor target = Tensor::from_vector({1.0, 0.0, 0.0, 0.0, 1.0, 0.0}, {2, 3}, DType::Float32, true);
+    // Example: batch_size=2, num_classes=3
+
+    // Forward pass
+    Tensor loss = Loss::CrossEntropy(pred, target);
+    cout << "Loss: " << loss.read_scalar(0) << endl;
+
+    // Backward pass
+    loss.backward();
+
+    // Print gradients
+    float* gpred = (float*)pred.impl->storage->grad.get();
+    std::cout << "Grad pred: [" <<*gpred<< "]\n";
+}
+
 void check_mse() {
     std::cout << "=== MSE Loss Check ===\n";
     std::cout << std::fixed << std::setprecision(1);
@@ -130,6 +151,7 @@ void check_grad_matmul() {
 }
 
 int main() {
+    test_cross_entropy();
     check_mse();
     check_grad_add();
     check_grad_diff();
