@@ -285,3 +285,40 @@ inline Tensor pad_to_ndim(const Tensor& t, size_t target_ndim) {
 
     return result;
 }
+// simple flat print (for debugging) — prints as doubles
+inline void print_t(const Tensor& t) {
+    size_t n = t.numel_();
+    std::cout << "[";
+    for (size_t i = 0; i < n; i++) {
+        double v = read_scalar_at(t.impl->storage->data.get(), i, t.impl->dtype);
+        std::cout << v;
+        if (i != n - 1) std::cout << ", ";
+    }
+    std::cout << "]\n";
+}
+static void print_recursive_braces(const Tensor& t, std::vector<size_t>& idx, size_t dim) {
+    std::cout << "{";
+    size_t dim_size = t.impl->shape[dim];
+    for (size_t i = 0; i < dim_size; ++i) {
+        idx[dim] = i;
+        if (dim + 1 == t.impl->ndim) {
+            // compute flat offset
+            size_t offset = 0;
+            for (size_t k = 0; k < t.impl->ndim; ++k) offset += idx[k] * t.impl->strides[k];
+            double v = read_scalar_at(t.impl->storage->data.get(), offset, t.impl->dtype);
+            // print nicely depending on dtype
+            if (t.impl->dtype == DType::Int32) {
+                long long iv = static_cast<long long>(std::lrint(v));
+                std::cout << iv;
+            } else {
+                // for floats/doubles print value as-is
+                std::cout << v;
+            }
+        } else {
+            // recurse to next dimension
+            print_recursive_braces(t, idx, dim + 1);
+        }
+        if (i + 1 != dim_size) std::cout << ", ";
+    }
+    std::cout << "}";
+}

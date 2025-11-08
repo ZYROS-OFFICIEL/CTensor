@@ -45,12 +45,12 @@ Tensor Loss::CrossEntropy(const Tensor& pred_, const Tensor& target_) {
     Tensor shifted = pred_ - max_vals;
 
     // step 2: exponentiate and normalize
-    Tensor exp_shifted = exp(shifted);
-    Tensor sum_exp = sum(exp_shifted, -1, true);
+    Tensor exp_shifted = exp_(shifted);
+    Tensor sum_exp = sum(exp_shifted, -1);
     Tensor probs = exp_shifted / sum_exp;         // softmax result
 
     // --- Cross Entropy ---
-    Tensor ce = -sum(target_ * log_(probs), -1);  // element-wise * then sum
+    Tensor ce = -sum(target_ * ln_(probs), -1);  // element-wise * then sum
 
     // --- Mean across batch if needed ---
     result = mean(ce);
@@ -83,22 +83,22 @@ void GradMSE::backward(const Tensor& self) {
 void GradCrossEntropy::backward(const Tensor& self) {
     if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
         throw std::runtime_error("CrossEntropy: missing self grad");
-    if (!pred_.requires_grad()) return;
+    if (!pred.requires_grad()) return;
 
     // Compute softmax manually
-    Tensor max_vals = max(pred_, -1, true);
-    Tensor shifted = pred_ - max_vals;
-    Tensor exp_shifted = exp(shifted);
-    Tensor sum_exp = sum(exp_shifted, -1, true);
+    Tensor max_vals = max(pred, -1);
+    Tensor shifted = pred - max_vals;
+    Tensor exp_shifted = exp_(shifted);
+    Tensor sum_exp = sum(exp_shifted, -1);
     Tensor probs = exp_shifted / sum_exp;  // softmax(pred)
 
     // Gradient: softmax(pred) - target
-    Tensor grad_input = probs - target_;
+    Tensor grad_input = probs - target;
 
     // Scale by mean if needed (since we averaged the loss)
-    grad_input = grad_input / static_cast<double>(pred_.shape()[0]);
+    grad_input = grad_input / static_cast<double>(pred.shape()[0]);
 
-    // Accumulate gradient
-    pred_.impl->storage->grad = grad_input;
+    accumulate_grad(pred, grad_input);
 }
+
 
