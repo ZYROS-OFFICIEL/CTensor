@@ -15,13 +15,20 @@ class Loss {
 public:
     static Tensor MSE(const Tensor& pred, const Tensor& target);
     // Later you can add:
-    // static Tensor CrossEntropy(const Tensor& pred, const Tensor& target);
+    static Tensor CrossEntropy(const Tensor& pred, const Tensor& target);
 };
 
 // Gradient function for MSE
 struct GradMSE : GradFn {
     Tensor pred, target;
     GradMSE(const Tensor& pred_, const Tensor& target_) : pred(pred_), target(target_) {
+        parents = {pred};
+    }
+    void backward(const Tensor& self) override;
+};
+struct GradCrossEntropy : GradFn {
+    Tensor pred, target;
+    GradCrossEntropy(const Tensor& pred_, const Tensor& target_) : pred(pred_), target(target_) {
         parents = {pred};
     }
     void backward(const Tensor& self) override;

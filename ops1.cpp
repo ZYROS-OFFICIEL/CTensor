@@ -1142,8 +1142,5 @@ Tensor operator-(const Tensor& a, const Tensor& b) { return diff_(a,b); }
 
 // Multiplication
 Tensor operator*(const Tensor& a, const Tensor& b) { return mult_(a,b); }
-Tensor operator*(const Tensor& a, double scalar) { return mult_scalar(a,scalar); }
-Tensor operator*(double scalar,const Tensor& a ) { return mult_scalar(a,scalar); }
-
 Tensor operator/(const Tensor& a, const Tensor& b) { return div_(a,b); }
 Tensor operator^(const Tensor& a, const Tensor& b) { return pow_(a,b); }

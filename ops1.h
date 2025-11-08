@@ -70,20 +70,20 @@ static Tensor cat(const std::vector<Tensor>& tensors, size_t dim);
 
 //------------------ Operator Overloads ----------------------------------
 
-inline Tensor operator+(const Tensor& a, const Tensor& b);
-inline Tensor operator+(const Tensor& a, double scalar);
-inline Tensor operator+(double scalar,const Tensor& a );
-inline Tensor operator-(const Tensor& a, const Tensor& b);
+Tensor operator+(const Tensor& a, const Tensor& b);
+Tensor operator+(const Tensor& a, double scalar);
+Tensor operator+(double scalar,const Tensor& a );
+Tensor operator-(const Tensor& a, const Tensor& b);
 inline Tensor operator-(const Tensor& a, double scalar) { return sub_scalar(a, scalar); }
 inline Tensor operator-(double scalar, const Tensor& a) { return sub_afterscalar(scalar, a); }
 inline Tensor operator-(const Tensor& a) { return mult_scalar(a, -1.0); }
-inline Tensor operator*(const Tensor& a, const Tensor& b);
-inline Tensor operator*(const Tensor& a, double scalar);
-inline Tensor operator*(double scalar,const Tensor& a );
-inline Tensor operator/(const Tensor& a, const Tensor& b);
+Tensor operator*(const Tensor& a, const Tensor& b);
+inline Tensor operator*(const Tensor& a, double scalar) { return mult_scalar(a,scalar); }
+inline Tensor operator*(double scalar,const Tensor& a ) { return mult_scalar(a,scalar); }
+Tensor operator/(const Tensor& a, const Tensor& b);
 inline Tensor operator/(const Tensor& a, double scalar) { return div_scalar(a, scalar); }
 inline Tensor operator/(double scalar, const Tensor& a) { return scalar_div(scalar, a); }
-inline Tensor operator^(const Tensor& a, const Tensor& b);
+Tensor operator^(const Tensor& a, const Tensor& b);
 inline Tensor operator^(const Tensor& a, double scalar) { return pow_scalar(a, scalar); }
 inline Tensor operator^(double scalar, const Tensor& a) { return scalar_pow(scalar, a); }
 // --- Compound assignment operators ---
