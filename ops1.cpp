@@ -1133,6 +1133,29 @@ static Tensor cat(const std::vector<Tensor>& tensors, size_t dim) {
 
     return out;
 }
+Tensor abs_(const Tensor& A){
+    if (!A.impl)
+        throw std::runtime_error("abs_: null tensor implementation");
+
+    size_t n = A.numel_();  // total number of elements
+    bool req = A.requires_grad();
+
+    Tensor result(A.impl->shape,A.impl->ndim, A.impl->dtype, req);
+
+    if (req) {
+        result.impl->grad_fn = std::make_shared<GradAbs>(A);
+    }
+
+    auto* a_data = A.impl->storage->data.get();
+    auto* r_data = result.impl->storage->data.get();
+
+    for (size_t i = 0; i < n; ++i) {
+        double val = read_scalar_at(a_data, i, A.impl->dtype);
+        write_scalar_at(r_data, i, result.impl->dtype, std::abs(val));
+    }
+
+    return result;
+}
 
 Tensor operator+(const Tensor& a, const Tensor& b) { return add_(a,b); }
 Tensor operator+(const Tensor& a, double scalar) { return add_scalar(a,scalar); }
