@@ -15,7 +15,7 @@ class Loss {
 public:
     static Tensor MSE(const Tensor& pred, const Tensor& target);
     static Tensor MAE(const Tensor& pred, const Tensor& target,std::string reduction = "mean");
-    static Tensor HuberLoss(const Tensor& pred, const Tensor& target,,std::string reduction = "mean",float delta=1.0);
+    static Tensor HuberLoss(const Tensor& pred, const Tensor& target,std::string reduction = "mean",double delta=1.0);
     // Later you can add:
     static Tensor CrossEntropy(const Tensor& pred, const Tensor& target);
 };
@@ -43,9 +43,9 @@ struct GradMAE : GradFn {
 struct GradHuberLoss : GradFn {
     Tensor pred, target;
     std::string reduction;
-    float delta;
+    double delta;
 
-    GradHuberLoss(const Tensor& pred_, const Tensor& target_, const std::string& reduction_, float delta_)
+    GradHuberLoss(const Tensor& pred_, const Tensor& target_, const std::string& reduction_, double delta_)
         : pred(pred_), target(target_), reduction(reduction_), delta(delta_) {
         parents = {pred};
     }

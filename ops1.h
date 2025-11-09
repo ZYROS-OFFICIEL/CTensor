@@ -66,6 +66,23 @@ Tensor mean(const Tensor& t, int dim = -1);
 Tensor max(const Tensor& t, int dim = -1);
 Tensor min(const Tensor& t, int dim = -1);
 
+
+//------------------ Element-wise Operators ----------------------------------
+Tensor lt(const Tensor& a, double b);
+Tensor le(const Tensor& a, double b);
+Tensor gt(const Tensor& a, double b);
+Tensor ge(const Tensor& a, double b);
+Tensor eq(const Tensor& a, double b);
+Tensor neq(const Tensor& a, double b);
+//Two tensors:
+Tensor lt(const Tensor& a, const Tensor& b);
+Tensor le(const Tensor& a, const Tensor& b);
+Tensor gt(const Tensor& a, const Tensor& b);
+Tensor ge(const Tensor& a, const Tensor& b);
+Tensor eq(const Tensor& a, const Tensor& b);
+Tensor ne(const Tensor& a, const Tensor& b);
+
+
 //------------------ Other Tensor Utilities -------------------------------
 
 static Tensor cat(const std::vector<Tensor>& tensors, size_t dim);
@@ -88,6 +105,25 @@ inline Tensor operator/(double scalar, const Tensor& a) { return scalar_div(scal
 Tensor operator^(const Tensor& a, const Tensor& b);
 inline Tensor operator^(const Tensor& a, double scalar) { return pow_scalar(a, scalar); }
 inline Tensor operator^(double scalar, const Tensor& a) { return scalar_pow(scalar, a); }
+
+
+// Scalar comparisons
+inline Tensor operator<(const Tensor& a, double b) { return lt(a, b); }
+inline Tensor operator<=(const Tensor& a, double b) { return le(a, b); }
+inline Tensor operator>(const Tensor& a, double b) { return gt(a, b); }
+inline Tensor operator>=(const Tensor& a, double b) { return ge(a, b); }
+inline Tensor operator==(const Tensor& a, double b) { return eq(a, b); }
+inline Tensor operator!=(const Tensor& a, double b) { return neq(a, b); }
+
+// Two tensor comparisons
+inline Tensor operator<(const Tensor& a, const Tensor& b) { return lt(a, b); }
+inline Tensor operator<=(const Tensor& a, const Tensor& b) { return le(a, b); }
+inline Tensor operator>(const Tensor& a, const Tensor& b) { return gt(a, b); }
+inline Tensor operator>=(const Tensor& a, const Tensor& b) { return ge(a, b); }
+inline Tensor operator==(const Tensor& a, const Tensor& b) { return eq(a, b); }
+inline Tensor operator!=(const Tensor& a, const Tensor& b) { return ne(a, b); }
+
+
 // --- Compound assignment operators ---
 
 // Addition
