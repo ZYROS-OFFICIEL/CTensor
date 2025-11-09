@@ -204,10 +204,10 @@ Tensor Loss::NLLLoss(const Tensor& pred, const Tensor& target,std::string reduct
         throw std::runtime_error("Loss::NLLLoss: dimension mismatch");
 
     bool req = pred.requires_grad();
-    Tensor result({1}, pred.impl->dtype, req);
-
-    // Compute NLL Loss
-    Tensor nll_loss = - sum(target * ln_(pred + 1e-12), -1); // to avoid log(0)
+    Tensor picked = gather(pred, target, 1);  // selects pred[i, target[i]]
+    
+    // 3️⃣ Compute the NLL loss per sample
+    Tensor nll_loss = - ln_(picked + 1e-12);  // shape: [batch_size, 1]
 
     // Sum all elements
     Tensor summed = sum(nll_loss, -1);

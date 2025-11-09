@@ -363,3 +363,42 @@ void Tensor::backward() {
     extern void backward(Tensor&); // forward reference to free function
     backward(*this);
 }
+
+
+Tensor gather(const Tensor& input, size_t dim, const Tensor& index) {
+    if (!input.impl || !index.impl)
+        throw std::runtime_error("gather: input or index tensor is empty");
+    if (input.impl->ndim != index.impl->ndim)
+        throw std::runtime_error("gather: input and index must have same number of dimensions");
+    for (size_t i = 0; i < input.impl->ndim; ++i) {
+        if (i != dim && input.impl->shape[i] != index.impl->shape[i])
+            throw std::runtime_error("gather: input and index shapes must match except at dim");
+    }
+    std::vector<size_t> out_shape = index.shape();
+    Tensor out(out_shape, input._dtype(), input.requires_grad());
+    size_t n = out.numel_();
+    for (size_t i = 0; i < n; ++i) {
+        // Compute multi-dimensional index
+        size_t rem = i;
+        size_t in_offset = input.impl->offset;
+        size_t idx_offset = index.impl->offset;
+        for (size_t d = 0; d < input.impl->ndim; ++d) {
+            size_t s = out_shape[d];
+            size_t idx = rem / (n / s);
+            rem = rem % (n / s);
+            if (d == dim) {
+                size_t gather_idx = static_cast<size_t>(read_scalar_at(index.impl->storage->data.get(), idx_offset + idx * index.impl->strides[d], index._dtype()));
+                if (gather_idx >= input.impl->shape[d])
+                    throw std::out_of_range("gather: index out of bounds");
+                in_offset += gather_idx * input.impl->strides[d];
+            } else {
+                in_offset += idx * input.impl->strides[d];
+            }
+            idx_offset += idx * index.impl->strides[d];
+            n /= s;
+        }
+        double val = read_scalar_at(input.impl->storage->data.get(), in_offset, input._dtype());
+        write_scalar_at(out.impl->storage->data.get(), i, out._dtype(), val);
+    }
+    return out;
+}

@@ -577,5 +577,5 @@ static std::vector<size_t> broadcast_batch_shape_from_vectors(const std::vector<
 // - Checks bounds and dimensionality.
 // - Preserves `requires_grad` from `input` but does NOT attach a grad_fn.
 
-Tensor gather(const Tensor& input, const Tensor& indices, size_t dim);
+Tensor gather(const Tensor& input, const Tensor& indices, size_t dim = 1);
 
