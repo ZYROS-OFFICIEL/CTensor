@@ -127,6 +127,40 @@ Tensor Loss::CrossEntropy(const Tensor& pred_, const Tensor& target_) {
     return result;
 }
 
+Tensor Loss::BCE(const Tensor& pred, const Tensor& target,std::string reduction){
+    if (!pred.impl || !target.impl)
+        throw std::runtime_error("Loss::BCE: null tensor implementation");
+
+    if (pred.impl->ndim != target.impl->ndim)
+        throw std::runtime_error("Loss::BCE: dimension mismatch");
+
+    bool req = pred.requires_grad();
+    Tensor result({1}, pred.impl->dtype, req);
+
+    // Compute BCE Loss
+    Tensor log_pred = ln_(pred + 1e-12);               // to avoid log(0)
+    Tensor log_one_minus_pred = ln_(1 - pred + 1e-12); // to avoid log(0)
+
+    Tensor bce_loss = - (target * log_pred + (1 - target) * log_one_minus_pred);
+
+    // Sum all elements
+    Tensor summed = sum(bce_loss, -1);
+    double bce_value = read_scalar_at(summed.impl->storage->data.get(), 0, summed._dtype());
+
+    if(reduction == "mean") {
+        bce_value /= static_cast<double>(pred.numel_());
+    }
+
+    write_scalar_at(result.impl->storage->data.get(), 0, result._dtype(), bce_value);
+
+    // Attach backward function if needed
+    if (req) {
+        result.impl->grad_fn = std::make_shared<GradBCE>(pred, target, reduction);
+    }
+
+    return result;
+}
+
 
 void GradMSE::backward(const Tensor& self) {
     if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
