@@ -80,6 +80,14 @@ struct GradMatMul : GradFn {
     GradMatMul(const Tensor& a_, const Tensor& b_);
     void backward(const Tensor& self) override;
 };
+
+struct GradAbs : GradFn {
+    Tensor t;
+    GradAbs(const Tensor& t_) : t(t_) { parents = {t_}; }
+
+    void backward(const Tensor& self) override;
+};
+
 struct GradSum : GradFn {
     Tensor t;
     int dim;
