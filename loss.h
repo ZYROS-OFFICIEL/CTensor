@@ -18,6 +18,8 @@ public:
     static Tensor HuberLoss(const Tensor& pred, const Tensor& target,std::string reduction = "mean",double delta=1.0);
     // Later you can add:
     static Tensor CrossEntropy(const Tensor& pred, const Tensor& target);
+    //Classification losses:
+    static Tensor BCE(const Tensor& pred, const Tensor& target,std::string reduction = "mean");
 };
 
 // Gradient function for MSE
