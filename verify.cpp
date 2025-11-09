@@ -14,6 +14,17 @@ static bool close(double a, double b, double tol=1e-5) {
 double numerical_grad(std::function<double(double)> f, double x, double eps=1e-6) {
     return (f(x + eps) - f(x - eps)) / (2 * eps);
 }
+void test_huber_loss() {
+    Tensor pred = Tensor::from_vector({2.0, 3.0}, {2}, DType::Float32, true);
+    Tensor target = Tensor::from_vector({4.0, 5.0}, {2}, DType::Float32, false);
+
+    Tensor loss = Loss::HuberLoss(pred, target, "mean", 1.0);
+    std::cout << "Huber Loss: " << loss.read_scalar(0) << " expected 2.5\n";
+
+    backward(loss);
+    float* g = (float*)pred.impl->storage->grad.get();
+    std::cout << "Grad pred: [" << g[0] << ", " << g[1] << "] expected [-1.0, -1.0]\n";
+}
 void test_mae() {
     Tensor pred = Tensor::from_vector({2.0, 3.0}, {2}, DType::Float32, true);
     Tensor target = Tensor::from_vector({4.0, 5.0}, {2}, DType::Float32, false);

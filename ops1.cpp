@@ -1157,6 +1157,160 @@ Tensor abs_(const Tensor& A){
     return result;
 }
 
+//Element-wise Operators
+
+// Element-wise less than
+Tensor lt(const Tensor& a, double b) {
+    Tensor result(a.shape(), a._dtype(), false);
+    size_t n = a.numel_();
+    for (size_t i = 0; i < n; ++i) {
+        double val = read_scalar_at(a.impl->storage->data.get(), i, a._dtype());
+        write_scalar_at(result.impl->storage->data.get(), i, result._dtype(), val < b ? 1.0 : 0.0);
+    }
+    return result;
+}
+
+// Element-wise less than or equal
+Tensor le(const Tensor& a, double b) {
+    Tensor result(a.shape(), a._dtype(), false);
+    size_t n = a.numel_();
+    for (size_t i = 0; i < n; ++i) {
+        double val = read_scalar_at(a.impl->storage->data.get(), i, a._dtype());
+        write_scalar_at(result.impl->storage->data.get(), i, result._dtype(), val <= b ? 1.0 : 0.0);
+    }
+    return result;
+}
+
+// Element-wise greater than
+Tensor gt(const Tensor& a, double b) {
+    Tensor result(a.shape(), a._dtype(), false);
+    size_t n = a.numel_();
+    for (size_t i = 0; i < n; ++i) {
+        double val = read_scalar_at(a.impl->storage->data.get(), i, a._dtype());
+        write_scalar_at(result.impl->storage->data.get(), i, result._dtype(), val > b ? 1.0 : 0.0);
+    }
+    return result;
+}
+
+// Element-wise greater than or equal
+Tensor ge(const Tensor& a, double b) {
+    Tensor result(a.shape(), a._dtype(), false);
+    size_t n = a.numel_();
+    for (size_t i = 0; i < n; ++i) {
+        double val = read_scalar_at(a.impl->storage->data.get(), i, a._dtype());
+        write_scalar_at(result.impl->storage->data.get(), i, result._dtype(), val >= b ? 1.0 : 0.0);
+    }
+    return result;
+}
+
+// Element-wise equal
+Tensor eq(const Tensor& a, double b) {
+    Tensor result(a.shape(), a._dtype(), false);
+    size_t n = a.numel_();
+    for (size_t i = 0; i < n; ++i) {
+        double val = read_scalar_at(a.impl->storage->data.get(), i, a._dtype());
+        write_scalar_at(result.impl->storage->data.get(), i, result._dtype(), val == b ? 1.0 : 0.0);
+    }
+    return result;
+}
+
+// Element-wise not equal
+Tensor ne(const Tensor& a, double b) {
+    Tensor result(a.shape(), a._dtype(), false);
+    size_t n = a.numel_();
+    for (size_t i = 0; i < n; ++i) {
+        double val = read_scalar_at(a.impl->storage->data.get(), i, a._dtype());
+        write_scalar_at(result.impl->storage->data.get(), i, result._dtype(), val != b ? 1.0 : 0.0);
+    }
+    return result;
+}
+
+
+// Element-wise less than (a < b)
+Tensor lt(const Tensor& a, const Tensor& b) {
+    if (a.numel_() != b.numel_())
+        throw std::runtime_error("Tensor comparison: size mismatch");
+    Tensor result(a.shape(), a._dtype(), false);
+    size_t n = a.numel_();
+    for (size_t i = 0; i < n; ++i) {
+        double val_a = read_scalar_at(a.impl->storage->data.get(), i, a._dtype());
+        double val_b = read_scalar_at(b.impl->storage->data.get(), i, b._dtype());
+        write_scalar_at(result.impl->storage->data.get(), i, result._dtype(), val_a < val_b ? 1.0 : 0.0);
+    }
+    return result;
+}
+
+// Element-wise less than or equal (a <= b)
+Tensor le(const Tensor& a, const Tensor& b) {
+    if (a.numel_() != b.numel_())
+        throw std::runtime_error("Tensor comparison: size mismatch");
+    Tensor result(a.shape(), a._dtype(), false);
+    size_t n = a.numel_();
+    for (size_t i = 0; i < n; ++i) {
+        double val_a = read_scalar_at(a.impl->storage->data.get(), i, a._dtype());
+        double val_b = read_scalar_at(b.impl->storage->data.get(), i, b._dtype());
+        write_scalar_at(result.impl->storage->data.get(), i, result._dtype(), val_a <= val_b ? 1.0 : 0.0);
+    }
+    return result;
+}
+
+// Element-wise greater than (a > b)
+Tensor gt(const Tensor& a, const Tensor& b) {
+    if (a.numel_() != b.numel_())
+        throw std::runtime_error("Tensor comparison: size mismatch");
+    Tensor result(a.shape(), a._dtype(), false);
+    size_t n = a.numel_();
+    for (size_t i = 0; i < n; ++i) {
+        double val_a = read_scalar_at(a.impl->storage->data.get(), i, a._dtype());
+        double val_b = read_scalar_at(b.impl->storage->data.get(), i, b._dtype());
+        write_scalar_at(result.impl->storage->data.get(), i, result._dtype(), val_a > val_b ? 1.0 : 0.0);
+    }
+    return result;
+}
+
+// Element-wise greater than or equal (a >= b)
+Tensor ge(const Tensor& a, const Tensor& b) {
+    if (a.numel_() != b.numel_())
+        throw std::runtime_error("Tensor comparison: size mismatch");
+    Tensor result(a.shape(), a._dtype(), false);
+    size_t n = a.numel_();
+    for (size_t i = 0; i < n; ++i) {
+        double val_a = read_scalar_at(a.impl->storage->data.get(), i, a._dtype());
+        double val_b = read_scalar_at(b.impl->storage->data.get(), i, b._dtype());
+        write_scalar_at(result.impl->storage->data.get(), i, result._dtype(), val_a >= val_b ? 1.0 : 0.0);
+    }
+    return result;
+}
+
+// Element-wise equal (a == b)
+Tensor eq(const Tensor& a, const Tensor& b) {
+    if (a.numel_() != b.numel_())
+        throw std::runtime_error("Tensor comparison: size mismatch");
+    Tensor result(a.shape(), a._dtype(), false);
+    size_t n = a.numel_();
+    for (size_t i = 0; i < n; ++i) {
+        double val_a = read_scalar_at(a.impl->storage->data.get(), i, a._dtype());
+        double val_b = read_scalar_at(b.impl->storage->data.get(), i, b._dtype());
+        write_scalar_at(result.impl->storage->data.get(), i, result._dtype(), val_a == val_b ? 1.0 : 0.0);
+    }
+    return result;
+}
+
+// Element-wise not equal (a != b)
+Tensor ne(const Tensor& a, const Tensor& b) {
+    if (a.numel_() != b.numel_())
+        throw std::runtime_error("Tensor comparison: size mismatch");
+    Tensor result(a.shape(), a._dtype(), false);
+    size_t n = a.numel_();
+    for (size_t i = 0; i < n; ++i) {
+        double val_a = read_scalar_at(a.impl->storage->data.get(), i, a._dtype());
+        double val_b = read_scalar_at(b.impl->storage->data.get(), i, b._dtype());
+        write_scalar_at(result.impl->storage->data.get(), i, result._dtype(), val_a != val_b ? 1.0 : 0.0);
+    }
+    return result;
+}
+
+
 Tensor operator+(const Tensor& a, const Tensor& b) { return add_(a,b); }
 Tensor operator+(const Tensor& a, double scalar) { return add_scalar(a,scalar); }
 Tensor operator+(double scalar,const Tensor& a ) { return add_scalar(a,scalar); }

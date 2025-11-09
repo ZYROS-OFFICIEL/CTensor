@@ -60,7 +60,7 @@ Tensor Loss::MAE(const Tensor& pred, const Tensor& target,std::string reduction)
 
     return result;
 }
-Tensor Loss::HuberLoss(const Tensor& pred, const Tensor& target,std::string reduction,float delta){
+Tensor Loss::HuberLoss(const Tensor& pred, const Tensor& target,std::string reduction,double delta){
     if (!pred.impl || !target.impl)
         throw std::runtime_error("Loss::HuberLoss: null tensor implementation");
 
@@ -70,19 +70,14 @@ Tensor Loss::HuberLoss(const Tensor& pred, const Tensor& target,std::string redu
     bool req = pred.requires_grad();
     Tensor result({1}, pred.impl->dtype, req);
 
+    
     // Compute Huber Loss
     Tensor diff = pred - target;
     Tensor abs_diff = abs_(diff);
-    if (abs_diff <= delta)
-    {
-        Tensor quadratic = 0.5 * pow_scalar(diff, 2);
-        Tensor huber_loss = quadratic;
-    }else{
-        Tensor linear = delta * (abs_diff - 0.5 * delta);
+    Tensor linear = delta * (abs_diff - 0.5 * delta);
+    Tensor quadratic = 0.5 * diff * diff;
 
-        Tensor huber_loss = linear;
-
-    }
+    Tensor huber_loss = (abs_diff <= delta) * quadratic + (abs_diff > delta) * linear;
     
     // Sum all elements
     Tensor summed = sum(huber_loss, -1);
