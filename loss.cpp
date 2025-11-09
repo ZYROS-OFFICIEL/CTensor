@@ -60,6 +60,45 @@ Tensor Loss::MAE(const Tensor& pred, const Tensor& target,std::string reduction)
 
     return result;
 }
+Tensor Loss::HuberLoss(const Tensor& pred, const Tensor& target,std::string reduction,float delta){
+    if (!pred.impl || !target.impl)
+        throw std::runtime_error("Loss::HuberLoss: null tensor implementation");
+
+    if (pred.impl->ndim != target.impl->ndim)
+        throw std::runtime_error("Loss::HuberLoss: dimension mismatch");
+
+    bool req = pred.requires_grad();
+    Tensor result({1}, pred.impl->dtype, req);
+
+    // Compute Huber Loss
+    Tensor diff = pred - target;
+    Tensor abs_diff = abs_(diff);
+    if (abs_diff <= delta)
+    {
+        Tensor quadratic = 0.5 * pow_scalar(diff, 2);
+        Tensor huber_loss = quadratic;
+    }else{
+        Tensor linear = delta * (abs_diff - 0.5 * delta);
+
+        Tensor huber_loss = linear;
+
+    }
+    
+    // Sum all elements
+    Tensor summed = sum(huber_loss, -1);
+    double huber_value = read_scalar_at(summed.impl->storage->data.get(), 0, summed._dtype());
+    if(reduction == "mean") {
+        huber_value /= static_cast<double>(pred.numel_());
+    }
+    write_scalar_at(result.impl->storage->data.get(), 0, result._dtype(), huber_value);
+
+    // Attach backward function if needed
+    if (req) {
+        result.impl->grad_fn = std::make_shared<GradHuberLoss>(pred, target, reduction, delta);
+    }
+
+    return result;
+}
 Tensor Loss::CrossEntropy(const Tensor& pred_, const Tensor& target_) {
     if (!pred_.impl || !target_.impl)
         throw std::runtime_error("Loss::CrossEntropy: null tensor implementation");
