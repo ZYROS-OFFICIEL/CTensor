@@ -260,8 +260,9 @@ void GradCrossEntropy::backward(const Tensor& self) {
     // Gradient: softmax(pred) - target
     Tensor grad_input = probs - target;
 
-    // Scale by mean if needed (since we averaged the loss)
+    if (reduction == "mean") {
     grad_input = grad_input / static_cast<double>(pred.shape()[0]);
+    }
 
     accumulate_grad(pred, grad_input);
 }
