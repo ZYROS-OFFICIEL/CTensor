@@ -163,6 +163,7 @@ void check_grad_matmul() {
 }
 
 int main() {
+    test_mae();
     test_cross_entropy();
     check_mse();
     check_grad_add();

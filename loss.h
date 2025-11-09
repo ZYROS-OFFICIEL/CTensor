@@ -6,7 +6,7 @@
 #include <immintrin.h>
 #include <cstring>
 #include "ops1.h"
-
+#include <string>
 #pragma once
 #include "tensor1.h"
 
@@ -14,7 +14,7 @@
 class Loss {
 public:
     static Tensor MSE(const Tensor& pred, const Tensor& target);
-    static Tensor MAE(const Tensor& pred, const Tensor& target,string reduction = "mean");
+    static Tensor MAE(const Tensor& pred, const Tensor& target,std::string reduction = "mean");
     // Later you can add:
     static Tensor CrossEntropy(const Tensor& pred, const Tensor& target);
 };

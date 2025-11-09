@@ -1,6 +1,6 @@
 #include "loss.h"
 #include <cmath>
-
+#include <string>
 Tensor Loss::MSE(const Tensor& pred_, const Tensor& target_) {
     if (!pred_.impl || !target_.impl)
         throw std::runtime_error("Loss::MSE: null tensor implementation");
@@ -29,7 +29,7 @@ Tensor Loss::MSE(const Tensor& pred_, const Tensor& target_) {
 
     return result;
 }
-static Tensor MAE(const Tensor& pred, const Tensor& target,string reduction = "mean"); {
+Tensor Loss::MAE(const Tensor& pred, const Tensor& target,std::string reduction){
     if (!pred.impl || !target.impl)
         throw std::runtime_error("Loss::MAE: null tensor implementation");
 
@@ -55,7 +55,7 @@ static Tensor MAE(const Tensor& pred, const Tensor& target,string reduction = "m
 
     // Attach backward function if needed
     if (req) {
-        result.impl->grad_fn = std::make_shared<GradMAE>(pred, target);
+        result.impl->grad_fn = std::make_shared<GradMAE>(pred, target, reduction);
     }
 
     return result;
