@@ -14,6 +14,18 @@ static bool close(double a, double b, double tol=1e-5) {
 double numerical_grad(std::function<double(double)> f, double x, double eps=1e-6) {
     return (f(x + eps) - f(x - eps)) / (2 * eps);
 }
+void test_mae() {
+    Tensor pred = Tensor::from_vector({2.0, 3.0}, {2}, DType::Float32, true);
+    Tensor target = Tensor::from_vector({4.0, 5.0}, {2}, DType::Float32, false);
+
+    Tensor loss_mean = Loss::MAE(pred, target, "mean");
+    std::cout << "MAE mean: " << loss_mean.read_scalar(0) << " expected 2.0\n";
+
+    backward(loss_mean);
+    float* g = (float*)pred.impl->storage->grad.get();
+    std::cout << "Grad pred (mean): [" << g[0] << ", " << g[1] << "] expected [-0.5, -0.5]\n";
+}
+
 void test_cross_entropy() {
     using namespace std;
 

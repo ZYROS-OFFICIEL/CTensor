@@ -119,19 +119,27 @@ void GradMAE::backward(const Tensor& self) {
     Tensor grad_input = tensor_from_grad(self);
     size_t n = pred.numel_();
 
+    auto* gdata = grad_input.impl->storage->data.get();
+    auto* pdata = pred.impl->storage->data.get();
+    auto* tdata = target.impl->storage->data.get();
+
     for (size_t i = 0; i < n; ++i) {
-        double p = read_scalar_at(pred.impl->storage->data.get(), i, pred._dtype());
-        double t = read_scalar_at(target.impl->storage->data.get(), i, target._dtype());
+        double p = read_scalar_at(pdata, i, pred._dtype());
+        double t = read_scalar_at(tdata, i, target._dtype());
         double sign = (p > t) ? 1.0 : ((p < t) ? -1.0 : 0.0);
-        double res = sign;
-        write_scalar_at(grad_input.impl->storage->data.get(), i, grad_input._dtype(), res);
+        double grad_val = sign;
+        write_scalar_at(gdata, i, grad_input._dtype(), grad_val);
     }
 
-    // If reduction was "mean", scale gradient
-    grad_input = grad_input / static_cast<double>(n);
+    // 🔹 If reduction is "mean", scale gradient
+    if (reduction == "mean") {
+        grad_input = grad_input / static_cast<double>(n);
+    }
+    // 🔹 If reduction == "sum", leave as-is (no scaling)
 
     accumulate_grad(pred, grad_input);
 }
+
 void GradCrossEntropy::backward(const Tensor& self) {
     if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
         throw std::runtime_error("CrossEntropy: missing self grad");
