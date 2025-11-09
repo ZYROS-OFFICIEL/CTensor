@@ -29,11 +29,16 @@ struct GradMSE : GradFn {
 };
 struct GradMAE : GradFn {
     Tensor pred, target;
-    GradMAE(const Tensor& pred_, const Tensor& target_) : pred(pred_), target(target_) {
+    std::string reduction;
+
+    GradMAE(const Tensor& pred_, const Tensor& target_, const std::string& reduction_)
+        : pred(pred_), target(target_), reduction(reduction_) {
         parents = {pred};
     }
+
     void backward(const Tensor& self) override;
 };
+
 struct GradCrossEntropy : GradFn {
     Tensor pred, target;
     GradCrossEntropy(const Tensor& pred_, const Tensor& target_) : pred(pred_), target(target_) {
