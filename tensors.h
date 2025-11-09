@@ -563,5 +563,19 @@ static std::vector<size_t> broadcast_batch_shape_from_vectors(const std::vector<
     return result;
 }
 
+// gather_nd.cpp
+// N-dimensional `gather` implementation for your Tensor class.
+// Usage: Tensor out = gather(input, indices, dim);
+// - `input`: N-D tensor
+// - `indices`: N-D tensor with the same number of dimensions as `input`.
+// Each element of `indices` selects the index along `dim` for the
+// corresponding coordinate in `indices`'s shape.
+// - `dim`: dimension of `input` to index into
+// Returns a tensor with the same shape as `indices` and the same dtype as `input`.
+// Notes:
+// - Supports negative indices (like Python: -1 means last element).
+// - Checks bounds and dimensionality.
+// - Preserves `requires_grad` from `input` but does NOT attach a grad_fn.
 
+Tensor gather(const Tensor& input, const Tensor& indices, size_t dim);
 
