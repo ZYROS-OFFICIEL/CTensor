@@ -55,8 +55,7 @@ static Tensor MAE(const Tensor& pred, const Tensor& target,string reduction = "m
 
     // Attach backward function if needed
     if (req) {
-        // You would implement and attach a GradMAE class similar to GradMSE
-        // result.impl->grad_fn = std::make_shared<GradMAE>(pred, target);
+        result.impl->grad_fn = std::make_shared<GradMAE>(pred, target);
     }
 
     return result;
