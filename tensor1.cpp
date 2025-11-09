@@ -4,7 +4,8 @@
 #include <ctime>
 #include <cstring>
 #include <algorithm>
-
+#include <stdexcept>
+#include <vector>
 // Storage implementation
 std::shared_ptr<Storage> Storage::allocate(size_t n, DType dt, bool requires_grad) {
     auto s = std::make_shared<Storage>();
