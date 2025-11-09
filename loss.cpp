@@ -164,6 +164,38 @@ Tensor Loss::BCE(const Tensor& pred, const Tensor& target,std::string reduction)
     return result;
 }
 
+Tensor Loss::KLDiv(const Tensor& pred, const Tensor& target,std::string reduction){
+    if (!pred.impl || !target.impl)
+        throw std::runtime_error("Loss::KLDiv: null tensor implementation");
+
+    if (pred.impl->ndim != target.impl->ndim)
+        throw std::runtime_error("Loss::KLDiv: dimension mismatch");
+
+    bool req = pred.requires_grad();
+    Tensor result({1}, pred.impl->dtype, req);
+
+    // Compute KL Divergence Loss
+    Tensor log_pred = ln_(pred + 1e-12); // to avoid log(0)
+    Tensor kl_loss = target * (log_pred - ln_(target + 1e-12));
+
+    // Sum all elements
+    Tensor summed = sum(kl_loss, -1);
+    double kl_value = read_scalar_at(summed.impl->storage->data.get(), 0, summed._dtype());
+
+    if(reduction == "mean") {
+        kl_value /= static_cast<double>(pred.numel_());
+    }
+
+    write_scalar_at(result.impl->storage->data.get(), 0, result._dtype(), kl_value);
+
+    // Attach backward function if needed
+    if (req) {
+        result.impl->grad_fn = std::make_shared<GradKLDiv>(pred, target, reduction);
+    }
+
+    return result;
+}
+
 
 void GradMSE::backward(const Tensor& self) {
     if (!self.impl || !self.impl->storage || !self.impl->storage->grad)

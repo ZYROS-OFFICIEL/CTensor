@@ -20,6 +20,7 @@ public:
     static Tensor CrossEntropy(const Tensor& pred, const Tensor& target);
     //Classification losses:
     static Tensor BCE(const Tensor& pred, const Tensor& target,std::string reduction = "mean");
+    static Tensor KLDiv(const Tensor& pred, const Tensor& target,std::string reduction = "mean");
 };
 
 // Gradient function for MSE
@@ -67,6 +68,18 @@ struct GradBCE : GradFn {
     std::string reduction;
 
     GradBCE(const Tensor& pred_, const Tensor& target_, const std::string& reduction_)
+        : pred(pred_), target(target_), reduction(reduction_) {
+        parents = {pred};
+    }
+
+    void backward(const Tensor& self) override;
+};
+
+struct GradKLDiv : GradFn {
+    Tensor pred, target;
+    std::string reduction;
+
+    GradKLDiv(const Tensor& pred_, const Tensor& target_, const std::string& reduction_)
         : pred(pred_), target(target_), reduction(reduction_) {
         parents = {pred};
     }
