@@ -196,6 +196,37 @@ Tensor Loss::KLDiv(const Tensor& pred, const Tensor& target,std::string reductio
     return result;
 }
 
+Tensor Loss::NLLLoss(const Tensor& pred, const Tensor& target,std::string reduction){
+    if (!pred.impl || !target.impl)
+        throw std::runtime_error("Loss::NLLLoss: null tensor implementation");
+
+    if (pred.impl->ndim != target.impl->ndim)
+        throw std::runtime_error("Loss::NLLLoss: dimension mismatch");
+
+    bool req = pred.requires_grad();
+    Tensor result({1}, pred.impl->dtype, req);
+
+    // Compute NLL Loss
+    Tensor nll_loss = - sum(target * ln_(pred + 1e-12), -1); // to avoid log(0)
+
+    // Sum all elements
+    Tensor summed = sum(nll_loss, -1);
+    double nll_value = read_scalar_at(summed.impl->storage->data.get(), 0, summed._dtype());
+
+    if(reduction == "mean") {
+        nll_value /= static_cast<double>(pred.numel_());
+    }
+
+    write_scalar_at(result.impl->storage->data.get(), 0, result._dtype(), nll_value);
+
+    // Attach backward function if needed
+    if (req) {
+        result.impl->grad_fn = std::make_shared<GradNLLLoss>(pred, target, reduction);
+    }
+
+    return result;
+}
+
 
 void GradMSE::backward(const Tensor& self) {
     if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
@@ -330,3 +361,30 @@ void GradBCE::backward(const Tensor& self) {
     accumulate_grad(pred, grad_input);
 }
 
+void GradKLDiv::backward(const Tensor& self) {
+    if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
+        throw std::runtime_error("GradKLDiv: missing self grad");
+    if (!pred.requires_grad()) return;
+
+    Tensor grad_input = tensor_from_grad(self);
+    size_t n = pred.numel_();
+
+    auto* gdata = grad_input.impl->storage->data.get();
+    auto* pdata = pred.impl->storage->data.get();
+    auto* tdata = target.impl->storage->data.get();
+
+    for (size_t i = 0; i < n; ++i) {
+        double p = read_scalar_at(pdata, i, pred._dtype());
+        double t = read_scalar_at(tdata, i, target._dtype());
+        double grad_val = ( (p > 1e-12) ? (t / (p + 1e-12)) : 0.0 ); // derivative of KLDiv
+        write_scalar_at(gdata, i, grad_input._dtype(), grad_val);
+    }
+
+    // 🔹 If reduction is "mean", scale gradient
+    if (reduction == "mean") {
+        grad_input = grad_input / static_cast<double>(n);
+    }
+    // 🔹 If reduction == "sum", leave as-is (no scaling)
+
+    accumulate_grad(pred, grad_input);
+}

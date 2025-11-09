@@ -21,6 +21,7 @@ public:
     //Classification losses:
     static Tensor BCE(const Tensor& pred, const Tensor& target,std::string reduction = "mean");
     static Tensor KLDiv(const Tensor& pred, const Tensor& target,std::string reduction = "mean");
+    static Tensor NLLLoss(const Tensor& pred, const Tensor& target,std::string reduction = "mean");
 };
 
 // Gradient function for MSE
