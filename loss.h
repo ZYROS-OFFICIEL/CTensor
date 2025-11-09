@@ -62,3 +62,14 @@ struct GradCrossEntropy : GradFn {
     }
     void backward(const Tensor& self) override;
 };
+struct GradBCE : GradFn {
+    Tensor pred, target;
+    std::string reduction;
+
+    GradBCE(const Tensor& pred_, const Tensor& target_, const std::string& reduction_)
+        : pred(pred_), target(target_), reduction(reduction_) {
+        parents = {pred};
+    }
+
+    void backward(const Tensor& self) override;
+};
