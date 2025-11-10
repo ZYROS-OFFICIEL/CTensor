@@ -20,6 +20,7 @@ public:
         return HuberLoss(pred, target, reduction, 1.0);
     }
     static Tensor CrossEntropy(const Tensor& pred, const Tensor& target);
+    static Tensor LogCosh(const Tensor& pred, const Tensor& target,std::string reduction = "mean");
     //Classification losses:
     static Tensor BCE(const Tensor& pred, const Tensor& target,std::string reduction = "mean");
     static Tensor KLDiv(const Tensor& pred, const Tensor& target,std::string reduction = "mean");
@@ -27,6 +28,7 @@ public:
     static Tensor HingeLoss(const Tensor& pred, const Tensor& target,std::string reduction = "mean");
     //Ranking losses:
     static Tensor MarginRankingLoss(const Tensor& input1, const Tensor& input2, const Tensor& target, double margin = 0.0, std::string reduction = "mean");
+
 };
 
 // Gradient function for MSE
