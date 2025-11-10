@@ -127,6 +127,39 @@ Tensor Loss::CrossEntropy(const Tensor& pred_, const Tensor& target_) {
     return result;
 }
 
+Tensor Loss::LogCosh(const Tensor& pred, const Tensor& target,std::string reduction){
+    if (!pred.impl || !target.impl)
+        throw std::runtime_error("Loss::LogCosh: null tensor implementation");
+
+    if (pred.impl->ndim != target.impl->ndim)
+        throw std::runtime_error("Loss::LogCosh: dimension mismatch");
+
+    bool req = pred.requires_grad();
+    Tensor result({1}, pred.impl->dtype, req);
+
+    // Compute Log-Cosh Loss
+    Tensor diff = pred - target;
+    Tensor log_cosh_loss = ln_(cosh_(diff));
+
+    // Sum all elements
+    Tensor summed = sum(log_cosh_loss, -1);
+    double log_cosh_value = read_scalar_at(summed.impl->storage->data.get(), 0, summed._dtype());
+
+    if(reduction == "mean") {
+        log_cosh_value /= static_cast<double>(pred.numel_());
+    }
+
+    write_scalar_at(result.impl->storage->data.get(), 0, result._dtype(), log_cosh_value);
+
+    // Attach backward function if needed
+    if (req) {
+        // Note: GradLogCosh needs to be implemented similarly to other GradFns
+        result.impl->grad_fn = std::make_shared<GradLogCosh>(pred, target, reduction);
+    }
+
+    return result;
+}
+
 Tensor Loss::BCE(const Tensor& pred, const Tensor& target,std::string reduction){
     if (!pred.impl || !target.impl)
         throw std::runtime_error("Loss::BCE: null tensor implementation");
