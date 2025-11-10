@@ -205,7 +205,7 @@ Tensor Loss::NLLLoss(const Tensor& pred, const Tensor& target,std::string reduct
 
     bool req = pred.requires_grad();
     Tensor picked = gather(pred, target, 1);  // selects pred[i, target[i]]
-    
+
     // 3️⃣ Compute the NLL loss per sample
     Tensor nll_loss = - ln_(picked + 1e-12);  // shape: [batch_size, 1]
 
@@ -377,6 +377,37 @@ void GradKLDiv::backward(const Tensor& self) {
         double p = read_scalar_at(pdata, i, pred._dtype());
         double t = read_scalar_at(tdata, i, target._dtype());
         double grad_val = ( (p > 1e-12) ? (t / (p + 1e-12)) : 0.0 ); // derivative of KLDiv
+        write_scalar_at(gdata, i, grad_input._dtype(), grad_val);
+    }
+
+    // 🔹 If reduction is "mean", scale gradient
+    if (reduction == "mean") {
+        grad_input = grad_input / static_cast<double>(n);
+    }
+    // 🔹 If reduction == "sum", leave as-is (no scaling)
+
+    accumulate_grad(pred, grad_input);
+}
+
+void GradNLLLoss::backward(const Tensor& self) {
+    if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
+        throw std::runtime_error("GradNLLLoss: missing self grad");
+    if (!pred.requires_grad()) return;
+
+    Tensor grad_input = tensor_from_grad(self);
+    size_t n = pred.numel_();
+
+    auto* gdata = grad_input.impl->storage->data.get();
+    auto* pdata = pred.impl->storage->data.get();
+    auto* tdata = target.impl->storage->data.get();
+
+    for (size_t i = 0; i < n; ++i) {
+        double p = read_scalar_at(pdata, i, pred._dtype());
+        double t = read_scalar_at(tdata, i, target._dtype());
+        double grad_val = 0.0;
+        if (static_cast<size_t>(t) == i % pred.shape()[1]) { // assuming target contains class indices
+            grad_val = -1.0 / (p + 1e-12); // derivative of NLLLoss
+        }
         write_scalar_at(gdata, i, grad_input._dtype(), grad_val);
     }
 
