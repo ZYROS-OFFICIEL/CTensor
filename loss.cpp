@@ -261,6 +261,40 @@ Tensor HingeLoss(const Tensor& pred, const Tensor& target,std::string reduction)
     return result;
 }
 
+
+Tensor MarginRankingLoss(const Tensor& input1, const Tensor& input2, const Tensor& target, double margin, std::string reduction) {
+    if (!input1.impl || !input2.impl || !target.impl)
+        throw std::runtime_error("Loss::MarginRankingLoss: null tensor implementation");
+
+    if (input1.impl->ndim != input2.impl->ndim || input1.impl->ndim != target.impl->ndim)
+        throw std::runtime_error("Loss::MarginRankingLoss: dimension mismatch");
+
+    bool req = input1.requires_grad();
+    Tensor result({1}, input1.impl->dtype, req);
+
+    // Compute Margin Ranking Loss
+    Tensor diff = input1 - input2;
+    Tensor margin_tensor = margin - target * diff;
+    Tensor loss = Relu_(margin_tensor);
+
+    // Sum all elements
+    Tensor summed = sum(loss);
+    double loss_value = read_scalar_at(summed.impl->storage->data.get(), 0, summed._dtype());
+
+    if(reduction == "mean") {
+        loss_value /= static_cast<double>(input1.numel_());
+    }
+
+    write_scalar_at(result.impl->storage->data.get(), 0, result._dtype(), loss_value);
+
+    // Attach backward function if needed
+    if (req) {
+        result.impl->grad_fn = std::make_shared<GradMarginRankingLoss>(input1, input2, target, margin, reduction);
+    }
+
+    return result;
+}
+
 void GradMSE::backward(const Tensor& self) {
     if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
         throw std::runtime_error("GradMSE: missing self grad");

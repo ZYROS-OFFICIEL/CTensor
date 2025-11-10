@@ -19,14 +19,14 @@ public:
     static Tensor SmoothL1Loss(const Tensor& pred, const Tensor& target,std::string reduction = "mean") {
         return HuberLoss(pred, target, reduction, 1.0);
     }
-    // Later you can add:
     static Tensor CrossEntropy(const Tensor& pred, const Tensor& target);
     //Classification losses:
     static Tensor BCE(const Tensor& pred, const Tensor& target,std::string reduction = "mean");
     static Tensor KLDiv(const Tensor& pred, const Tensor& target,std::string reduction = "mean");
     static Tensor NLLLoss(const Tensor& pred, const Tensor& target,std::string reduction = "mean");
     static Tensor HingeLoss(const Tensor& pred, const Tensor& target,std::string reduction = "mean");
-    
+    //Ranking losses:
+    static Tensor MarginRankingLoss(const Tensor& input1, const Tensor& input2, const Tensor& target, double margin = 0.0, std::string reduction = "mean");
 };
 
 // Gradient function for MSE
