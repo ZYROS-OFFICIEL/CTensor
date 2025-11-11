@@ -69,7 +69,58 @@ Tensor Conv1d::forward(const Tensor& input) {
     return output;
 }
 
-Tensor 
+Tensor Conv2d::forward(const Tensor& input) {
+    if (!input.impl) throw std::runtime_error("Conv2d::forward: null input");
+
+    // input shape assumed [batch, in_channels, height, width]
+    size_t batch = input.impl->shape[0];
+    size_t in_c  = input.impl->shape[1];
+    size_t height = input.impl->shape[2];
+    size_t width  = input.impl->shape[3];
+
+    int out_h = (int)(( (int)height + 2 * padding_h - kernel_size_h) / stride_h + 1);
+    int out_w = (int)(( (int)width  + 2 * padding_w - kernel_size_w) / stride_w + 1);
+    if (out_h <= 0 || out_w <= 0) throw std::runtime_error("Conv2d::forward: invalid output dimensions");
+
+    std::vector<size_t> out_shape = { batch, (size_t)out_channels, (size_t)out_h, (size_t)out_w };
+    bool req = input.requires_grad() || weight.requires_grad() || bias.requires_grad();
+
+    Tensor output(out_shape, input._dtype(), req);
+
+    // compute convolution (naive)
+    for (size_t b = 0; b < batch; ++b) {
+        for (int oc = 0; oc < out_channels; ++oc) {
+            for (int oh = 0; oh < out_h; ++oh) {
+                for (int ow = 0; ow < out_w; ++ow) {
+                    // start with bias
+                    double acc = bias[(size_t)oc]; // proxy -> double
+                    for (size_t ic = 0; ic < in_c; ++ic) {
+                        for (int kh = 0; kh < kernel_size_h; ++kh) {
+                            for (int kw = 0; kw < kernel_size_w; ++kw) {
+                                int ih = oh * stride_h + kh - padding_h;
+                                int iw = ow * stride_w + kw - padding_w;
+                                if (ih >= 0 && ih < (int)height && iw >= 0 && iw < (int)width) {
+                                    double in_val = input[b][ic][(size_t)ih][(size_t)iw];
+                                    double w_val  = weight[(size_t)oc][ic][(size_t)kh][(size_t)kw];
+                                    acc += in_val * w_val;
+                                }
+                            }
+                        }
+                    }
+                    output[b][(size_t)oc][(size_t)oh][(size_t)ow] = acc;
+                }
+            }
+        }
+    }
+    // attach grad fn if needed
+    if (req) {
+        output.impl->grad_fn = std::make_shared<GradConv2d>(input, weight, bias, stride_h, stride_w, padding_h, padding_w);
+    }
+    return output;
+}
+
+
+
 
 // Backward
 void GradConv1d::backward(const Tensor& self) {
