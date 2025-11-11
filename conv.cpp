@@ -12,6 +12,17 @@ Conv1d::Conv1d(int in_c, int out_c, int k, int s, int p)
     bias   = Tensor::zeros({(size_t)out_c}, DType::Float32, true);
 }
 
+Conv2d::Conv2d(int in_c, int out_c, int kh, int kw, int sh, int sw, int ph, int pw)
+    : in_channels(in_c), out_channels(out_c),
+      kernel_size_h(kh), kernel_size_w(kw),
+      stride_h(sh), stride_w(sw),
+      padding_h(ph), padding_w(pw)
+{
+    // weights: [out_c, in_c, kernel_size_h, kernel_size_w]
+    weight = Tensor::rand({(size_t)out_c, (size_t)in_c, (size_t)kh, (size_t)kw}, DType::Float32, true);
+    bias   = Tensor::zeros({(size_t)out_c}, DType::Float32, true);
+}
+
 // Forward
 Tensor Conv1d::forward(const Tensor& input) {
     if (!input.impl) throw std::runtime_error("Conv1d::forward: null input");
@@ -57,6 +68,8 @@ Tensor Conv1d::forward(const Tensor& input) {
 
     return output;
 }
+
+Tensor 
 
 // Backward
 void GradConv1d::backward(const Tensor& self) {
