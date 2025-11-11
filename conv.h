@@ -80,6 +80,7 @@ struct GradConv2d: GradFn {
     void backward(const Tensor& self) override;
 };
 
+//adding depth for Conv3d
 struct GradConv3d: GradFn {
     Tensor input, weight, bias;
     int stride_d, stride_h, stride_w;
