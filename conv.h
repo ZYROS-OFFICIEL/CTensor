@@ -9,8 +9,6 @@
 #include <string>
 #pragma once
 #include "tensor1.h"
-#pragma once
-#include "../tensor.h"
 
 
 

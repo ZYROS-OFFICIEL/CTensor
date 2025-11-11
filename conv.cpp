@@ -26,7 +26,7 @@ Conv3d::Conv3d(int in_c, int out_c,int kd ,int kh, int kw,int sd, int sh, int sw
     : in_channels(in_c), out_channels(out_c),
       kernel_size_d(kd),kernel_size_h(kh), kernel_size_w(kw),
       stride_d(sd),stride_h(sh), stride_w(sw),
-      padding_d(pd),padding_h(ph), padding_w(pw),
+      padding_d(pd),padding_h(ph), padding_w(pw)
 {
     // weights: [out_c, in_c,kernel_size_d, kernel_size_h, kernel_size_w]
     weight = Tensor::rand({(size_t)out_c, (size_t)in_c,(size_t)kd, (size_t)kh, (size_t)kw}, DType::Float32, true);
@@ -293,9 +293,9 @@ void GradConv1d::backward(const Tensor& self) {
     Tensor grad_output = tensor_from_grad(self);
 
     // prepare zero tensors for grads (same shapes as originals)
-    Tensor grad_input  = Tensor::zeros(input.impl->shape, input._dtype(), false);
-    Tensor grad_weight = Tensor::zeros(weight.impl->shape, weight._dtype(), false);
-    Tensor grad_bias   = Tensor::zeros(bias.impl->shape, bias._dtype(), false);
+    Tensor grad_input  = Tensor::zeros(input.shape(), input._dtype(), false);
+    Tensor grad_weight = Tensor::zeros(weight.shape(), weight._dtype(), false);
+    Tensor grad_bias   = Tensor::zeros(bias.shape(), bias._dtype(), false);
 
     size_t batch = input.impl->shape[0];
     size_t in_c  = input.impl->shape[1];
