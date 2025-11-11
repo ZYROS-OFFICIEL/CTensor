@@ -22,11 +22,11 @@ Conv2d::Conv2d(int in_c, int out_c, int kh, int kw, int sh, int sw, int ph, int 
     weight = Tensor::rand({(size_t)out_c, (size_t)in_c, (size_t)kh, (size_t)kw}, DType::Float32, true);
     bias   = Tensor::zeros({(size_t)out_c}, DType::Float32, true);
 }
-Conv3d::Conv3d(int in_c, int out_c,,int kd int kh, int kw,int sd, int sh, int sw,int pd, int ph, int pw)
+Conv3d::Conv3d(int in_c, int out_c,int kd ,int kh, int kw,int sd, int sh, int sw,int pd, int ph, int pw)
     : in_channels(in_c), out_channels(out_c),
-      kernel_size_h(kh), kernel_size_w(kw),kernel_size_d(kd)
-      stride_h(sh), stride_w(sw), stride_d(sd),
-      padding_h(ph), padding_w(pw), padding_d(pd)
+      kernel_size_d(kd),kernel_size_h(kh), kernel_size_w(kw),
+      stride_d(sd),stride_h(sh), stride_w(sw),
+      padding_d(pd),padding_h(ph), padding_w(pw),
 {
     // weights: [out_c, in_c,kernel_size_d, kernel_size_h, kernel_size_w]
     weight = Tensor::rand({(size_t)out_c, (size_t)in_c,(size_t)kd, (size_t)kh, (size_t)kw}, DType::Float32, true);
@@ -178,9 +178,9 @@ Tensor Conv2d::forward(const Tensor& input) {
 }
 
 
-// --- HIGH-PERFORMANCE Conv2d::forward (im2col + MatMul) ---
+// --- HIGH-PERFORMANCE Conv3d::forward (im2col + MatMul) ---
 Tensor Conv3d::forward(const Tensor& input) {
-    if (!input.impl) throw std::runtime_error("Conv2d::forward: null input");
+    if (!input.impl) throw std::runtime_error("Conv3d::forward: null input");
 
     // input shape: [batch, in_c, height, width]
     size_t batch = input.impl->shape[0];
@@ -191,47 +191,52 @@ Tensor Conv3d::forward(const Tensor& input) {
 
 
     // Calculate output dimensions
+    int out_d = (int)(( (int)depth + 2 * padding_d - kernel_size_d) / stride_d + 1);
     int out_h = (int)(( (int)height + 2 * padding_h - kernel_size_h) / stride_h + 1);
     int out_w = (int)(( (int)width  + 2 * padding_w - kernel_size_w) / stride_w + 1);
-    if (out_h <= 0 || out_w <= 0) throw std::runtime_error("Conv2d::forward: invalid output dimensions");
+    if (out_d <= 0 || out_h <= 0 || out_w <= 0) throw std::runtime_error("Conv3d::forward: invalid output dimensions");
 
     // --- Step 1: Flatten the Kernels (Weight Matrix) ---
     // Reshape from [out_c, in_c, k_h, k_w] to [out_c, (in_c * k_h * k_w)]
-    size_t kernel_patch_size = in_c * kernel_size_h * kernel_size_w;
+    size_t kernel_patch_size = in_c *kernel_size_d*kernel_size_h * kernel_size_w;
     std::vector<size_t> w_flat_shape = {(size_t)out_channels, kernel_patch_size};
     Tensor w_flat = weight.reshape(w_flat_shape);
 
     // --- Step 2: Create the im2col "Patch Matrix" ---
-    // Output shape will be [kernel_patch_size, (batch * out_h * out_w)]
-    size_t num_patches = batch * out_h * out_w;
+    // Output shape will be [kernel_patch_size, (batch *out_d* out_h * out_w)]
+    size_t num_patches = batch *out_d* out_h * out_w;
     Tensor input_patches = Tensor::zeros({kernel_patch_size, num_patches}, input._dtype(), false);
 
     // This loop is the im2col transformation
     size_t patch_col_idx = 0; // Current column in input_patches
     for (size_t b = 0; b < batch; ++b) {
-        for (int oh = 0; oh < out_h; ++oh) {
-            for (int ow = 0; ow < out_w; ++ow) {
-                // For this output pixel (oh, ow), extract its corresponding patch
-                size_t patch_row_idx = 0; // Current row in this column
-                for (size_t ic = 0; ic < in_c; ++ic) {
-                    for (int kh = 0; kh < kernel_size_h; ++kh) {
-                        for (int kw = 0; kw < kernel_size_w; ++kw) {
-                            
-                            int ih = oh * stride_h + kh - padding_h;
-                            int iw = ow * stride_w + kw - padding_w;
+        for (int od = 0; od < out_d; ++od) {
+            for (int oh = 0; oh < out_h; ++oh) {
+                for (int ow = 0; ow < out_w; ++ow) {
+                    // For this output pixel (oh, ow), extract its corresponding patch
+                    size_t patch_row_idx = 0; // Current row in this column
+                    for (size_t ic = 0; ic < in_c; ++ic) {
+                        for (int kd = 0; kd < kernel_size_d; ++kd) {
+                            for (int kh = 0; kh < kernel_size_h; ++kh) {
+                                for (int kw = 0; kw < kernel_size_w; ++kw) {
+                                    int id = od * stride_d + kd - padding_d;
+                                    int ih = oh * stride_h + kh - padding_h;
+                                    int iw = ow * stride_w + kw - padding_w;
 
-                            // Handle padding: if (ih, iw) is outside, write 0.0
-                            if (ih >= 0 && ih < (int)height && iw >= 0 && iw < (int)width) {
-                                // Use proxy access for readability
-                                input_patches[patch_row_idx][patch_col_idx] = input[b][ic][(size_t)ih][(size_t)iw];
+                                    // Handle padding: if (id,ih, iw) is outside, write 0.0
+                                    if (id >= 0 && id < (int)depth && ih >= 0 && ih < (int)height && iw >= 0 && iw < (int)width) {
+                                        // Use proxy access for readability
+                                        input_patches[patch_row_idx][patch_col_idx] = input[b][ic][(size_t)id][(size_t)ih][(size_t)iw];
+                                    }
+                                    // else: it's already 0 from Tensor::zeros
+
+                                    patch_row_idx++;
+                                }
                             }
-                            // else: it's already 0 from Tensor::zeros
-                            
-                            patch_row_idx++;
                         }
                     }
+                    patch_col_idx++;
                 }
-                patch_col_idx++;
             }
         }
     }
@@ -239,7 +244,7 @@ Tensor Conv3d::forward(const Tensor& input) {
     // --- Step 3: The MatMul ---
     // C = W_flat @ Input_patches
     // Shapes: [out_c, kernel_patch_size] @ [kernel_patch_size, num_patches]
-    // Result shape: [out_c, num_patches] or [out_c, (batch * out_h * out_w)]
+    // Result shape: [out_c, num_patches] or [out_c, (batch *out_d* out_h * out_w)]
     Tensor output_flat = matmul_(w_flat, input_patches);
 
     // --- Step 4: Add Bias ---
@@ -251,11 +256,11 @@ Tensor Conv3d::forward(const Tensor& input) {
     output_flat = output_flat + bias_col;
 
     // --- Step 5: Reshape Output ---
-    // Reshape from [out_c, (batch * out_h * out_w)] to [out_c, batch, out_h, out_w]
-    Tensor output_reshaped = output_flat.reshape({(size_t)out_channels, batch, (size_t)out_h, (size_t)out_w});
+    // Reshape from [out_c, (batch *out_d* out_h * out_w)] to [out_c, batch,out_d, out_h, out_w]
+    Tensor output_reshaped = output_flat.reshape({(size_t)out_channels, batch,(size_t)out_d, (size_t)out_h, (size_t)out_w});
     
     // Permute to [batch, out_c, out_h, out_w]
-    Tensor output = output_reshaped.permute({1, 0, 2, 3});
+    Tensor output = output_reshaped.permute({1, 0,2,3,4});
 
     // --- Attach Grad Fn (if needed) ---
     bool req = input.requires_grad() || weight.requires_grad() || bias.requires_grad();
@@ -272,7 +277,7 @@ Tensor Conv3d::forward(const Tensor& input) {
         // For now, we link the old one, but it will NOT produce
         // correct gradients for this forward pass.
         // !! ------------------------- !!
-        output.impl->grad_fn = std::make_shared<GradConv2d>(input, weight, bias, stride_h, stride_w, padding_h, padding_w);
+        output.impl->grad_fn = std::make_shared<GradConv3d>(input, weight, bias,stride_d, stride_h, stride_w,padding_d, padding_h, padding_w);
     }
     
     return output;
