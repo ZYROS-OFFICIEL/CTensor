@@ -41,6 +41,21 @@ public:
     Tensor operator()(const Tensor& input) { return forward(input); }
 };
 
+class Conv3d {
+public:
+    int in_channels, out_channels;
+    int kernel_size_d, kernel_size_h, kernel_size_w;
+    int stride_d, stride_h, stride_w;
+    int padding_d, padding_h, padding_w;
+    Tensor weight, bias;
+
+    Conv3d(int in_c, int out_c, int kd, int kh, int kw, int sd = 1, int sh = 1, int sw = 1, int pd = 0, int ph = 0, int pw = 0);
+
+    // forward & call operator
+    Tensor forward(const Tensor& input);
+    Tensor operator()(const Tensor& input) { return forward(input); }
+};
+
 // Grad node for Conv1d
 struct GradConv1d : GradFn {
     Tensor input, weight, bias;
