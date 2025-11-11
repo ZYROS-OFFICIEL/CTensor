@@ -22,11 +22,11 @@ Conv2d::Conv2d(int in_c, int out_c, int kh, int kw, int sh, int sw, int ph, int 
     weight = Tensor::rand({(size_t)out_c, (size_t)in_c, (size_t)kh, (size_t)kw}, DType::Float32, true);
     bias   = Tensor::zeros({(size_t)out_c}, DType::Float32, true);
 }
-Conv3d::Conv3d(int in_c, int out_c, int kh, int kw, int sh, int sw, int ph, int pw)
+Conv3d::Conv3d(int in_c, int out_c,,int kd int kh, int kw,int sd, int sh, int sw,int pd, int ph, int pw)
     : in_channels(in_c), out_channels(out_c),
-      kernel_size_h(kh), kernel_size_w(kw),
-      stride_h(sh), stride_w(sw),
-      padding_h(ph), padding_w(pw)
+      kernel_size_h(kh), kernel_size_w(kw),kernel_size_d(kd)
+      stride_h(sh), stride_w(sw), stride_d(sd),
+      padding_h(ph), padding_w(pw), padding_d(pd)
 {
     // weights: [out_c, in_c, kernel_size_h, kernel_size_w]
     weight = Tensor::rand({(size_t)out_c, (size_t)in_c, (size_t)kh, (size_t)kw}, DType::Float32, true);
