@@ -85,123 +85,89 @@ static size_t dim_in_padded(const Tensor& target, size_t nd, size_t idx) {
     return target.impl->shape[idx - (nd - tnd)];
 }
 
-// ------------------ accumulate_grad (broadcast-aware) ------------------
-// accumulates gradient from grad_src into target.
-// grad_src may have its values in .impl->storage->grad (preferred) or in .impl->storage->data
+// Broadcast-aware accumulate_grad: map values from grad_src into target.impl->storage->grad
 inline void accumulate_grad(Tensor& target, const Tensor& grad_src) {
     if (!target.impl) throw std::runtime_error("accumulate_grad: target undefined");
     if (!grad_src.impl) throw std::runtime_error("accumulate_grad: grad_src undefined");
 
-    size_t nd_t = target.impl->ndim;
-    size_t nd_g = grad_src.impl->ndim;
+    // Ensure target has grad buffer allocated
+    ensure_grad_buffer(target, true);
 
-    // If target.ndim < grad_src.ndim, we treat target as left-padded with 1s.
-    // Determine axes where target has 1 and grad has >1 (these axes need reduction).
+    // Step 1: determine axes that must be reduced (where target has dim=1 but grad_src has >1)
+    size_t nd_t = target.impl->ndim;
+    size_t nd_g0 = grad_src.impl->ndim;
+
     std::vector<int> axes_to_reduce;
-    for (size_t i = 0; i < nd_g; ++i) {
-        size_t td = dim_in_padded(target, nd_g, i);
+    for (size_t i = 0; i < nd_g0; ++i) {
+        size_t td = dim_in_padded(target, nd_g0, i);            // target dim when left-padded to nd_g0
         size_t gd = grad_src.impl->shape[i];
         if (td == 1 && gd > 1) axes_to_reduce.push_back((int)i);
     }
 
-    // If no axes to reduce AND shapes match elementwise (after padding) we can accumulate directly
-    bool shapes_match = true;
-    if (nd_t != nd_g) shapes_match = false;
-    else {
-        for (size_t i = 0; i < nd_g; ++i) {
-            size_t td = dim_in_padded(target, nd_g, i);
-            size_t gd = grad_src.impl->shape[i];
-            if (td != gd) { shapes_match = false; break; }
-        }
-    }
-
-    // Prepare a grad tensor `g_aligned` that has same shape as `target` (possibly with singleton dims)
+    // Step 2: reduce grad_src over axes_to_reduce (keep dims) so broadcasting is explicit
     Tensor g_aligned = grad_src;
     if (!axes_to_reduce.empty()) {
-        // reduce sum over axes_to_reduce but keep dims (so shape becomes same as grad_src but with ones on reduced axes)
         g_aligned = reduce_sum_axes_keepdims(grad_src, axes_to_reduce);
     }
-    // Now g_aligned has same ndim as grad_src; if target.ndim < g_aligned.ndim, we must squeeze padding:
-    // We want a tensor with exactly the same layout/ndim as target (left-padded). If target.ndim < g_aligned.ndim,
-    // we need to remove leftmost leading dims that correspond to padding in target.
-    if (target.impl->ndim < g_aligned.impl->ndim) {
-        // remove leftmost dims where target is implicitly size 1 (i.e., drop dims until nd matches)
-        size_t drop = g_aligned.impl->ndim - target.impl->ndim;
-        // we can sum/reshape, but easiest is to create a view via reshape to match target.numel if contiguous.
-        // For simplicity we will *reshape* by using `reshape` only if total elements match.
-        // Convert g_aligned to contiguous flat tensor and then reshape to target.numel
-        // But we can instead create a new Tensor g2 with shape padded to target.impl->ndim and copy values elementwise.
-        // Simpler approach: use pad_to_ndim on target to expand it to g_aligned.ndim, then we will compare shapes.
-        Tensor t_padded = pad_to_ndim(target, g_aligned.impl->ndim);
-        // now t_padded and g_aligned have same ndim; we only need to ensure their shapes match (they should)
-        // We'll proceed to elementwise accumulation using t_padded as mapping reference, but accumulation target must be original target.
-        // To do this, we'll create a temp container (vector) for g_aligned values then map into target indices.
-        // For simplicity and correctness (not optimal performance) we will iterate over all elements of g_aligned (flat)
-        // and add mapped values to target grad using broadcasting index mapping logic.
-        size_t N = g_aligned.numel_();
-        // ensure target grad buffer
-        ensure_grad_buffer(target, true);
-        std::vector<size_t> idx(g_aligned.impl->ndim, 0);
-        for (size_t flat = 0; flat < N; ++flat) {
-            size_t rem = flat;
-            for (int d = (int)g_aligned.impl->ndim - 1; d >= 0; --d) {
-                idx[d] = rem % g_aligned.impl->shape[d];
-                rem /= g_aligned.impl->shape[d];
-            }
-            // compute flat index in target (taking into account broadcasting in target)
-            size_t target_flat = 0;
-            size_t pad = g_aligned.impl->ndim - target.impl->ndim;
-            for (size_t d = 0; d < g_aligned.impl->ndim; ++d) {
-                size_t tdim = (d < pad) ? 1 : target.impl->shape[d - pad];
-                size_t use_idx = (tdim == 1) ? 0 : idx[d];
-                if (d >= pad) target_flat += use_idx * target.impl->strides[d - pad];
-            }
-            // read grad aligned value (prefer grad buffer, else data)
-            double addv;
-            if (g_aligned.impl->storage->grad)
-                addv = read_scalar_at(g_aligned.impl->storage->grad.get(), flat, g_aligned._dtype());
-            else
-                addv = read_scalar_at(g_aligned.impl->storage->data.get(), flat, g_aligned._dtype());
 
-            double cur = read_scalar_at(target.impl->storage->grad.get(), target_flat, target._dtype());
-            write_scalar_at(target.impl->storage->grad.get(), target_flat, target._dtype(), cur + addv);
-        }
-        return;
+    // Step 3: If g_aligned has fewer dims than target, left-pad g_aligned so dims match
+    // (conceptually we want to iterate over g_aligned with left-padding aligned to target)
+    size_t nd_g = g_aligned.impl->ndim;
+    if (nd_g < nd_t) {
+        // pad grad to target ndim (left-pad with ones)
+        g_aligned = pad_to_ndim(g_aligned, nd_t);
+        nd_g = g_aligned.impl->ndim;
     }
 
-    // If we reach here, either shapes matched elementwise (after possible keepdims) or nd_t==nd_g
-    // Ensure target has grad buffer
-    ensure_grad_buffer(target, true);
+    // At this point nd_g >= nd_t OR nd_g == nd_t, but mapping below handles nd_g > nd_t by left-padding target when reading.
+    // We'll iterate over all elements of g_aligned and add them into target.grad using broadcasting mapping.
 
-    // Now simply add elementwise. We'll map each flat index of target to corresponding index in g_aligned:
-    size_t N = target.numel_();
-    // If g_aligned has grad buffer, read from it; else read from data
-    bool g_has_gradbuf = (g_aligned.impl->storage->grad != nullptr);
+    // Precompute some shortcuts
+    const size_t N = g_aligned.numel_();
+    const auto *g_data_ptr  = g_aligned.impl->storage->data.get();
+    const auto *g_grad_ptr  = g_aligned.impl->storage->grad.get();
+    bool g_has_gradbuf = (g_grad_ptr != nullptr);
 
-    // g_aligned and target now must have same ndim; we still need to handle cases where g_aligned has shape=1 along some dims and target >1 (but that would have been axes_to_reduce earlier)
-    // We'll compute flat-wise mapping with broadcast check
-    std::vector<size_t> idx_vec(target.impl->ndim, 0);
+    // helper vectors for multi-index calculation
+    std::vector<size_t> idx_g(nd_g, 0);
+
     for (size_t flat = 0; flat < N; ++flat) {
-        // compute multi-index for target
+        // compute multi-index of g_aligned (from flat)
         size_t rem = flat;
-        for (int d = (int)target.impl->ndim - 1; d >= 0; --d) {
-            idx_vec[d] = rem % target.impl->shape[d];
-            rem /= target.impl->shape[d];
+        for (int d = (int)nd_g - 1; d >= 0; --d) {
+            idx_g[d] = rem % g_aligned.impl->shape[d];
+            rem /= g_aligned.impl->shape[d];
         }
-        // compute corresponding index in g_aligned
-        size_t idx_g = 0;
-        for (size_t d = 0; d < target.impl->ndim; ++d) {
-            size_t gd = g_aligned.impl->shape[d];
-            size_t use = (gd == 1 ? 0 : idx_vec[d]);
-            idx_g += use * g_aligned.impl->strides[d];
+
+        // compute flat index into g_aligned storage (respecting its offset & strides)
+        size_t g_flat_index = g_aligned.impl->offset;
+        for (size_t d = 0; d < nd_g; ++d) {
+            g_flat_index += idx_g[d] * g_aligned.impl->strides[d];
         }
-        double addv = g_has_gradbuf ? read_scalar_at(g_aligned.impl->storage->grad.get(), idx_g, g_aligned._dtype())
-                                     : read_scalar_at(g_aligned.impl->storage->data.get(), idx_g, g_aligned._dtype());
-        double cur = read_scalar_at(target.impl->storage->grad.get(), flat, target._dtype());
-        write_scalar_at(target.impl->storage->grad.get(), flat, target._dtype(), cur + addv);
+
+        // read value from grad buffer if present, otherwise from data
+        double addv = g_has_gradbuf
+            ? read_scalar_at(g_grad_ptr, g_flat_index, g_aligned._dtype())
+            : read_scalar_at(g_data_ptr, g_flat_index, g_aligned._dtype());
+
+        // map this g_aligned multi-index to the corresponding target index
+        // If g_aligned.ndim > target.ndim the mapping is "left-padded" (i.e., skip first pad dims)
+        size_t pad = (nd_g > nd_t) ? (nd_g - nd_t) : 0;
+        size_t target_flat_idx = target.impl->offset;
+        for (size_t d = 0; d < nd_g; ++d) {
+            // target dimension size for this g dimension (1 if it was left-padded)
+            size_t tdim = (d < pad) ? 1 : target.impl->shape[d - pad];
+            size_t use_idx = (tdim == 1) ? 0 : idx_g[d];
+            if (d >= pad) {
+                target_flat_idx += use_idx * target.impl->strides[d - pad];
+            }
+        }
+
+        // finally read current grad at target location and accumulate
+        double cur = read_scalar_at(target.impl->storage->grad.get(), target_flat_idx, target._dtype());
+        write_scalar_at(target.impl->storage->grad.get(), target_flat_idx, target._dtype(), cur + addv);
     }
 }
-
 
 // ------------------ Backward nodes (use ops1 names) ------------------
 
