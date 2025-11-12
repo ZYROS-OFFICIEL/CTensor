@@ -322,3 +322,4 @@ static void print_recursive_braces(const Tensor& t, std::vector<size_t>& idx, si
     }
     std::cout << "}";
 }
+Tensor gather(const Tensor& input, size_t dim, const Tensor& index=1);
