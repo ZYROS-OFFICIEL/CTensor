@@ -763,6 +763,27 @@ void GradSum::backward(const Tensor& self) {
     // accumulate into t's grad storage via existing helper
     accumulate_grad(t, grad_input);
 }
+void GradMean::backward(const Tensor& self) {
+    // self.impl->storage->grad must exist (scalar gradient)
+    if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
+        throw std::runtime_error("GradMean: missing self grad");
+
+    if (!t.impl || !t.requires_grad()) return;
+
+    // scalar gradient value (assume scalar stored at index 0, check for view)
+    double g = read_scalar_at(self.impl->storage->grad.get(), self.impl->offset, self.impl->dtype); // <-- FIX #3: Use offset
+
+    // mean divides by number of elements
+    size_t n = t.numel_();
+    double scaled_g = g / static_cast<double>(n);
+
+    // create grad tensor of same shape as t and fill with scaled_g
+    std::vector<size_t> shape_vec(t.impl->shape, t.impl->shape + t.impl->ndim);
+    Tensor grad_input = Tensor::full(shape_vec, scaled_g, t.impl->dtype, false);
+
+    // accumulate into t's grad storage via existing helper
+    accumulate_grad(t, grad_input);
+}
 
 // ------------------ backward ------------------
 void backward(Tensor& loss) {

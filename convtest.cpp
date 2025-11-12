@@ -71,7 +71,6 @@ bool check_gradients(const std::string& name, const Tensor& param, const Tensor&
     return true;
 }
 
-
 // --- Test Conv1d ---
 void test_conv1d() {
     std::cout << "\n--- Testing Conv1d ---" << std::endl;
