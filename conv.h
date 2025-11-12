@@ -11,8 +11,28 @@
 #include "tensor1.h"
 
 
+//----------------Helpers---------------------------------------------
+Tensor im2col_2d(const Tensor& input,
+                 int kernel_h, int kernel_w,
+                 int stride_h, int stride_w,
+                 int pad_h, int pad_w);
 
-struct GradConv1d; // forward declare
+void col2im_2d(const Tensor& grad_patches,
+               Tensor& grad_input,
+               int kernel_h, int kernel_w,
+               int stride_h, int stride_w,
+               int pad_h, int pad_w);
+Tensor im2col_3d(const Tensor& input,
+                 int kernel_d, int kernel_h, int kernel_w,
+                 int stride_d, int stride_h, int stride_w,
+                 int pad_d, int pad_h, int pad_w);
+
+void col2im_3d(const Tensor& grad_patches,
+               Tensor& grad_input,
+               int kernel_d, int kernel_h, int kernel_w,
+               int stride_d, int stride_h, int stride_w,
+               int pad_d, int pad_h, int pad_w);
+
 
 class Conv1d {
 public:
@@ -88,6 +108,42 @@ struct GradConv3d: GradFn {
         : input(x), weight(w), bias(b), 
           stride_d(sd), stride_h(sh), stride_w(sw),
           padding_d(pd), padding_h(ph), padding_w(pw)
+    {
+        parents = {input, weight, bias};
+    }
+    void backward(const Tensor& self) override;
+};
+struct GradConv2dMatmul : GradFn {
+    Tensor input, weight, bias, input_patches;
+    int stride_h, stride_w, pad_h, pad_w;
+    int kernel_h, kernel_w;
+    GradConv2dMatmul(const Tensor& x, const Tensor& w, const Tensor& b,
+                     const Tensor& patches,
+                     int sh, int sw, int ph, int pw,
+                     int kh, int kw)
+        : input(x), weight(w), bias(b), input_patches(patches),
+          stride_h(sh), stride_w(sw), pad_h(ph), pad_w(pw),
+          kernel_h(kh), kernel_w(kw)
+    {
+        parents = {input, weight, bias};
+    }
+    void backward(const Tensor& self) override;
+};
+
+// --- NEW: Grad node for matmul-based conv3d ---
+struct GradConv3dMatmul : GradFn {
+    Tensor input, weight, bias, input_patches;
+    int stride_d, stride_h, stride_w;
+    int pad_d, pad_h, pad_w;
+    int kernel_d, kernel_h, kernel_w;
+    GradConv3dMatmul(const Tensor& x, const Tensor& w, const Tensor& b,
+                     const Tensor& patches,
+                     int sd, int sh, int sw, int pd, int ph, int pw,
+                     int kd, int kh, int kw)
+        : input(x), weight(w), bias(b), input_patches(patches),
+          stride_d(sd), stride_h(sh), stride_w(sw),
+          pad_d(pd), pad_h(ph), pad_w(pw),
+          kernel_d(kd), kernel_h(kh), kernel_w(kw)
     {
         parents = {input, weight, bias};
     }
