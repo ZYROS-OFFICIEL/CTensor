@@ -16,6 +16,7 @@
 // -------------------- helpers --------------------
 
 // ensure grad buffer exists on tensor; if zero=true fill with zeros
+// ensure grad buffer exists on tensor; if zero=true fill with zeros
 inline void ensure_grad_buffer(Tensor &t, bool zero) {
     if (!t.impl) throw std::runtime_error("ensure_grad_buffer: tensor undefined");
     if (!t.impl->storage->grad) {
@@ -24,10 +25,8 @@ inline void ensure_grad_buffer(Tensor &t, bool zero) {
         if (!gptr && nbytes) throw std::bad_alloc();
         if (zero) std::memset(gptr, 0, nbytes);
         t.impl->storage->grad = std::shared_ptr<void>(gptr, std::free);
-    } else if (zero) {
-        size_t nbytes = t.numel() * t.dtype_bytes();
-        std::memset(t.impl->storage->grad.get(), 0, nbytes);
     }
+    // <-- do NOT zero here if grad already exists!
 }
 
 
@@ -38,34 +37,15 @@ Tensor tensor_from_grad(const Tensor& self) {
         throw std::runtime_error("tensor_from_grad: missing grad buffer");
 
     Tensor grad_tensor(self.shape(), self._dtype(), false);
+    size_t n = self.numel_();
 
-    size_t N = self.numel_();
-    std::vector<size_t> idx_vec(self.impl->ndim, 0);
-
-    for (size_t flat = 0; flat < N; ++flat) {
-        // compute multi-dimensional index in self
-        size_t rem = flat;
-        for (int d = (int)self.impl->ndim - 1; d >= 0; --d) {
-            idx_vec[d] = rem % self.impl->shape[d];
-            rem /= self.impl->shape[d];
-        }
-
-        // compute correct flat index in self's storage using strides
-        size_t self_flat_idx = self.impl->offset;
-        for (size_t d = 0; d < self.impl->ndim; ++d) {
-            self_flat_idx += idx_vec[d] * self.impl->strides[d];
-        }
-
-        // read the gradient from storage
-        double gv = read_scalar_at(self.impl->storage->grad.get(), self_flat_idx, self._dtype());
-
-        // write to contiguous grad_tensor
-        write_scalar_at(grad_tensor.impl->storage->data.get(), flat, grad_tensor._dtype(), gv);
+    for (size_t i = 0; i < n; ++i) {
+        double gv = read_scalar_at(self.impl->storage->grad.get(), i, self._dtype());
+        write_scalar_at(grad_tensor.impl->storage->data.get(), i, grad_tensor._dtype(), gv);
     }
 
     return grad_tensor;
 }
-
 
 // copy .data -> .grad (allocate grad buffer and copy values)
 // after calling this the gradient values are available in impl->storage->grad
@@ -110,7 +90,7 @@ inline void accumulate_grad(Tensor& target, const Tensor& grad_src) {
     if (!grad_src.impl) throw std::runtime_error("accumulate_grad: grad_src undefined");
 
     // Ensure target has grad buffer allocated
-    ensure_grad_buffer(target, true);
+    ensure_grad_buffer(target, false);
 
     // Step 1: determine axes that must be reduced (where target has dim=1 but grad_src has >1)
     size_t nd_t = target.impl->ndim;
@@ -526,7 +506,7 @@ void GradSinH::backward(const Tensor& self) {
     for (size_t i = 0; i < n; ++i) {
         double gv = read_scalar_at(g_data, i, grad_input._dtype());
         double tv = read_scalar_at(t_data, i, t._dtype());
-        write_scalar_at(g_data, i, grad_input._dtype(), gv * std::cosh(tv));
+        write_scalar_at(g_data, i, grad_input._dtype(), gv * std::cos(tv));
     }
 
     accumulate_grad(t, grad_input);
