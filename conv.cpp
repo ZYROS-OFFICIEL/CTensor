@@ -426,6 +426,19 @@ void GradConv2d::backward(const Tensor& self) {
     // --- Step 1: Get dL/dOutput (grad_output) ---
     // This is the incoming gradient from the next layer
     Tensor grad_output = tensor_from_grad(self); // Shape: [batch, out_c, out_h, out_w]
+    std::cout << "grad_output shape: ";
+    grad_output.print_shape();
+    std::cout << "grad_output first 10 values: ";
+    std::cout << "grad_output first 10 values: [";
+    size_t n = std::min((size_t)10, grad_output.numel());
+    for (size_t i = 0; i < n; ++i) {
+        double v = read_scalar_at(grad_output.impl->storage->data.get(), i, grad_output._dtype());
+        std::cout << v;
+        if (i + 1 < n) std::cout << ", ";
+    }
+    std::cout << "]" << std::endl;
+
+
 
     // --- Step 2: "Un-permute" and "Un-reshape" grad_output ---
     // Forward was: permute({1, 0, 2, 3}) -> reshape
