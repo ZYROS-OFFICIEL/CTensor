@@ -690,7 +690,7 @@ Tensor asin_(const Tensor& a_) {
 
     return result;
 }
-Tensor cosh_(const Tensor& a_) {
+Tensor sinh_(const Tensor& a_) {
     if (!a_.impl)
         throw std::runtime_error("sinh_: null tensor implementation");
 
