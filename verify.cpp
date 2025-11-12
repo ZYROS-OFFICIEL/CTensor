@@ -10,7 +10,33 @@
 static bool close(double a, double b, double tol=1e-5) {
     return std::fabs(a - b) < tol * std::max({1.0, std::fabs(a), std::fabs(b)});
 }
+void test_tensorftromgrad(){
+    Tensor x = Tensor::zeros({2, 3}, DType::Float32);
+    x.impl->storage->grad = std::shared_ptr<void>(malloc(x.numel()*4), free);
+    float *p = (float*)x.impl->storage->grad.get();
+    for (int i=0;i<x.numel();++i) p[i] = i + 1;
 
+    Tensor g = tensor_from_grad(x);
+    print_t(g);
+
+}
+void test_grad_storage_allocation() {
+    Tensor x = Tensor::arange(0.0, 12.0, 1.0, DType::Float32).reshape({3,4});
+    Tensor v = x.permute({1,0});  // view
+    ensure_grad_buffer(v, true);
+    std::cout << "storage size = " << v.impl->storage->size << std::endl;
+    std::cout << "allocated grad bytes = " << v.impl->storage->size * v.dtype_bytes() << std::endl;
+}
+
+void test_accum_grad(){
+    Tensor a({2,1}, DType::Float32);
+    Tensor b = Tensor::ones({2,3}, DType::Float32);
+
+    accumulate_grad(a, b);
+    std::cout << "a.grad = "  ;
+    print_t(tensor_from_grad(a));
+
+}
 double numerical_grad(std::function<double(double)> f, double x, double eps=1e-6) {
     return (f(x + eps) - f(x - eps)) / (2 * eps);
 }
@@ -174,6 +200,9 @@ void check_grad_matmul() {
 }
 
 int main() {
+    test_grad_storage_allocation();
+    test_accum_grad();
+    test_tensorftromgrad();
     test_mae();
     test_cross_entropy();
     check_mse();
