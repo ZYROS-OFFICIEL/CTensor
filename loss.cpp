@@ -167,7 +167,13 @@ Tensor Loss::BCE(const Tensor& pred, const Tensor& target,std::string reduction)
 
     if (pred.impl->ndim != target.impl->ndim)
         throw std::runtime_error("Loss::BCE: dimension mismatch");
-    if (max(pred) > 1.0 || min(pred) < 0.0)
+    Tensor t_max = max(pred); // returns shape [1]
+    Tensor t_min = min(pred); // returns shape [1]
+    
+    // read scalar value from the underlying storage
+    double max_val = read_scalar_at(t_max.impl->storage->data.get(), 0, t_max._dtype());
+    double min_val = read_scalar_at(t_min.impl->storage->data.get(), 0, t_min._dtype());
+    if (max_val > 1.0 || min_val < 0.0)
         throw std::runtime_error("BCE: input must be in [0, 1]");
 
 
