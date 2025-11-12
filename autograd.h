@@ -16,7 +16,7 @@
 // -------------------- helpers --------------------
 
 // ensure grad buffer exists on tensor; if zero=true fill with zeros
-inline void ensure_grad_buffer(Tensor &t, bool zero = false);
+void ensure_grad_buffer(Tensor &t, bool zero = false);
 
 // Helper: create a tensor whose DATA is copied from self.grad
 Tensor tensor_from_grad(const Tensor& self);
