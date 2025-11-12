@@ -1,4 +1,5 @@
 #include "loss.h"
+#include "ops1.h"
 #include <cmath>
 #include <string>
 Tensor Loss::MSE(const Tensor& pred_, const Tensor& target_) {
