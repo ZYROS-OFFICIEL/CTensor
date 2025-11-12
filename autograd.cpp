@@ -16,17 +16,25 @@
 // -------------------- helpers --------------------
 
 // ensure grad buffer exists on tensor; if zero=true fill with zeros
-// ensure grad buffer exists on tensor; if zero=true fill with zeros
-inline void ensure_grad_buffer(Tensor &t, bool zero) {
-    if (!t.impl) throw std::runtime_error("ensure_grad_buffer: tensor undefined");
+void ensure_grad_buffer(Tensor &t, bool zero) {
+    if (!t.impl) 
+        throw std::runtime_error("ensure_grad_buffer: tensor undefined");
+    if (!t.impl->storage)
+        throw std::runtime_error("ensure_grad_buffer: tensor has no storage");
+
+    size_t nbytes = t.numel_() * t.dtype_bytes();  // <-- FIXED: use tensor's true element count
+
     if (!t.impl->storage->grad) {
-        size_t nbytes = t.numel() * t.dtype_bytes();
-        void* gptr = std::malloc(nbytes);
-        if (!gptr && nbytes) throw std::bad_alloc();
-        if (zero) std::memset(gptr, 0, nbytes);
-        t.impl->storage->grad = std::shared_ptr<void>(gptr, std::free);
+        void* ptr = nullptr;
+        if (nbytes) {
+            ptr = std::malloc(nbytes);
+            if (!ptr) throw std::bad_alloc();
+            if (zero) std::memset(ptr, 0, nbytes);
+        }
+        t.impl->storage->grad = std::shared_ptr<void>(ptr, std::free);
+    } else if (zero) {
+        std::memset(t.impl->storage->grad.get(), 0, nbytes);
     }
-    // <-- do NOT zero here if grad already exists!
 }
 
 
@@ -36,12 +44,33 @@ Tensor tensor_from_grad(const Tensor& self) {
     if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
         throw std::runtime_error("tensor_from_grad: missing grad buffer");
 
+    // Create a new tensor for the gradient
     Tensor grad_tensor(self.shape(), self._dtype(), false);
     size_t n = self.numel_();
+    
+    // --- THIS IS A STRIDE-AWARE COPY ---
+    // We iterate over `self` (the source) using its multi-dim index
+    // and write to `grad_tensor` (the destination) using a flat index,
+    // because we know `grad_tensor` is new and contiguous.
+    std::vector<size_t> idx_vec(self.impl->ndim, 0);
 
-    for (size_t i = 0; i < n; ++i) {
-        double gv = read_scalar_at(self.impl->storage->grad.get(), i, self._dtype());
-        write_scalar_at(grad_tensor.impl->storage->data.get(), i, grad_tensor._dtype(), gv);
+    for (size_t flat_dest = 0; flat_dest < n; ++flat_dest) {
+        // 1. Convert flat destination index to multi-dim index
+        size_t rem = flat_dest;
+        for (int d = (int)self.impl->ndim - 1; d >= 0; --d) {
+            idx_vec[d] = rem % self.impl->shape[d];
+            rem /= self.impl->shape[d];
+        }
+
+        // 2. Convert multi-dim index to strided source index
+        size_t strided_src_idx = self.impl->offset;
+        for (size_t d = 0; d < self.impl->ndim; ++d) {
+            strided_src_idx += idx_vec[d] * self.impl->strides[d];
+        }
+        
+        // 3. Read from strided source, write to flat destination
+        double gv = read_scalar_at(self.impl->storage->grad.get(), strided_src_idx, self._dtype());
+        write_scalar_at(grad_tensor.impl->storage->data.get(), flat_dest, grad_tensor._dtype(), gv);
     }
 
     return grad_tensor;
@@ -52,10 +81,29 @@ Tensor tensor_from_grad(const Tensor& self) {
 static void copy_data_to_grad(Tensor &t) {
     if (!t.impl) throw std::runtime_error("copy_data_to_grad: undefined tensor");
     size_t n = t.numel();
-    ensure_grad_buffer(t, false);
-    for (size_t i = 0; i < n; ++i) {
-        double v = read_scalar_at(t.impl->storage->data.get(), i, t.impl->dtype);
-        write_scalar_at(t.impl->storage->grad.get(), i, t.impl->dtype, v);
+    ensure_grad_buffer(t, false); // Ensure buffer exists, don't zero it
+
+    // --- THIS MUST BE A STRIDE-AWARE COPY ---
+    // We read from .data using strides and write to .grad using strides.
+    std::vector<size_t> idx_vec(t.impl->ndim, 0);
+
+    for (size_t flat = 0; flat < n; ++flat) {
+        // 1. Convert flat index to multi-dim index
+        size_t rem = flat;
+        for (int d = (int)t.impl->ndim - 1; d >= 0; --d) {
+            idx_vec[d] = rem % t.impl->shape[d];
+            rem /= t.impl->shape[d];
+        }
+
+        // 2. Convert multi-dim index to strided index (applies to both data and grad)
+        size_t strided_idx = t.impl->offset;
+        for (size_t d = 0; d < t.impl->ndim; ++d) {
+            strided_idx += idx_vec[d] * t.impl->strides[d];
+        }
+        
+        // 3. Read from strided data, write to strided grad
+        double v = read_scalar_at(t.impl->storage->data.get(), strided_idx, t.impl->dtype);
+        write_scalar_at(t.impl->storage->grad.get(), strided_idx, t.impl->dtype, v);
     }
 }
 
@@ -84,89 +132,95 @@ static size_t dim_in_padded(const Tensor& target, size_t nd, size_t idx) {
     return target.impl->shape[idx - (nd - tnd)];
 }
 
-// Broadcast-aware accumulate_grad: map values from grad_src into target.impl->storage->grad
+// ------------------ accumulate_grad (broadcast-aware) ------------------
+// accumulates gradient from grad_src into target.
+// grad_src may have its values in .impl->storage->grad (preferred) or in .impl->storage->data
 inline void accumulate_grad(Tensor& target, const Tensor& grad_src) {
     if (!target.impl) throw std::runtime_error("accumulate_grad: target undefined");
     if (!grad_src.impl) throw std::runtime_error("accumulate_grad: grad_src undefined");
 
-    // Ensure target has grad buffer allocated
-    ensure_grad_buffer(target, false);
-
-    // Step 1: determine axes that must be reduced (where target has dim=1 but grad_src has >1)
     size_t nd_t = target.impl->ndim;
-    size_t nd_g0 = grad_src.impl->ndim;
+    size_t nd_g = grad_src.impl->ndim;
 
+    // Determine axes where target has 1 and grad has >1 (these axes need reduction).
     std::vector<int> axes_to_reduce;
-    for (size_t i = 0; i < nd_g0; ++i) {
-        size_t td = dim_in_padded(target, nd_g0, i);            // target dim when left-padded to nd_g0
-        size_t gd = grad_src.impl->shape[i];
-        if (td == 1 && gd > 1) axes_to_reduce.push_back((int)i);
+    // We must compare padded shapes
+    size_t max_ndim = std::max(nd_t, nd_g);
+    for (size_t i = 0; i < max_ndim; ++i) {
+        size_t td = dim_in_padded(target, max_ndim, i);
+        size_t gd = dim_in_padded(grad_src, max_ndim, i);
+        if (td == 1 && gd > 1) {
+            // This is an axis to reduce in grad_src.
+            // The axis index is relative to grad_src's ndim.
+            axes_to_reduce.push_back((int)(i - (max_ndim - nd_g)));
+        }
     }
 
-    // Step 2: reduce grad_src over axes_to_reduce (keep dims) so broadcasting is explicit
+    // Prepare a grad tensor `g_aligned` that has same shape as `target` (possibly with singleton dims)
     Tensor g_aligned = grad_src;
     if (!axes_to_reduce.empty()) {
         g_aligned = reduce_sum_axes_keepdims(grad_src, axes_to_reduce);
     }
+    
+    // At this point, g_aligned has had its broadcast dimensions reduced.
+    // Its shape should now match target's shape (or be broadcastable to it,
+    // e.g., target [5, 1, 3], g_aligned [5, 1, 1])
 
-    // Step 3: If g_aligned has fewer dims than target, left-pad g_aligned so dims match
-    // (conceptually we want to iterate over g_aligned with left-padding aligned to target)
-    size_t nd_g = g_aligned.impl->ndim;
-    if (nd_g < nd_t) {
-        // pad grad to target ndim (left-pad with ones)
-        g_aligned = pad_to_ndim(g_aligned, nd_t);
-        nd_g = g_aligned.impl->ndim;
-    }
+    // We will iterate over all elements of `target` and add the
+    // corresponding (broadcasted) element from `g_aligned`.
+    
+    ensure_grad_buffer(target, false); // Ensure target grad buffer exists
 
-    // At this point nd_g >= nd_t OR nd_g == nd_t, but mapping below handles nd_g > nd_t by left-padding target when reading.
-    // We'll iterate over all elements of g_aligned and add them into target.grad using broadcasting mapping.
+    size_t N = target.numel_();
+    if (N == 0) return; // Nothing to do
 
-    // Precompute some shortcuts
-    const size_t N = g_aligned.numel_();
-    const auto *g_data_ptr  = g_aligned.impl->storage->data.get();
-    const auto *g_grad_ptr  = g_aligned.impl->storage->grad.get();
-    bool g_has_gradbuf = (g_grad_ptr != nullptr);
+    // If g_aligned has grad buffer, read from it; else read from data
+    bool g_has_gradbuf = (g_aligned.impl->storage->grad != nullptr);
+    void* g_data_ptr = g_has_gradbuf ? g_aligned.impl->storage->grad.get() : g_aligned.impl->storage->data.get();
+    void* t_grad_ptr = target.impl->storage->grad.get();
 
-    // helper vectors for multi-index calculation
-    std::vector<size_t> idx_g(nd_g, 0);
+    // We need to use multi-dim indexing for both target and g_aligned
+    // to correctly handle offsets and strides (views).
+    
+    std::vector<size_t> idx_vec(target.impl->ndim, 0);
 
     for (size_t flat = 0; flat < N; ++flat) {
-        // compute multi-index of g_aligned (from flat)
+        // 1. Convert flat index `flat` (0 to N-1) to multi-dim `idx_vec` for `target`
         size_t rem = flat;
-        for (int d = (int)nd_g - 1; d >= 0; --d) {
-            idx_g[d] = rem % g_aligned.impl->shape[d];
-            rem /= g_aligned.impl->shape[d];
+        for (int d = (int)target.impl->ndim - 1; d >= 0; --d) {
+            idx_vec[d] = rem % target.impl->shape[d];
+            rem /= target.impl->shape[d];
         }
 
-        // compute flat index into g_aligned storage (respecting its offset & strides)
-        size_t g_flat_index = g_aligned.impl->offset;
-        for (size_t d = 0; d < nd_g; ++d) {
-            g_flat_index += idx_g[d] * g_aligned.impl->strides[d];
+        // 2. Calculate the strided index for `target`
+        size_t target_strided_idx = target.impl->offset;
+        for (size_t d = 0; d < target.impl->ndim; ++d) {
+            target_strided_idx += idx_vec[d] * target.impl->strides[d];
         }
 
-        // read value from grad buffer if present, otherwise from data
-        double addv = g_has_gradbuf
-            ? read_scalar_at(g_grad_ptr, g_flat_index, g_aligned._dtype())
-            : read_scalar_at(g_data_ptr, g_flat_index, g_aligned._dtype());
-
-        // map this g_aligned multi-index to the corresponding target index
-        // If g_aligned.ndim > target.ndim the mapping is "left-padded" (i.e., skip first pad dims)
-        size_t pad = (nd_g > nd_t) ? (nd_g - nd_t) : 0;
-        size_t target_flat_idx = target.impl->offset;
-        for (size_t d = 0; d < nd_g; ++d) {
-            // target dimension size for this g dimension (1 if it was left-padded)
-            size_t tdim = (d < pad) ? 1 : target.impl->shape[d - pad];
-            size_t use_idx = (tdim == 1) ? 0 : idx_g[d];
-            if (d >= pad) {
-                target_flat_idx += use_idx * target.impl->strides[d - pad];
-            }
+        // 3. Calculate the corresponding broadcasted strided index for `g_aligned`
+        size_t g_aligned_strided_idx = g_aligned.impl->offset;
+        size_t pad = target.impl->ndim > g_aligned.impl->ndim ? (target.impl->ndim - g_aligned.impl->ndim) : 0;
+        
+        for (size_t d = 0; d < target.impl->ndim; ++d) {
+            if (d < pad) continue; // This dim doesn't exist in g_aligned, skip
+            
+            size_t g_dim_idx = d - pad;
+            size_t g_dim_shape = g_aligned.impl->shape[g_dim_idx];
+            
+            // Use index 0 if g_aligned dim is 1 (broadcasting)
+            size_t use_idx = (g_dim_shape == 1) ? 0 : idx_vec[d];
+            
+            g_aligned_strided_idx += use_idx * g_aligned.impl->strides[g_dim_idx];
         }
 
-        // finally read current grad at target location and accumulate
-        double cur = read_scalar_at(target.impl->storage->grad.get(), target_flat_idx, target._dtype());
-        write_scalar_at(target.impl->storage->grad.get(), target_flat_idx, target._dtype(), cur + addv);
+        // 4. Perform the accumulation
+        double addv = read_scalar_at(g_data_ptr, g_aligned_strided_idx, g_aligned._dtype());
+        double cur = read_scalar_at(t_grad_ptr, target_strided_idx, target._dtype());
+        write_scalar_at(t_grad_ptr, target_strided_idx, target._dtype(), cur + addv);
     }
 }
+
 
 // ------------------ Backward nodes (use ops1 names) ------------------
 
@@ -179,15 +233,12 @@ void GradSub::backward(const Tensor& self) {
     if (!self.impl->storage->grad) throw std::runtime_error("GradSub: missing self grad");
     if (a.requires_grad()) accumulate_grad(a, self);
     if (b.requires_grad()) {
-        // negated grad: create neg = -self.data (we can use diff_ with zero tensor)
-        Tensor neg = self.clone();
-        size_t n = neg.numel();
-        for (size_t i = 0; i < n; ++i) {
-            double v = read_scalar_at(self.impl->storage->grad.get(), i, self._dtype());
-            write_scalar_at(neg.impl->storage->data.get(), i, neg._dtype(), -v);
-        }
-        // copy data to grad buffer for accumulate
-        copy_data_to_grad(neg);
+        // negated grad: create neg = -self.grad
+        Tensor grad_self = tensor_from_grad(self); // Stride-aware copy
+        Tensor neg = grad_self * -1.0;             // Use op overload
+        
+        // copy neg.data to a new grad tensor's .data buffer
+        // (accumulate_grad reads from .data if .grad is null)
         accumulate_grad(b, neg);
     }
 }
@@ -200,22 +251,18 @@ void GradMul::backward(const Tensor& self) {
     if (!self.impl->storage->grad)
         throw std::runtime_error("GradMul: missing self grad");
 
-    size_t n = self.numel();
-
     // Create grad_self whose DATA holds incoming gradient values
-    Tensor grad_self= tensor_from_grad(self);  
+    Tensor grad_self = tensor_from_grad(self); // This is now stride-aware 
 
     // ga = grad_self * b
     if (a.requires_grad()) {
-        Tensor ga = mult_(grad_self, b);
-        copy_data_to_grad(ga);   // copy ga.data → ga.grad
+        Tensor ga = grad_self * b; // Use op overload
         accumulate_grad(a, ga);
     }
 
     // gb = grad_self * a
     if (b.requires_grad()) {
-        Tensor gb = mult_(grad_self, a);
-        copy_data_to_grad(gb);
+        Tensor gb = grad_self * a; // Use op overload
         accumulate_grad(b, gb);
     }
 }
@@ -227,7 +274,7 @@ void GradDiv::backward(const Tensor& self) {
     if (!self.impl->storage->grad)
         throw std::runtime_error("GradDiv: missing self grad");
 
-    Tensor grad_self= tensor_from_grad(self);  
+    Tensor grad_self = tensor_from_grad(self); // Stride-aware 
 
     // ---- In-place “detach” ----
     bool old_grad_a = a.impl->requires_grad;
@@ -238,23 +285,14 @@ void GradDiv::backward(const Tensor& self) {
 
     // ---- Compute gradients ----
     if (old_grad_a) {
-        Tensor da = div_(grad_self, b);  // grad_self / b
-        copy_data_to_grad(da);
+        Tensor da = grad_self / b;  // grad_self / b
         accumulate_grad(a, da);
     }
     if (old_grad_b) {
-        Tensor num = mult_(grad_self, a);   // grad_self * a
-        Tensor den = mult_(b, b);           // b * b
-        Tensor db = div_(num, den);         // (grad * a) / (b * b)
+        Tensor num = grad_self * a;   // grad_self * a
+        Tensor den = b * b;           // b * b
+        Tensor db = (num / den) * -1.0; // (grad * a) / (b * b) * -1
 
-        // negate db
-        size_t m = db.numel();
-        for (size_t i = 0; i < m; ++i) {
-            double v = read_scalar_at(db.impl->storage->data.get(), i, db._dtype());
-            write_scalar_at(db.impl->storage->data.get(), i, db._dtype(), -v);
-        }
-
-        copy_data_to_grad(db);
         accumulate_grad(b, db);
     }
 
@@ -293,7 +331,6 @@ void GradMatMul::backward(const Tensor& self) {
     if (a.requires_grad()) {
         Tensor bt = transpose_last_two(b);
         Tensor grad_a = matmul_(grad_y, bt);   // ∂L/∂A = ∂L/∂Y @ B^T
-        copy_data_to_grad(grad_a);
         accumulate_grad(a, grad_a);
     }
 
@@ -301,7 +338,6 @@ void GradMatMul::backward(const Tensor& self) {
     if (b.requires_grad()) {
         Tensor at = transpose_last_two(a);
         Tensor grad_b = matmul_(at, grad_y);   // ∂L/∂B = A^T @ ∂L/∂Y
-        copy_data_to_grad(grad_b);
         accumulate_grad(b, grad_b);
     }
 }
@@ -316,41 +352,36 @@ void GradPow::backward(const Tensor& self) {
     if (!self.impl->storage->grad)
         throw std::runtime_error("GradPow: missing self grad");
 
-    size_t n = self.numel();
-
-    // 1️⃣ ∂Loss/∂y (grad from next layer)
-    Tensor grad_y(self.shape(), self._dtype(), false);
-    for (size_t i = 0; i < n; ++i) {
-        double gy = read_scalar_at(self.impl->storage->grad.get(), i, self._dtype());
-        write_scalar_at(grad_y.impl->storage->data.get(), i, grad_y._dtype(), gy);
-    }
+    Tensor grad_y = tensor_from_grad(self); // Stride-aware
 
     // 2️⃣ ∂Loss/∂a = grad_y * b * a^(b-1)
     if (a.requires_grad()) {
-        Tensor grad_a(self.shape(), self._dtype(), false);
-        for (size_t i = 0; i < n; ++i) {
-            double va = read_scalar_at(a.impl->storage->data.get(), i, a._dtype());
-            double vb = read_scalar_at(b.impl->storage->data.get(), i, b._dtype());
-            double gy = read_scalar_at(grad_y.impl->storage->data.get(), i, grad_y._dtype());
-            double da = gy * vb * std::pow(va, vb - 1.0);
-            write_scalar_at(grad_a.impl->storage->data.get(), i, grad_a._dtype(), da);
-        }
-        copy_data_to_grad(grad_a);
+        // Use ops for broadcasting
+        bool old_grad_a = a.requires_grad();
+        bool old_grad_b = b.requires_grad();
+        a.impl->requires_grad = false;
+        b.impl->requires_grad = false;
+
+        Tensor grad_a = grad_y * b * pow_(a, b - 1.0); // <-- FIX #2: Correct derivative math
+        
+        a.impl->requires_grad = old_grad_a;
+        b.impl->requires_grad = old_grad_b;
+        
         accumulate_grad(a, grad_a);
     }
 
     // 3️⃣ ∂Loss/∂b = grad_y * a^b * ln(a)
     if (b.requires_grad()) {
-        Tensor grad_b(self.shape(), self._dtype(), false);
-        for (size_t i = 0; i < n; ++i) {
-            double va = read_scalar_at(a.impl->storage->data.get(), i, a._dtype());
-            double vb = read_scalar_at(b.impl->storage->data.get(), i, b._dtype());
-            double gy = read_scalar_at(grad_y.impl->storage->data.get(), i, grad_y._dtype());
-            double safe_va = (va <= 0.0) ? 1e-12 : va;
-            double db = gy * std::pow(va, vb) * std::log(safe_va);
-            write_scalar_at(grad_b.impl->storage->data.get(), i, grad_b._dtype(), db);
-        }
-        copy_data_to_grad(grad_b);
+        bool old_grad_a = a.requires_grad();
+        bool old_grad_b = b.requires_grad();
+        a.impl->requires_grad = false;
+        b.impl->requires_grad = false;
+
+        Tensor grad_b = grad_y * pow_(a, b) * ln_(a);
+        
+        a.impl->requires_grad = old_grad_a;
+        b.impl->requires_grad = old_grad_b;
+        
         accumulate_grad(b, grad_b);
     }
 }
@@ -383,7 +414,7 @@ void GradSubAfterScalar::backward(const Tensor& self) {
 
     Tensor grad_input = tensor_from_grad(self);
     // derivative wrt a is -1 (since out = scalar - a)
-    grad_input = grad_input * (-1);
+    grad_input = grad_input * (-1.0);
     accumulate_grad(a, grad_input);
 }
 void GradMulScalar::backward(const Tensor& self) {
@@ -402,18 +433,16 @@ void GradLn::backward(const Tensor& self) {
     if (!t.impl || !t.requires_grad()) return;
 
     Tensor grad_input = tensor_from_grad(self);
-    size_t n = t.numel_();
+    
+    // Use ops for broadcasting
+    bool old_grad_t = t.requires_grad();
+    t.impl->requires_grad = false;
+    
+    Tensor grad_ln = grad_input / t; // grad_self / t
+    
+    t.impl->requires_grad = old_grad_t;
 
-    auto* g_data = grad_input.impl->storage->data.get();
-    auto* t_data = t.impl->storage->data.get();
-
-    for (size_t i = 0; i < n; ++i) {
-        double gv = read_scalar_at(g_data, i, grad_input._dtype());
-        double tv = read_scalar_at(t_data, i, t._dtype());
-        write_scalar_at(g_data, i, grad_input._dtype(), gv / tv);
-    }
-
-    accumulate_grad(t, grad_input);
+    accumulate_grad(t, grad_ln);
 }
 void GradExp::backward(const Tensor& self) {
     if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
@@ -421,18 +450,16 @@ void GradExp::backward(const Tensor& self) {
     if (!t.impl || !t.requires_grad()) return;
 
     Tensor grad_input = tensor_from_grad(self);
-    size_t n = t.numel_();
 
-    auto* g_data = grad_input.impl->storage->data.get();
-    auto* t_data = t.impl->storage->data.get();
+    // Use ops for broadcasting
+    bool old_grad_t = t.requires_grad();
+    t.impl->requires_grad = false;
 
-    for (size_t i = 0; i < n; ++i) {
-        double gv = read_scalar_at(g_data, i, grad_input._dtype());
-        double tv = read_scalar_at(t_data, i, t._dtype());
-        write_scalar_at(g_data, i, grad_input._dtype(), gv * std::exp(tv));
-    }
-
-    accumulate_grad(t, grad_input);
+    Tensor grad_exp = grad_input * exp_(t); // grad_self * exp(t)
+    
+    t.impl->requires_grad = old_grad_t;
+    
+    accumulate_grad(t, grad_exp);
 }
 void GradSqrt::backward(const Tensor& self) {
     if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
@@ -440,37 +467,34 @@ void GradSqrt::backward(const Tensor& self) {
     if (!t.impl || !t.requires_grad()) return;
 
     Tensor grad_input = tensor_from_grad(self);
-    size_t n = t.numel_();
+    
+    // Use ops for broadcasting
+    bool old_grad_t = t.requires_grad();
+    t.impl->requires_grad = false;
 
-    auto* g_data = grad_input.impl->storage->data.get();
-    auto* t_data = t.impl->storage->data.get();
+    Tensor grad_sqrt = grad_input / (sqrt_(t) * 2.0); // grad_self / (2 * sqrt(t))
+    
+    t.impl->requires_grad = old_grad_t;
 
-    for (size_t i = 0; i < n; ++i) {
-        double gv = read_scalar_at(g_data, i, grad_input._dtype());
-        double tv = read_scalar_at(t_data, i, t._dtype());
-        write_scalar_at(g_data, i, grad_input._dtype(), gv * 1.0 / (2.0 * std::sqrt(tv)));
-    }
-
-    accumulate_grad(t, grad_input);
+    accumulate_grad(t, grad_sqrt);
 }
+
 void GradSin::backward(const Tensor& self) {
     if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
         throw std::runtime_error("GradSin: missing self grad");
     if (!t.impl || !t.requires_grad()) return;
 
     Tensor grad_input = tensor_from_grad(self);
-    size_t n = t.numel_();
+    
+    // Use ops for broadcasting
+    bool old_grad_t = t.requires_grad();
+    t.impl->requires_grad = false;
 
-    auto* g_data = grad_input.impl->storage->data.get();
-    auto* t_data = t.impl->storage->data.get();
+    Tensor grad_sin = grad_input * cos_(t); // grad_self * cos(t)
+    
+    t.impl->requires_grad = old_grad_t;
 
-    for (size_t i = 0; i < n; ++i) {
-        double gv = read_scalar_at(g_data, i, grad_input._dtype());
-        double tv = read_scalar_at(t_data, i, t._dtype());
-        write_scalar_at(g_data, i, grad_input._dtype(), gv * std::cos(tv));
-    }
-
-    accumulate_grad(t, grad_input);
+    accumulate_grad(t, grad_sin);
 }
 
 void GradASin::backward(const Tensor& self) {
@@ -479,18 +503,18 @@ void GradASin::backward(const Tensor& self) {
     if (!t.impl || !t.requires_grad()) return;
 
     Tensor grad_input = tensor_from_grad(self);
-    size_t n = t.numel_();
 
-    auto* g_data = grad_input.impl->storage->data.get();
-    auto* t_data = t.impl->storage->data.get();
+    // Use ops for broadcasting
+    bool old_grad_t = t.requires_grad();
+    t.impl->requires_grad = false;
 
-    for (size_t i = 0; i < n; ++i) {
-        double gv = read_scalar_at(g_data, i, grad_input._dtype());
-        double tv = read_scalar_at(t_data, i, t._dtype());
-        write_scalar_at(g_data, i, grad_input._dtype(), gv * (1.0 / std::sqrt(1.0 - tv * tv)));
-    }
-
-    accumulate_grad(t, grad_input);
+    // 1.0 / sqrt(1.0 - t*t)
+    Tensor deriv = pow_scalar(1.0 - (t * t), -0.5); // <-- FIX: Was scalar_pow
+    Tensor grad_asin = grad_input * deriv;
+    
+    t.impl->requires_grad = old_grad_t;
+    
+    accumulate_grad(t, grad_asin);
 }
 void GradSinH::backward(const Tensor& self) {
     if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
@@ -498,20 +522,17 @@ void GradSinH::backward(const Tensor& self) {
     if (!t.impl || !t.requires_grad()) return;
 
     Tensor grad_input = tensor_from_grad(self);
-    size_t n = t.numel_();
+    
+    // Use ops for broadcasting
+    bool old_grad_t = t.requires_grad();
+    t.impl->requires_grad = false;
 
-    auto* g_data = grad_input.impl->storage->data.get();
-    auto* t_data = t.impl->storage->data.get();
+    Tensor grad_sin = grad_input * cosh_(t); // grad_self * cos(t)
+    
+    t.impl->requires_grad = old_grad_t;
 
-    for (size_t i = 0; i < n; ++i) {
-        double gv = read_scalar_at(g_data, i, grad_input._dtype());
-        double tv = read_scalar_at(t_data, i, t._dtype());
-        write_scalar_at(g_data, i, grad_input._dtype(), gv * std::cos(tv));
-    }
-
-    accumulate_grad(t, grad_input);
+    accumulate_grad(t, grad_sin);
 }
-
 
 void GradCos::backward(const Tensor& self) {
     if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
@@ -519,75 +540,75 @@ void GradCos::backward(const Tensor& self) {
     if (!t.impl || !t.requires_grad()) return;
 
     Tensor grad_input = tensor_from_grad(self);
-    size_t n = t.numel_();
+    
+    // Use ops for broadcasting
+    bool old_grad_t = t.requires_grad();
+    t.impl->requires_grad = false;
 
-    auto* g_data = grad_input.impl->storage->data.get();
-    auto* t_data = t.impl->storage->data.get();
+    Tensor grad_cos = grad_input * sin_(t) * -1.0; // grad_self * -sin(t)
+    
+    t.impl->requires_grad = old_grad_t;
 
-    for (size_t i = 0; i < n; ++i) {
-        double gv = read_scalar_at(g_data, i, grad_input._dtype());
-        double tv = read_scalar_at(t_data, i, t._dtype());
-        write_scalar_at(g_data, i, grad_input._dtype(), gv * (-std::sin(tv)));
-    }
-
-    accumulate_grad(t, grad_input);
+    accumulate_grad(t, grad_cos);
 }
+
 void GradACos::backward(const Tensor& self) {
     if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
         throw std::runtime_error("GradACos: missing self grad");
     if (!t.impl || !t.requires_grad()) return;
 
     Tensor grad_input = tensor_from_grad(self);
-    size_t n = t.numel_();
+    
+    // Use ops for broadcasting
+    bool old_grad_t = t.requires_grad();
+    t.impl->requires_grad = false;
+    
+    // -1.0 / sqrt(1.0 - t*t)
+    Tensor deriv = pow_scalar(1.0 - (t * t), -0.5) * -1.0; // <-- FIX: Was scalar_pow
+    Tensor grad_acos = grad_input * deriv;
 
-    auto* g_data = grad_input.impl->storage->data.get();
-    auto* t_data = t.impl->storage->data.get();
+    t.impl->requires_grad = old_grad_t;
 
-    for (size_t i = 0; i < n; ++i) {
-        double gv = read_scalar_at(g_data, i, grad_input._dtype());
-        double tv = read_scalar_at(t_data, i, t._dtype());
-        write_scalar_at(g_data, i, grad_input._dtype(), gv * (-1.0 / std::sqrt(1.0 - tv * tv)));
-    }
-
-    accumulate_grad(t, grad_input);
+    accumulate_grad(t, grad_acos);
 }
+
 void GradCosH::backward(const Tensor& self) {
     if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
-        throw std::runtime_error("GradCoshH: missing self grad");
+        throw std::runtime_error("GradCosH: missing self grad");
     if (!t.impl || !t.requires_grad()) return;
 
     Tensor grad_input = tensor_from_grad(self);
-    size_t n = t.numel_();
+    
+    // Use ops for broadcasting
+    bool old_grad_t = t.requires_grad();
+    t.impl->requires_grad = false;
 
-    auto* g_data = grad_input.impl->storage->data.get();
-    auto* t_data = t.impl->storage->data.get();
+    Tensor grad_cos = grad_input * sinh_(t); // grad_self * -sin(t)
+    
+    t.impl->requires_grad = old_grad_t;
 
-    for (size_t i = 0; i < n; ++i) {
-        double gv = read_scalar_at(g_data, i, grad_input._dtype());
-        double tv = read_scalar_at(t_data, i, t._dtype());
-        write_scalar_at(g_data, i, grad_input._dtype(), gv * std::sinh(tv));
-    }
-
-    accumulate_grad(t, grad_input);
+    accumulate_grad(t, grad_cos);
 }
+
 void GradTan::backward(const Tensor& self) {
     if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
         throw std::runtime_error("GradTan: missing self grad");
     if (!t.impl || !t.requires_grad()) return;
 
     Tensor grad_input = tensor_from_grad(self);
-    size_t n = t.numel_();
+    
+    // Use ops for broadcasting
+    bool old_grad_t = t.requires_grad();
+    t.impl->requires_grad = false;
 
-    auto* g_data = grad_input.impl->storage->data.get();
-    auto* t_data = t.impl->storage->data.get();
+    // 1.0 / (cos(t) * cos(t))
+    Tensor cos_t = cos_(t);
+    Tensor deriv = 1.0 / (cos_t * cos_t);
+    Tensor grad_tan = grad_input * deriv;
+    
+    t.impl->requires_grad = old_grad_t;
 
-    for (size_t i = 0; i < n; ++i) {
-        double gv = read_scalar_at(g_data, i, grad_input._dtype());
-        double tv = read_scalar_at(t_data, i, t._dtype());
-        write_scalar_at(g_data, i, grad_input._dtype(),gv * (1.0 / (std::cos(tv) * std::cos(tv))));
-    }
-
-    accumulate_grad(t, grad_input);
+    accumulate_grad(t, grad_tan);
 }
 void GradATan::backward(const Tensor& self) {
     if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
@@ -595,18 +616,18 @@ void GradATan::backward(const Tensor& self) {
     if (!t.impl || !t.requires_grad()) return;
 
     Tensor grad_input = tensor_from_grad(self);
-    size_t n = t.numel_();
+    
+    // Use ops for broadcasting
+    bool old_grad_t = t.requires_grad();
+    t.impl->requires_grad = false;
 
-    auto* g_data = grad_input.impl->storage->data.get();
-    auto* t_data = t.impl->storage->data.get();
+    // 1.0 / (1.0 + t*t)
+    Tensor deriv = 1.0 / (1.0 + (t * t));
+    Tensor grad_atan = grad_input * deriv;
 
-    for (size_t i = 0; i < n; ++i) {
-        double gv = read_scalar_at(g_data, i, grad_input._dtype());
-        double tv = read_scalar_at(t_data, i, t._dtype());
-        write_scalar_at(g_data, i, grad_input._dtype(),gv * (1.0 / (1.0 + tv * tv)));
-    }
-
-    accumulate_grad(t, grad_input);
+    t.impl->requires_grad = old_grad_t;
+    
+    accumulate_grad(t, grad_atan);
 }
 void GradTanH::backward(const Tensor& self) {
     if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
@@ -614,18 +635,19 @@ void GradTanH::backward(const Tensor& self) {
     if (!t.impl || !t.requires_grad()) return;
 
     Tensor grad_input = tensor_from_grad(self);
-    size_t n = t.numel_();
+    
+    // Use ops for broadcasting
+    bool old_grad_t = t.requires_grad();
+    t.impl->requires_grad = false;
 
-    auto* g_data = grad_input.impl->storage->data.get();
-    auto* t_data = t.impl->storage->data.get();
+    // 1.0 - tanh(t)^2
+    Tensor tanh_t = tanh_(t);
+    Tensor deriv = 1.0 - (tanh_t * tanh_t);
+    Tensor grad_tanh = grad_input * deriv;
 
-    for (size_t i = 0; i < n; ++i) {
-        double gv = read_scalar_at(g_data, i, grad_input._dtype());
-        double tv = read_scalar_at(t_data, i, t._dtype());
-        write_scalar_at(g_data, i, grad_input._dtype(), gv * (1.0 - std::tanh(tv) * std::tanh(tv)));
-    }
+    t.impl->requires_grad = old_grad_t;
 
-    accumulate_grad(t, grad_input);
+    accumulate_grad(t, grad_tanh);
 }
 
 void GradSigmoid::backward(const Tensor& self) {
@@ -634,18 +656,19 @@ void GradSigmoid::backward(const Tensor& self) {
     if (!t.impl || !t.requires_grad()) return;
 
     Tensor grad_input = tensor_from_grad(self);
-    size_t n = t.numel_();
+    
+    // Use ops for broadcasting
+    bool old_grad_t = t.requires_grad();
+    t.impl->requires_grad = false;
+    
+    // We need the *output* of sigmoid, which is `self`
+    // deriv = self * (1.0 - self)
+    Tensor deriv = self * (1.0 - self);
+    Tensor grad_sig = grad_input * deriv;
 
-    auto* g_data = grad_input.impl->storage->data.get();
-    auto* t_data = t.impl->storage->data.get();
+    t.impl->requires_grad = old_grad_t;
 
-    for (size_t i = 0; i < n; ++i) {
-        double gv = read_scalar_at(g_data, i, grad_input._dtype());
-        double tv = read_scalar_at(t_data, i, t._dtype());
-        write_scalar_at(g_data, i, grad_input._dtype(), gv * tv * (1.0 - tv));
-    }
-
-    accumulate_grad(t, grad_input);
+    accumulate_grad(t, grad_sig);
 }
 void GradRelu::backward(const Tensor& self) {
     if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
@@ -653,18 +676,18 @@ void GradRelu::backward(const Tensor& self) {
     if (!t.impl || !t.requires_grad()) return;
 
     Tensor grad_input = tensor_from_grad(self);
-    size_t n = t.numel_();
+    
+    // Use ops for broadcasting
+    bool old_grad_t = t.requires_grad();
+    t.impl->requires_grad = false;
 
-    auto* g_data = grad_input.impl->storage->data.get();
-    auto* t_data = t.impl->storage->data.get();
+    // deriv = 1.0 if t > 0 else 0.0
+    Tensor deriv = gt(t, 0.0); // gt(t, 0.0) returns 1.0 or 0.0
+    Tensor grad_relu = grad_input * deriv;
+    
+    t.impl->requires_grad = old_grad_t;
 
-    for (size_t i = 0; i < n; ++i) {
-        double gv = read_scalar_at(g_data, i, grad_input._dtype());
-        double tv = read_scalar_at(t_data, i, t._dtype());
-        write_scalar_at(g_data, i, grad_input._dtype(), (tv > 0.0) ? gv : 0.0);
-    }
-
-    accumulate_grad(t, grad_input);
+    accumulate_grad(t, grad_relu);
 }
 void GradSoftPlus::backward(const Tensor& self) {
     if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
@@ -672,18 +695,18 @@ void GradSoftPlus::backward(const Tensor& self) {
     if (!t.impl || !t.requires_grad()) return;
 
     Tensor grad_input = tensor_from_grad(self);
-    size_t n = t.numel_();
 
-    auto* g_data = grad_input.impl->storage->data.get();
-    auto* t_data = t.impl->storage->data.get();
+    // Use ops for broadcasting
+    bool old_grad_t = t.requires_grad();
+    t.impl->requires_grad = false;
 
-    for (size_t i = 0; i < n; ++i) {
-        double gv = read_scalar_at(g_data, i, grad_input._dtype());
-        double tv = read_scalar_at(t_data, i, t._dtype());
-        write_scalar_at(g_data, i, grad_input._dtype(), gv * (1.0 / (1.0 + std::exp(-tv))));
-    }
+    // deriv = 1.0 / (1.0 + exp(-t)) (which is just sigmoid(t))
+    Tensor deriv = sigmoid_(t);
+    Tensor grad_sp = grad_input * deriv;
+    
+    t.impl->requires_grad = old_grad_t;
 
-    accumulate_grad(t, grad_input);
+    accumulate_grad(t, grad_sp);
 }
 
 // ------------------ topo sort helper ------------------
@@ -709,19 +732,18 @@ void GradAbs::backward(const Tensor& self) {
     if (!t.impl || !t.requires_grad()) return;
 
     Tensor grad_input = tensor_from_grad(self);
-    size_t n = t.numel_();
+    
+    // Use ops for broadcasting
+    bool old_grad_t = t.requires_grad();
+    t.impl->requires_grad = false;
+    
+    // deriv = 1.0 if t > 0, -1.0 if t < 0, 0.0 if t == 0
+    Tensor deriv = gt(t, 0.0) - lt(t, 0.0);
+    Tensor grad_abs = grad_input * deriv;
 
-    auto* g_data = grad_input.impl->storage->data.get();
-    auto* t_data = t.impl->storage->data.get();
+    t.impl->requires_grad = old_grad_t;
 
-    for (size_t i = 0; i < n; ++i) {
-        double gv = read_scalar_at(g_data, i, grad_input._dtype());
-        double tv = read_scalar_at(t_data, i, t._dtype());
-        double sign = (tv > 0.0) ? 1.0 : ((tv < 0.0) ? -1.0 : 0.0);
-        write_scalar_at(g_data, i, grad_input._dtype(), gv * sign);
-    }
-
-    accumulate_grad(t, grad_input);
+    accumulate_grad(t, grad_abs);
 }
 
 void GradSum::backward(const Tensor& self) {
@@ -731,31 +753,44 @@ void GradSum::backward(const Tensor& self) {
 
     if (!t.impl || !t.requires_grad()) return;
 
-    // scalar gradient value (assume scalar stored at index 0)
-    double g = read_scalar_at(self.impl->storage->grad.get(), 0, self.impl->dtype);
+    // scalar gradient value (assume scalar stored at index 0, check for view)
+    double g = read_scalar_at(self.impl->storage->grad.get(), self.impl->offset, self.impl->dtype); // <-- FIX #3: Use offset
 
     // create grad tensor of same shape as t and fill with g
     std::vector<size_t> shape_vec(t.impl->shape, t.impl->shape + t.impl->ndim);
-    Tensor grad_input(shape_vec, t.impl->dtype, false); // grad itself does not require grad
-
-    size_t n = t.numel_();
-    for (size_t i = 0; i < n; ++i)
-        write_scalar_at(grad_input.impl->storage->data.get(), i, grad_input.impl->dtype, g);
+    Tensor grad_input = Tensor::full(shape_vec, g, t.impl->dtype, false);
 
     // accumulate into t's grad storage via existing helper
     accumulate_grad(t, grad_input);
 }
-
 
 // ------------------ backward ------------------
 void backward(Tensor& loss) {
     if (!loss.impl) throw std::runtime_error("backward: loss undefined");
     if (!loss.impl->requires_grad) throw std::runtime_error("backward: loss requires_grad == false");
 
-    // set loss grad to ones
-    ensure_grad_buffer(loss, true);
-    for (size_t i = 0; i < loss.numel(); ++i)
-        write_scalar_at(loss.impl->storage->grad.get(), i, loss._dtype(), 1.0);
+    // set loss grad to ones (this must be stride-aware!)
+    ensure_grad_buffer(loss, true); // Zeros the whole buffer
+    
+    // Create a tensor of ones with the same shape as loss
+    Tensor ones = Tensor::ones(loss.shape(), loss._dtype(), false);
+    
+    // Write the ones to the gradient buffer, respecting strides/offsets
+    size_t n = loss.numel();
+    std::vector<size_t> idx_vec(loss.impl->ndim, 0);
+    for (size_t flat = 0; flat < n; ++flat) {
+        size_t rem = flat;
+        for (int d = (int)loss.impl->ndim - 1; d >= 0; --d) {
+            idx_vec[d] = rem % loss.impl->shape[d];
+            rem /= loss.impl->shape[d];
+        }
+        size_t strided_idx = loss.impl->offset;
+        for (size_t d = 0; d < loss.impl->ndim; ++d) {
+            strided_idx += idx_vec[d] * loss.impl->strides[d];
+        }
+        write_scalar_at(loss.impl->storage->grad.get(), strided_idx, loss._dtype(), 1.0);
+    }
+
 
     // build topo order and run reverse
     std::vector<Tensor> topo;
