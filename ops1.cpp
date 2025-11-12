@@ -1053,11 +1053,13 @@ Tensor sum(const Tensor& t, int dim ) {
                 write_scalar_at(out.impl->storage->data.get(), out_idx, out.impl->dtype, s);
             }
         }
-
+        if (req)
+            out.impl->grad_fn = std::make_shared<GradSum>(t, dim);
         return out;
     }
 }
 Tensor mean(const Tensor& t, int dim ) {
+    bool req = t.requires_grad();
     Tensor s = sum(t, dim);
     double denom = (dim == -1) ? (double)t.numel_() : (double)t.impl->shape[dim];
     size_t n = s.numel_();
@@ -1065,6 +1067,8 @@ Tensor mean(const Tensor& t, int dim ) {
         double v = read_scalar_at(s.impl->storage->data.get(), i, s.impl->dtype);
         write_scalar_at(s.impl->storage->data.get(), i, s.impl->dtype, v / denom);
     }
+    if (req)
+        s.impl->grad_fn = std::make_shared<GradMean>(t, 1.0 / double(t.numel_()));
     return s;
 }
 Tensor max(const Tensor& t, int dim ) {

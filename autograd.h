@@ -95,6 +95,14 @@ struct GradSum : GradFn {
 
     void backward(const Tensor& self) override ;
 };
+struct GradMean : GradFn {
+    Tensor t;
+    double scale;
+    GradMean(const Tensor& t_, double scale_) : t(t_), scale(scale_) {
+        parents = {t};
+    }
+    void backward(const Tensor& self) override ;
+};
 
 struct GradLn : GradFn {
     Tensor t;
