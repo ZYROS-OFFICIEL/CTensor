@@ -532,6 +532,25 @@ void GradACos::backward(const Tensor& self) {
 
     accumulate_grad(t, grad_input);
 }
+void GradCosH::backward(const Tensor& self) {
+    if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
+        throw std::runtime_error("GradCoshH: missing self grad");
+    if (!t.impl || !t.requires_grad()) return;
+
+    Tensor grad_input = tensor_from_grad(self);
+    size_t n = t.numel_();
+
+    auto* g_data = grad_input.impl->storage->data.get();
+    auto* t_data = t.impl->storage->data.get();
+
+    for (size_t i = 0; i < n; ++i) {
+        double gv = read_scalar_at(g_data, i, grad_input._dtype());
+        double tv = read_scalar_at(t_data, i, t._dtype());
+        write_scalar_at(g_data, i, grad_input._dtype(), gv * std::sinh(tv));
+    }
+
+    accumulate_grad(t, grad_input);
+}
 void GradTan::backward(const Tensor& self) {
     if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
         throw std::runtime_error("GradTan: missing self grad");
