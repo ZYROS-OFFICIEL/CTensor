@@ -95,7 +95,7 @@ Tensor Loss::HuberLoss(const Tensor& pred, const Tensor& target,std::string redu
 
     return result;
 }
-Tensor Loss::CrossEntropy(const Tensor& pred_, const Tensor& target_) {
+Tensor Loss::CrossEntropy(const Tensor& pred_, const Tensor& target_,std::string reduction) {
     if (!pred_.impl || !target_.impl)
         throw std::runtime_error("Loss::CrossEntropy: null tensor implementation");
 
@@ -119,11 +119,12 @@ Tensor Loss::CrossEntropy(const Tensor& pred_, const Tensor& target_) {
     Tensor ce = -sum(target_ * ln_(probs), -1);  // element-wise * then sum
 
     // --- Mean across batch if needed ---
-    result = mean(ce);
+    if(reduction == "mean")
+        result = mean(ce);
 
     // --- Optional backward ---
     if (req)
-        result.impl->grad_fn = std::make_shared<GradCrossEntropy>(pred_, target_);
+        result.impl->grad_fn = std::make_shared<GradCrossEntropy>(pred_, target_,reduction );
 
     return result;
 }
@@ -244,6 +245,8 @@ Tensor Loss::NLLLoss(const Tensor& pred, const Tensor& target,std::string reduct
         throw std::runtime_error("Loss::NLLLoss: dimension mismatch");
 
     bool req = pred.requires_grad();
+    Tensor result({1}, pred.impl->dtype, req);
+
     Tensor picked = gather(pred, target, 1);  // selects pred[i, target[i]]
 
     // 3️⃣ Compute the NLL loss per sample

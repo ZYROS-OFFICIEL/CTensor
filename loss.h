@@ -19,7 +19,7 @@ public:
     static Tensor SmoothL1Loss(const Tensor& pred, const Tensor& target,std::string reduction = "mean") {
         return HuberLoss(pred, target, reduction, 1.0);
     }
-    static Tensor CrossEntropy(const Tensor& pred, const Tensor& target);
+    static Tensor CrossEntropy(const Tensor& pred, const Tensor& target,std::string reduction = "mean");
     static Tensor LogCosh(const Tensor& pred, const Tensor& target,std::string reduction = "mean");
     //Classification losses:
     static Tensor BCE(const Tensor& pred, const Tensor& target,std::string reduction = "mean");
@@ -66,7 +66,10 @@ struct GradHuberLoss : GradFn {
 
 struct GradCrossEntropy : GradFn {
     Tensor pred, target;
-    GradCrossEntropy(const Tensor& pred_, const Tensor& target_) : pred(pred_), target(target_) {
+    std::string reduction;
+
+    GradCrossEntropy(const Tensor& pred_, const Tensor& target_, const std::string& reduction_)
+        : pred(pred_), target(target_), reduction(reduction_) {
         parents = {pred};
     }
     void backward(const Tensor& self) override;

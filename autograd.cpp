@@ -38,15 +38,34 @@ Tensor tensor_from_grad(const Tensor& self) {
         throw std::runtime_error("tensor_from_grad: missing grad buffer");
 
     Tensor grad_tensor(self.shape(), self._dtype(), false);
-    size_t n = self.numel_();
 
-    for (size_t i = 0; i < n; ++i) {
-        double gv = read_scalar_at(self.impl->storage->grad.get(), i, self._dtype());
-        write_scalar_at(grad_tensor.impl->storage->data.get(), i, grad_tensor._dtype(), gv);
+    size_t N = self.numel_();
+    std::vector<size_t> idx_vec(self.impl->ndim, 0);
+
+    for (size_t flat = 0; flat < N; ++flat) {
+        // compute multi-dimensional index in self
+        size_t rem = flat;
+        for (int d = (int)self.impl->ndim - 1; d >= 0; --d) {
+            idx_vec[d] = rem % self.impl->shape[d];
+            rem /= self.impl->shape[d];
+        }
+
+        // compute correct flat index in self's storage using strides
+        size_t self_flat_idx = self.impl->offset;
+        for (size_t d = 0; d < self.impl->ndim; ++d) {
+            self_flat_idx += idx_vec[d] * self.impl->strides[d];
+        }
+
+        // read the gradient from storage
+        double gv = read_scalar_at(self.impl->storage->grad.get(), self_flat_idx, self._dtype());
+
+        // write to contiguous grad_tensor
+        write_scalar_at(grad_tensor.impl->storage->data.get(), flat, grad_tensor._dtype(), gv);
     }
 
     return grad_tensor;
 }
+
 
 // copy .data -> .grad (allocate grad buffer and copy values)
 // after calling this the gradient values are available in impl->storage->grad

@@ -365,7 +365,7 @@ void Tensor::backward() {
 }
 
 
-Tensor gather(const Tensor& input, size_t dim, const Tensor& index) {
+Tensor gather(const Tensor& input, const Tensor& index, size_t dim) {
     if (!input.impl || !index.impl)
         throw std::runtime_error("gather: input or index tensor is empty");
     if (input.impl->ndim != index.impl->ndim)

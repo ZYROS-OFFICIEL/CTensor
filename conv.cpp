@@ -2,6 +2,197 @@
 #include "ops1.h"   // for any ops helpers you have (abs, pow, etc.)
 #include <stdexcept>
 
+
+//------------Helpers---------------------------------------------
+Tensor im2col_2d(const Tensor& input,
+                 int kernel_h, int kernel_w,
+                 int stride_h, int stride_w,
+                 int pad_h, int pad_w)
+{
+    // input [batch, in_c, H, W]
+    size_t batch = input.impl->shape[0];
+    size_t in_c  = input.impl->shape[1];
+    size_t H     = input.impl->shape[2];
+    size_t W     = input.impl->shape[3];
+
+    int out_h = (int)(( (int)H + 2 * pad_h - kernel_h) / stride_h + 1);
+    int out_w = (int)(( (int)W + 2 * pad_w - kernel_w) / stride_w + 1);
+    if (out_h <= 0 || out_w <= 0) throw std::runtime_error("im2col_2d: invalid out dims");
+
+    size_t patch_h = in_c * kernel_h * kernel_w;
+    size_t num_patches = batch * out_h * out_w;
+    Tensor patches = Tensor::zeros({patch_h, num_patches}, input._dtype(), false);
+
+    size_t col = 0;
+    for (size_t b = 0; b < batch; ++b) {
+        for (int oh = 0; oh < out_h; ++oh) {
+            for (int ow = 0; ow < out_w; ++ow) {
+                size_t row = 0;
+                for (size_t ic = 0; ic < in_c; ++ic) {
+                    for (int kh = 0; kh < kernel_h; ++kh) {
+                        for (int kw = 0; kw < kernel_w; ++kw) {
+                            int ih = oh * stride_h + kh - pad_h;
+                            int iw = ow * stride_w + kw - pad_w;
+                            double v = 0.0;
+                            if (ih >= 0 && ih < (int)H && iw >= 0 && iw < (int)W) {
+                                v = input[b][ic][(size_t)ih][(size_t)iw];
+                            }
+                            patches[row][col] = v;
+                            ++row;
+                        }
+                    }
+                }
+                ++col;
+            }
+        }
+    }
+    return patches;
+}
+
+// col2im for 2D: inverse of im2col; accumulates contributions.
+// grad_patches shape: [patch_h, num_patches] ; we map back into grad_input (batch,in_c,H,W)
+void col2im_2d(const Tensor& grad_patches,
+               Tensor& grad_input,
+               int kernel_h, int kernel_w,
+               int stride_h, int stride_w,
+               int pad_h, int pad_w)
+{
+    // grad_input must be zeros-initialized on entry (we will accumulate)
+    size_t batch = grad_input.impl->shape[0];
+    size_t in_c  = grad_input.impl->shape[1];
+    size_t H     = grad_input.impl->shape[2];
+    size_t W     = grad_input.impl->shape[3];
+
+    int out_h = (int)(( (int)H + 2 * pad_h - kernel_h) / stride_h + 1);
+    int out_w = (int)(( (int)W + 2 * pad_w - kernel_w) / stride_w + 1);
+
+    size_t col = 0;
+    for (size_t b = 0; b < batch; ++b) {
+        for (int oh = 0; oh < out_h; ++oh) {
+            for (int ow = 0; ow < out_w; ++ow) {
+                size_t row = 0;
+                for (size_t ic = 0; ic < in_c; ++ic) {
+                    for (int kh = 0; kh < kernel_h; ++kh) {
+                        for (int kw = 0; kw < kernel_w; ++kw) {
+                            int ih = oh * stride_h + kh - pad_h;
+                            int iw = ow * stride_w + kw - pad_w;
+                            if (ih >= 0 && ih < (int)H && iw >= 0 && iw < (int)W) {
+                                double addv = grad_patches[row][col];
+                                double cur = grad_input[b][ic][(size_t)ih][(size_t)iw];
+                                grad_input[b][ic][(size_t)ih][(size_t)iw] = cur + addv;
+                            }
+                            ++row;
+                        }
+                    }
+                }
+                ++col;
+            }
+        }
+    }
+}
+
+// im2col for 3D (depth, height, width)
+Tensor im2col_3d(const Tensor& input,
+                 int kernel_d, int kernel_h, int kernel_w,
+                 int stride_d, int stride_h, int stride_w,
+                 int pad_d, int pad_h, int pad_w)
+{
+    // input [batch, in_c, D, H, W]
+    size_t batch = input.impl->shape[0];
+    size_t in_c  = input.impl->shape[1];
+    size_t D     = input.impl->shape[2];
+    size_t H     = input.impl->shape[3];
+    size_t W     = input.impl->shape[4];
+
+    int out_d = (int)(( (int)D + 2 * pad_d - kernel_d) / stride_d + 1);
+    int out_h = (int)(( (int)H + 2 * pad_h - kernel_h) / stride_h + 1);
+    int out_w = (int)(( (int)W + 2 * pad_w - kernel_w) / stride_w + 1);
+
+    if (out_d <= 0 || out_h <= 0 || out_w <= 0) throw std::runtime_error("im2col_3d: invalid out dims");
+
+    size_t patch_h = in_c * kernel_d * kernel_h * kernel_w;
+    size_t num_patches = batch * out_d * out_h * out_w;
+    Tensor patches = Tensor::zeros({patch_h, num_patches}, input._dtype(), false);
+
+    size_t col = 0;
+    for (size_t b = 0; b < batch; ++b) {
+        for (int od = 0; od < out_d; ++od) {
+            for (int oh = 0; oh < out_h; ++oh) {
+                for (int ow = 0; ow < out_w; ++ow) {
+                    size_t row = 0;
+                    for (size_t ic = 0; ic < in_c; ++ic) {
+                        for (int kd = 0; kd < kernel_d; ++kd) {
+                            for (int kh = 0; kh < kernel_h; ++kh) {
+                                for (int kw = 0; kw < kernel_w; ++kw) {
+                                    int id = od * stride_d + kd - pad_d;
+                                    int ih = oh * stride_h + kh - pad_h;
+                                    int iw = ow * stride_w + kw - pad_w;
+                                    double v = 0.0;
+                                    if (id >= 0 && id < (int)D && ih >= 0 && ih < (int)H && iw >= 0 && iw < (int)W) {
+                                        v = input[b][ic][(size_t)id][(size_t)ih][(size_t)iw];
+                                    }
+                                    patches[row][col] = v;
+                                    ++row;
+                                }
+                            }
+                        }
+                    }
+                    ++col;
+                }
+            }
+        }
+    }
+    return patches;
+}
+
+void col2im_3d(const Tensor& grad_patches,
+               Tensor& grad_input,
+               int kernel_d, int kernel_h, int kernel_w,
+               int stride_d, int stride_h, int stride_w,
+               int pad_d, int pad_h, int pad_w)
+{
+    size_t batch = grad_input.impl->shape[0];
+    size_t in_c  = grad_input.impl->shape[1];
+    size_t D     = grad_input.impl->shape[2];
+    size_t H     = grad_input.impl->shape[3];
+    size_t W     = grad_input.impl->shape[4];
+
+    int out_d = (int)(( (int)D + 2 * pad_d - kernel_d) / stride_d + 1);
+    int out_h = (int)(( (int)H + 2 * pad_h - kernel_h) / stride_h + 1);
+    int out_w = (int)(( (int)W + 2 * pad_w - kernel_w) / stride_w + 1);
+
+    size_t col = 0;
+    for (size_t b = 0; b < batch; ++b) {
+        for (int od = 0; od < out_d; ++od) {
+            for (int oh = 0; oh < out_h; ++oh) {
+                for (int ow = 0; ow < out_w; ++ow) {
+                    size_t row = 0;
+                    for (size_t ic = 0; ic < in_c; ++ic) {
+                        for (int kd = 0; kd < kernel_d; ++kd) {
+                            for (int kh = 0; kh < kernel_h; ++kh) {
+                                for (int kw = 0; kw < kernel_w; ++kw) {
+                                    int id = od * stride_d + kd - pad_d;
+                                    int ih = oh * stride_h + kh - pad_h;
+                                    int iw = ow * stride_w + kw - pad_w;
+                                    if (id >= 0 && id < (int)D && ih >= 0 && ih < (int)H && iw >= 0 && iw < (int)W) {
+                                        double addv = grad_patches[row][col];
+                                        double cur = grad_input[b][ic][(size_t)id][(size_t)ih][(size_t)iw];
+                                        grad_input[b][ic][(size_t)id][(size_t)ih][(size_t)iw] = cur + addv;
+                                    }
+                                    ++row;
+                                }
+                            }
+                        }
+                    }
+                    ++col;
+                }
+            }
+        }
+    }
+}
+
+
+
 // Constructor
 Conv1d::Conv1d(int in_c, int out_c, int k, int s, int p)
     : in_channels(in_c), out_channels(out_c),
@@ -82,204 +273,77 @@ Tensor Conv1d::forward(const Tensor& input) {
 // --- HIGH-PERFORMANCE Conv2d::forward (im2col + MatMul) ---
 Tensor Conv2d::forward(const Tensor& input) {
     if (!input.impl) throw std::runtime_error("Conv2d::forward: null input");
-
-    // input shape: [batch, in_c, height, width]
     size_t batch = input.impl->shape[0];
     size_t in_c  = input.impl->shape[1];
-    size_t height = input.impl->shape[2];
-    size_t width  = input.impl->shape[3];
+    size_t H     = input.impl->shape[2];
+    size_t W     = input.impl->shape[3];
 
-    // Calculate output dimensions
-    int out_h = (int)(( (int)height + 2 * padding_h - kernel_size_h) / stride_h + 1);
-    int out_w = (int)(( (int)width  + 2 * padding_w - kernel_size_w) / stride_w + 1);
-    if (out_h <= 0 || out_w <= 0) throw std::runtime_error("Conv2d::forward: invalid output dimensions");
+    int out_h = (int)(( (int)H + 2 * padding_h - kernel_size_h) / stride_h + 1);
+    int out_w = (int)(( (int)W + 2 * padding_w - kernel_size_w) / stride_w + 1);
 
-    // --- Step 1: Flatten the Kernels (Weight Matrix) ---
-    // Reshape from [out_c, in_c, k_h, k_w] to [out_c, (in_c * k_h * k_w)]
     size_t kernel_patch_size = in_c * kernel_size_h * kernel_size_w;
-    std::vector<size_t> w_flat_shape = {(size_t)out_channels, kernel_patch_size};
-    Tensor w_flat = weight.reshape(w_flat_shape);
+    Tensor w_flat = weight.reshape({(size_t)out_channels, kernel_patch_size});
 
-    // --- Step 2: Create the im2col "Patch Matrix" ---
-    // Output shape will be [kernel_patch_size, (batch * out_h * out_w)]
+    // create patches and store them
+    Tensor input_patches = im2col_2d(input, kernel_size_h, kernel_size_w, stride_h, stride_w, padding_h, padding_w);
+
     size_t num_patches = batch * out_h * out_w;
-    Tensor input_patches = Tensor::zeros({kernel_patch_size, num_patches}, input._dtype(), false);
-
-    // This loop is the im2col transformation
-    size_t patch_col_idx = 0; // Current column in input_patches
-    for (size_t b = 0; b < batch; ++b) {
-        for (int oh = 0; oh < out_h; ++oh) {
-            for (int ow = 0; ow < out_w; ++ow) {
-                // For this output pixel (oh, ow), extract its corresponding patch
-                size_t patch_row_idx = 0; // Current row in this column
-                for (size_t ic = 0; ic < in_c; ++ic) {
-                    for (int kh = 0; kh < kernel_size_h; ++kh) {
-                        for (int kw = 0; kw < kernel_size_w; ++kw) {
-                            
-                            int ih = oh * stride_h + kh - padding_h;
-                            int iw = ow * stride_w + kw - padding_w;
-
-                            // Handle padding: if (ih, iw) is outside, write 0.0
-                            if (ih >= 0 && ih < (int)height && iw >= 0 && iw < (int)width) {
-                                // Use proxy access for readability
-                                input_patches[patch_row_idx][patch_col_idx] = input[b][ic][(size_t)ih][(size_t)iw];
-                            }
-                            // else: it's already 0 from Tensor::zeros
-                            
-                            patch_row_idx++;
-                        }
-                    }
-                }
-                patch_col_idx++;
-            }
-        }
-    }
-
-    // --- Step 3: The MatMul ---
-    // C = W_flat @ Input_patches
-    // Shapes: [out_c, kernel_patch_size] @ [kernel_patch_size, num_patches]
-    // Result shape: [out_c, num_patches] or [out_c, (batch * out_h * out_w)]
+    // matmul
     Tensor output_flat = matmul_(w_flat, input_patches);
 
-    // --- Step 4: Add Bias ---
-    // Reshape bias to [out_c, 1]
+    // add bias and reshape back
     Tensor bias_col = bias.reshape({(size_t)out_channels, 1});
-    
-    // Use operator+ broadcasting (assumes your add_ op handles broadcasting)
-    // output_flat = [out_c, num_patches] + [out_c, 1]
     output_flat = output_flat + bias_col;
 
-    // --- Step 5: Reshape Output ---
-    // Reshape from [out_c, (batch * out_h * out_w)] to [out_c, batch, out_h, out_w]
     Tensor output_reshaped = output_flat.reshape({(size_t)out_channels, batch, (size_t)out_h, (size_t)out_w});
-    
-    // Permute to [batch, out_c, out_h, out_w]
-    Tensor output = output_reshaped.permute({1, 0, 2, 3});
+    Tensor output = output_reshaped.permute({1,0,2,3});
 
-    // --- Attach Grad Fn (if needed) ---
     bool req = input.requires_grad() || weight.requires_grad() || bias.requires_grad();
     if (req) {
-        // !! --- CRITICAL CAVEAT --- !!
-        // We have changed the forward pass logic. The *original*
-        // GradConv2d::backward function is now INCORRECT, as it
-        // assumes the naive loop structure.
-        // A complete implementation would require a new GradConv2dMatMul
-        // that performs the backward pass using matrix multiplications
-        // (i.e., grad_weight = grad_output @ patches.T)
-        // (i.e., grad_patches = weights.T @ grad_output)
-        //
-        // For now, we link the old one, but it will NOT produce
-        // correct gradients for this forward pass.
-        // !! ------------------------- !!
-        output.impl->grad_fn = std::make_shared<GradConv2d>(input, weight, bias, stride_h, stride_w, padding_h, padding_w);
+        // attach grad node storing patches (exactly those used in forward)
+        output.impl->grad_fn = std::make_shared<GradConv2dMatmul>(input, weight, bias, input_patches,
+                                                                 stride_h, stride_w, padding_h, padding_w,
+                                                                 kernel_size_h, kernel_size_w);
     }
-    
     return output;
 }
 
-
-// --- HIGH-PERFORMANCE Conv3d::forward (im2col + MatMul) ---
+// --- Conv3d forward using im2col + matmul (stores input_patches) ---
 Tensor Conv3d::forward(const Tensor& input) {
     if (!input.impl) throw std::runtime_error("Conv3d::forward: null input");
-
-    // input shape: [batch, in_c, height, width]
     size_t batch = input.impl->shape[0];
     size_t in_c  = input.impl->shape[1];
-    size_t depth = input.impl->shape[2];
-    size_t height = input.impl->shape[3];
-    size_t width  = input.impl->shape[4];
+    size_t D     = input.impl->shape[2];
+    size_t H     = input.impl->shape[3];
+    size_t W     = input.impl->shape[4];
 
+    int out_d = (int)(( (int)D + 2 * padding_d - kernel_size_d) / stride_d + 1);
+    int out_h = (int)(( (int)H + 2 * padding_h - kernel_size_h) / stride_h + 1);
+    int out_w = (int)(( (int)W + 2 * padding_w - kernel_size_w) / stride_w + 1);
 
-    // Calculate output dimensions
-    int out_d = (int)(( (int)depth + 2 * padding_d - kernel_size_d) / stride_d + 1);
-    int out_h = (int)(( (int)height + 2 * padding_h - kernel_size_h) / stride_h + 1);
-    int out_w = (int)(( (int)width  + 2 * padding_w - kernel_size_w) / stride_w + 1);
-    if (out_d <= 0 || out_h <= 0 || out_w <= 0) throw std::runtime_error("Conv3d::forward: invalid output dimensions");
+    size_t kernel_patch_size = in_c * kernel_size_d * kernel_size_h * kernel_size_w;
+    Tensor w_flat = weight.reshape({(size_t)out_channels, kernel_patch_size});
 
-    // --- Step 1: Flatten the Kernels (Weight Matrix) ---
-    // Reshape from [out_c, in_c,k_d, k_h, k_w] to [out_c, (in_c *k_d* k_h * k_w)]
-    size_t kernel_patch_size = in_c *kernel_size_d*kernel_size_h * kernel_size_w;
-    std::vector<size_t> w_flat_shape = {(size_t)out_channels, kernel_patch_size};
-    Tensor w_flat = weight.reshape(w_flat_shape);
+    Tensor input_patches = im2col_3d(input, kernel_size_d, kernel_size_h, kernel_size_w,
+                                     stride_d, stride_h, stride_w,
+                                     padding_d, padding_h, padding_w);
 
-    // --- Step 2: Create the im2col "Patch Matrix" ---
-    // Output shape will be [kernel_patch_size, (batch *out_d* out_h * out_w)]
-    size_t num_patches = batch *out_d* out_h * out_w;
-    Tensor input_patches = Tensor::zeros({kernel_patch_size, num_patches}, input._dtype(), false);
-
-    // This loop is the im2col transformation
-    size_t patch_col_idx = 0; // Current column in input_patches
-    for (size_t b = 0; b < batch; ++b) {
-        for (int od = 0; od < out_d; ++od) {
-            for (int oh = 0; oh < out_h; ++oh) {
-                for (int ow = 0; ow < out_w; ++ow) {
-                    // For this output pixel (oh, ow), extract its corresponding patch
-                    size_t patch_row_idx = 0; // Current row in this column
-                    for (size_t ic = 0; ic < in_c; ++ic) {
-                        for (int kd = 0; kd < kernel_size_d; ++kd) {
-                            for (int kh = 0; kh < kernel_size_h; ++kh) {
-                                for (int kw = 0; kw < kernel_size_w; ++kw) {
-                                    int id = od * stride_d + kd - padding_d;
-                                    int ih = oh * stride_h + kh - padding_h;
-                                    int iw = ow * stride_w + kw - padding_w;
-
-                                    // Handle padding: if (id,ih, iw) is outside, write 0.0
-                                    if (id >= 0 && id < (int)depth && ih >= 0 && ih < (int)height && iw >= 0 && iw < (int)width) {
-                                        // Use proxy access for readability
-                                        input_patches[patch_row_idx][patch_col_idx] = input[b][ic][(size_t)id][(size_t)ih][(size_t)iw];
-                                    }
-                                    // else: it's already 0 from Tensor::zeros
-
-                                    patch_row_idx++;
-                                }
-                            }
-                        }
-                    }
-                    patch_col_idx++;
-                }
-            }
-        }
-    }
-
-    // --- Step 3: The MatMul ---
-    // C = W_flat @ Input_patches
-    // Shapes: [out_c, kernel_patch_size] @ [kernel_patch_size, num_patches]
-    // Result shape: [out_c, num_patches] or [out_c, (batch *out_d* out_h * out_w)]
+    size_t num_patches = batch * out_d * out_h * out_w;
     Tensor output_flat = matmul_(w_flat, input_patches);
 
-    // --- Step 4: Add Bias ---
-    // Reshape bias to [out_c, 1]
     Tensor bias_col = bias.reshape({(size_t)out_channels, 1});
-    
-    // Use operator+ broadcasting (assumes your add_ op handles broadcasting)
-    // output_flat = [out_c, num_patches] + [out_c, 1]
     output_flat = output_flat + bias_col;
 
-    // --- Step 5: Reshape Output ---
-    // Reshape from [out_c, (batch *out_d* out_h * out_w)] to [out_c, batch,out_d, out_h, out_w]
-    Tensor output_reshaped = output_flat.reshape({(size_t)out_channels, batch,(size_t)out_d, (size_t)out_h, (size_t)out_w});
-    
-    // Permute to [batch, out_c, out_h, out_w]
-    Tensor output = output_reshaped.permute({1, 0,2,3,4});
+    Tensor output_reshaped = output_flat.reshape({(size_t)out_channels, batch, (size_t)out_d, (size_t)out_h, (size_t)out_w});
+    Tensor output = output_reshaped.permute({1,0,2,3,4});
 
-    // --- Attach Grad Fn (if needed) ---
     bool req = input.requires_grad() || weight.requires_grad() || bias.requires_grad();
     if (req) {
-        // !! --- CRITICAL CAVEAT --- !!
-        // We have changed the forward pass logic. The *original*
-        // GradConv2d::backward function is now INCORRECT, as it
-        // assumes the naive loop structure.
-        // A complete implementation would require a new GradConv2dMatMul
-        // that performs the backward pass using matrix multiplications
-        // (i.e., grad_weight = grad_output @ patches.T)
-        // (i.e., grad_patches = weights.T @ grad_output)
-        //
-        // For now, we link the old one, but it will NOT produce
-        // correct gradients for this forward pass.
-        // !! ------------------------- !!
-        output.impl->grad_fn = std::make_shared<GradConv3d>(input, weight, bias,stride_d, stride_h, stride_w,padding_d, padding_h, padding_w);
+        output.impl->grad_fn = std::make_shared<GradConv3dMatmul>(input, weight, bias, input_patches,
+                                                                 stride_d, stride_h, stride_w,
+                                                                 padding_d, padding_h, padding_w,
+                                                                 kernel_size_d, kernel_size_h, kernel_size_w);
     }
-    
     return output;
 }
 
@@ -599,6 +663,101 @@ void GradConv3d::backward(const Tensor& self) {
         }
         
         // Finally, accumulate the computed gradient into the original input
+        accumulate_grad(input, grad_input);
+    }
+}
+
+void GradConv2dMatmul::backward(const Tensor& self) {
+    if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
+        throw std::runtime_error("GradConv2dMatmul: missing self grad");
+
+    // incoming grad (batch, out_c, out_h, out_w)
+    Tensor grad_output = tensor_from_grad(self);
+
+    size_t batch = input.impl->shape[0];
+    size_t in_c  = input.impl->shape[1];
+    size_t H     = input.impl->shape[2];
+    size_t W     = input.impl->shape[3];
+    size_t out_c = weight.impl->shape[0];
+
+    int out_h = (int)(( (int)H + 2 * pad_h - kernel_h) / stride_h + 1);
+    int out_w = (int)(( (int)W + 2 * pad_w - kernel_w) / stride_w + 1);
+    size_t num_patches = batch * out_h * out_w;
+    size_t kernel_patch_size = in_c * kernel_h * kernel_w;
+
+    // reshape grad_output -> [out_c, num_patches]
+    Tensor grad_output_reshaped = grad_output.permute({1,0,2,3});
+    Tensor grad_output_flat = grad_output_reshaped.reshape({out_c, num_patches});
+
+    // bias grad: sum over columns
+    if (bias.requires_grad()) {
+        Tensor grad_bias = sum(grad_output_flat, 1); // [out_c] or [out_c,1]
+        accumulate_grad(bias, grad_bias.reshape(bias.shape()));
+    }
+
+    // weight grad: grad_output_flat @ input_patches.T
+    if (weight.requires_grad()) {
+        Tensor input_patches_T = input_patches.t_(); // [num_patches, kernel_patch_size]
+        Tensor grad_w_flat = matmul_(grad_output_flat, input_patches_T); // [out_c, kernel_patch_size]
+        Tensor grad_weight = grad_w_flat.reshape(weight.shape());
+        accumulate_grad(weight, grad_weight);
+    }
+
+    // input grad: w_flat.T @ grad_output_flat -> grad_input_patches -> col2im
+    if (input.requires_grad()) {
+        Tensor w_flat = weight.reshape({out_c, kernel_patch_size});
+        Tensor w_flat_T = w_flat.t_(); // [kernel_patch_size, out_c]
+        Tensor grad_input_patches = matmul_(w_flat_T, grad_output_flat); // [kernel_patch_size, num_patches]
+
+        Tensor grad_input = Tensor::zeros(input.shape(), input._dtype(), false);
+        col2im_2d(grad_input_patches, grad_input, kernel_h, kernel_w, stride_h, stride_w, pad_h, pad_w);
+        accumulate_grad(input, grad_input);
+    }
+}
+
+void GradConv3dMatmul::backward(const Tensor& self) {
+    if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
+        throw std::runtime_error("GradConv3dMatmul: missing self grad");
+
+    Tensor grad_output = tensor_from_grad(self);
+
+    size_t batch = input.impl->shape[0];
+    size_t in_c  = input.impl->shape[1];
+    size_t D     = input.impl->shape[2];
+    size_t H     = input.impl->shape[3];
+    size_t W     = input.impl->shape[4];
+    size_t out_c = weight.impl->shape[0];
+
+    int out_d = (int)(( (int)D + 2 * pad_d - kernel_d) / stride_d + 1);
+    int out_h = (int)(( (int)H + 2 * pad_h - kernel_h) / stride_h + 1);
+    int out_w = (int)(( (int)W + 2 * pad_w - kernel_w) / stride_w + 1);
+    size_t num_patches = batch * out_d * out_h * out_w;
+    size_t kernel_patch_size = in_c * kernel_d * kernel_h * kernel_w;
+
+    Tensor grad_output_reshaped = grad_output.permute({1,0,2,3,4});
+    Tensor grad_output_flat = grad_output_reshaped.reshape({out_c, num_patches});
+
+    if (bias.requires_grad()) {
+        Tensor grad_bias = sum(grad_output_flat, 1);
+        accumulate_grad(bias, grad_bias.reshape(bias.shape()));
+    }
+
+    if (weight.requires_grad()) {
+        Tensor input_patches_T = input_patches.t_();
+        Tensor grad_w_flat = matmul_(grad_output_flat, input_patches_T);
+        Tensor grad_weight = grad_w_flat.reshape(weight.shape());
+        accumulate_grad(weight, grad_weight);
+    }
+
+    if (input.requires_grad()) {
+        Tensor w_flat = weight.reshape({out_c, kernel_patch_size});
+        Tensor w_flat_T = w_flat.t_();
+        Tensor grad_input_patches = matmul_(w_flat_T, grad_output_flat);
+        Tensor grad_input = Tensor::zeros(input.shape(), input._dtype(), false);
+        col2im_3d(grad_input_patches, grad_input,
+                  kernel_d, kernel_h, kernel_w,
+                  stride_d, stride_h, stride_w,
+                  pad_d, pad_h, pad_w);
         accumulate_grad(input, grad_input);
     }
 }
