@@ -287,7 +287,7 @@ Tensor Conv2d::forward(const Tensor& input) {
     // create patches and store them
     Tensor input_patches = im2col_2d(input, kernel_size_h, kernel_size_w, stride_h, stride_w, padding_h, padding_w);
 
-    // size_t num_patches = batch * out_h * out_w; // Unused
+    size_t num_patches = batch * out_h * out_w;
     // matmul
     Tensor output_flat = matmul_(w_flat, input_patches);
 
@@ -328,7 +328,7 @@ Tensor Conv3d::forward(const Tensor& input) {
                                      stride_d, stride_h, stride_w,
                                      padding_d, padding_h, padding_w);
 
-    // size_t num_patches = batch * out_d * out_h * out_w; // Unused
+    size_t num_patches = batch * out_d * out_h * out_w;
     Tensor output_flat = matmul_(w_flat, input_patches);
 
     Tensor bias_col = bias.reshape({(size_t)out_channels, 1});
@@ -353,20 +353,10 @@ void GradConv1d::backward(const Tensor& self) {
     if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
         throw std::runtime_error("GradConv1d: missing self grad");
 
-    // Detach parents while we compute intermediate grad tensors to avoid
-    // accidentally building new grad-ops that reference the original graph.
-    bool old_req_input  = input.impl ? input.impl->requires_grad : false;
-    bool old_req_weight = weight.impl ? weight.impl->requires_grad : false;
-    bool old_req_bias   = bias.impl ? bias.impl->requires_grad : false;
-
-    if (input.impl)  input.impl->requires_grad  = false;
-    if (weight.impl) weight.impl->requires_grad = false;
-    if (bias.impl)   bias.impl->requires_grad   = false;
-
-    // get grad of output (same shape as forward output) — contiguous DATA tensor
+    // get grad of output (same shape as forward output)
     Tensor grad_output = tensor_from_grad(self);
 
-    // prepare zero tensors for grads (same shapes as originals), not requiring grad
+    // prepare zero tensors for grads (same shapes as originals)
     Tensor grad_input  = Tensor::zeros(input.shape(), input._dtype(), false);
     Tensor grad_weight = Tensor::zeros(weight.shape(), weight._dtype(), false);
     Tensor grad_bias   = Tensor::zeros(bias.shape(), bias._dtype(), false);
@@ -378,14 +368,13 @@ void GradConv1d::backward(const Tensor& self) {
     size_t k_len = weight.impl->shape[2];
     size_t out_w = grad_output.impl->shape[2];
 
-    // accumulate gradients (pure scalar math; no grad ops are created because parents are detached)
+    // accumulate gradients
     for (size_t b = 0; b < batch; ++b) {
         for (size_t oc = 0; oc < out_c; ++oc) {
             for (size_t ow = 0; ow < out_w; ++ow) {
-                // read grad at this output element (should be a small/copy-access)
-                double go = grad_output[b][oc][ow];
+                double go = grad_output[b][oc][ow]; // grad at this output element
 
-                // grad bias: sum over batch & width
+                // grad bias
                 double cur_b = grad_bias[oc];
                 grad_bias[oc] = cur_b + go;
 
@@ -409,16 +398,12 @@ void GradConv1d::backward(const Tensor& self) {
         }
     }
 
-    // restore original requires_grad flags
-    if (input.impl)  input.impl->requires_grad  = old_req_input;
-    if (weight.impl) weight.impl->requires_grad = old_req_weight;
-    if (bias.impl)   bias.impl->requires_grad   = old_req_bias;
-
-    // accumulate into parents' grad buffers using your helper (only if they requested grads)
-    if (input.requires_grad())  accumulate_grad(input,  grad_input);
-    if (weight.requires_grad()) accumulate_grad(weight, grad_weight);
-    if (bias.requires_grad())   accumulate_grad(bias,   grad_bias);
+    // accumulate into parents' grad buffers using your helper
+    accumulate_grad(input, grad_input);
+    accumulate_grad(weight, grad_weight);
+    accumulate_grad(bias, grad_bias);
 }
+
 
 void GradConv2dMatmul::backward(const Tensor& self) {
     if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
@@ -442,23 +427,14 @@ void GradConv2dMatmul::backward(const Tensor& self) {
     Tensor grad_output_reshaped = grad_output.permute({1,0,2,3});
     Tensor grad_output_flat = grad_output_reshaped.reshape({out_c, num_patches});
 
-    // --- BUG FIX: Detach parents ---
-    bool old_grad_input = input.impl->requires_grad;
-    bool old_grad_weight = weight.impl->requires_grad;
-    bool old_grad_bias = bias.impl->requires_grad;
-    input.impl->requires_grad = false;
-    weight.impl->requires_grad = false;
-    bias.impl->requires_grad = false;
-
-
     // bias grad: sum over columns
-    if (old_grad_bias) {
+    if (bias.requires_grad()) {
         Tensor grad_bias = sum(grad_output_flat, 1); // [out_c] or [out_c,1]
         accumulate_grad(bias, grad_bias.reshape(bias.shape()));
     }
 
     // weight grad: grad_output_flat @ input_patches.T
-    if (old_grad_weight) {
+    if (weight.requires_grad()) {
         Tensor input_patches_T = input_patches.t_(); // [num_patches, kernel_patch_size]
         Tensor grad_w_flat = matmul_(grad_output_flat, input_patches_T); // [out_c, kernel_patch_size]
         Tensor grad_weight = grad_w_flat.reshape(weight.shape());
@@ -466,7 +442,7 @@ void GradConv2dMatmul::backward(const Tensor& self) {
     }
 
     // input grad: w_flat.T @ grad_output_flat -> grad_input_patches -> col2im
-    if (old_grad_input) {
+    if (input.requires_grad()) {
         Tensor w_flat = weight.reshape({out_c, kernel_patch_size});
         Tensor w_flat_T = w_flat.t_(); // [kernel_patch_size, out_c]
         Tensor grad_input_patches = matmul_(w_flat_T, grad_output_flat); // [kernel_patch_size, num_patches]
@@ -475,11 +451,18 @@ void GradConv2dMatmul::backward(const Tensor& self) {
         col2im_2d(grad_input_patches, grad_input, kernel_h, kernel_w, stride_h, stride_w, pad_h, pad_w);
         accumulate_grad(input, grad_input);
     }
-    
-    // --- Restore flags ---
-    input.impl->requires_grad = old_grad_input;
-    weight.impl->requires_grad = old_grad_weight;
-    bias.impl->requires_grad = old_grad_bias;
+        /*
+    std::cerr   << "DEBUG GradConv2d: input.storage->size=" << input.impl->storage->size
+                << " weight.storage->size=" << weight.impl->storage->size
+                << " output.storage->size=" << self.impl->storage->size << "\n";
+
+    std::cerr << "shapes: input=";
+    input.print_shape();
+    std::cerr << " weight=";
+    weight.print_shape();
+    std::cerr << " grad_output=";
+    grad_output.print_shape();
+    */
 }
 
 void GradConv3dMatmul::backward(const Tensor& self) {
@@ -504,27 +487,19 @@ void GradConv3dMatmul::backward(const Tensor& self) {
     Tensor grad_output_reshaped = grad_output.permute({1,0,2,3,4});
     Tensor grad_output_flat = grad_output_reshaped.reshape({out_c, num_patches});
 
-    // --- BUG FIX: Detach parents ---
-    bool old_grad_input = input.impl->requires_grad;
-    bool old_grad_weight = weight.impl->requires_grad;
-    bool old_grad_bias = bias.impl->requires_grad;
-    input.impl->requires_grad = false;
-    weight.impl->requires_grad = false;
-    bias.impl->requires_grad = false;
-
-    if (old_grad_bias) {
+    if (bias.requires_grad()) {
         Tensor grad_bias = sum(grad_output_flat, 1);
         accumulate_grad(bias, grad_bias.reshape(bias.shape()));
     }
 
-    if (old_grad_weight) {
+    if (weight.requires_grad()) {
         Tensor input_patches_T = input_patches.t_();
         Tensor grad_w_flat = matmul_(grad_output_flat, input_patches_T);
         Tensor grad_weight = grad_w_flat.reshape(weight.shape());
         accumulate_grad(weight, grad_weight);
     }
 
-    if (old_grad_input) {
+    if (input.requires_grad()) {
         Tensor w_flat = weight.reshape({out_c, kernel_patch_size});
         Tensor w_flat_T = w_flat.t_();
         Tensor grad_input_patches = matmul_(w_flat_T, grad_output_flat);
@@ -535,9 +510,4 @@ void GradConv3dMatmul::backward(const Tensor& self) {
                   pad_d, pad_h, pad_w);
         accumulate_grad(input, grad_input);
     }
-    
-    // --- Restore flags ---
-    input.impl->requires_grad = old_grad_input;
-    weight.impl->requires_grad = old_grad_weight;
-    bias.impl->requires_grad = old_grad_bias;
 }
