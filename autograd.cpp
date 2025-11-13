@@ -16,24 +16,28 @@
 // -------------------- helpers --------------------
 
 // ensure grad buffer exists on tensor; if zero=true fill with zeros
-void ensure_grad_buffer(Tensor &t, bool zero) {
-    if (!t.impl) 
-        throw std::runtime_error("ensure_grad_buffer: tensor undefined");
-    if (!t.impl->storage)
-        throw std::runtime_error("ensure_grad_buffer: tensor has no storage");
+// Replace your current ensure_grad_buffer implementation with this.
 
-    size_t nbytes = t.numel_() * t.dtype_bytes();  // <-- FIXED: use tensor's true element count
+inline void ensure_grad_buffer(Tensor &t, bool zero_existing) {
+    if (!t.impl) throw std::runtime_error("ensure_grad_buffer: tensor undefined");
+    if (!t.impl->storage) throw std::runtime_error("ensure_grad_buffer: tensor has no storage");
+
+    // Allocate based on underlying storage->size (stride-safe)
+    size_t total_elems = t.impl->storage->size;
+    size_t nbytes = total_elems * t.dtype_bytes();
 
     if (!t.impl->storage->grad) {
+        // ALWAYS zero newly allocated buffer (prevents reading uninitialized memory)
         void* ptr = nullptr;
         if (nbytes) {
             ptr = std::malloc(nbytes);
             if (!ptr) throw std::bad_alloc();
-            if (zero) std::memset(ptr, 0, nbytes);
+            std::memset(ptr, 0, nbytes);   // zero on allocation
         }
         t.impl->storage->grad = std::shared_ptr<void>(ptr, std::free);
-    } else if (zero) {
-        std::memset(t.impl->storage->grad.get(), 0, nbytes);
+    } else if (zero_existing) {
+        // Caller explicitly requested zeroing existing buffer
+        if (nbytes) std::memset(t.impl->storage->grad.get(), 0, nbytes);
     }
 }
 
@@ -213,6 +217,32 @@ inline void accumulate_grad(Tensor& target, const Tensor& grad_src) {
             
             g_aligned_strided_idx += use_idx * g_aligned.impl->strides[g_dim_idx];
         }
+        // right after computing target_strided_idx and g_aligned_strided_idx
+
+        // debug safety checks (only enabled in debug builds)
+        size_t target_storage_size = target.impl->storage ? target.impl->storage->size : 0;
+        size_t g_storage_size = g_aligned.impl->storage ? g_aligned.impl->storage->size : 0;
+        if (target_strided_idx >= target_storage_size) {
+            std::cerr << "accumulate_grad: target strided idx out of range! "
+                      << "idx=" << target_strided_idx << " >= storage_size=" << target_storage_size << "\n";
+            // dump shapes/strides to help debugging
+            std::cerr << "target shape:";
+            for (size_t z=0; z<target.impl->ndim; ++z) std::cerr << " " << target.impl->shape[z];
+            std::cerr << " strides:";
+            for (size_t z=0; z<target.impl->ndim; ++z) std::cerr << " " << target.impl->strides[z];
+            std::cerr << " offset=" << target.impl->offset << "\n";
+            throw std::runtime_error("accumulate_grad: target index OOB");
+        }
+        if (g_aligned_strided_idx >= g_storage_size) {
+            std::cerr << "accumulate_grad: g_aligned strided idx out of range! "
+                      << "idx=" << g_aligned_strided_idx << " >= storage_size=" << g_storage_size << "\n";
+            std::cerr << "g_aligned shape:";
+            for (size_t z=0; z<g_aligned.impl->ndim; ++z) std::cerr << " " << g_aligned.impl->shape[z];
+            std::cerr << " strides:";
+            for (size_t z=0; z<g_aligned.impl->ndim; ++z) std::cerr << " " << g_aligned.impl->strides[z];
+            std::cerr << " offset=" << g_aligned.impl->offset << "\n";
+            throw std::runtime_error("accumulate_grad: g_aligned index OOB");
+        }
 
         // 4. Perform the accumulation
         double addv = read_scalar_at(g_data_ptr, g_aligned_strided_idx, g_aligned._dtype());
@@ -310,35 +340,96 @@ void GradMatMul::backward(const Tensor& self) {
     if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
         throw std::runtime_error("GradMatMul: missing self grad");
 
-    // --- Step 1: Extract gradient wrt output (dL/dY) ---
-    Tensor grad_y = tensor_from_grad(self); // creates a tensor with grad data in .data
+    // dL/dY (as contiguous DATA tensor)
+    Tensor grad_y = tensor_from_grad(self);
 
-    // --- Step 2: Define a small helper to transpose the last two dims ---
+    // helper to transpose the last two dims (no-op for ndim < 2)
     auto transpose_last_two = [](const Tensor &t) -> Tensor {
-        if (!t.impl)
-            throw std::runtime_error("transpose_last_two: undefined tensor");
-        if (t.impl->ndim < 2)
-            return t.clone(); // nothing to transpose
-
+        if (!t.impl) throw std::runtime_error("transpose_last_two: undefined tensor");
+        if (t.impl->ndim < 2) return t.clone();
         std::vector<size_t> perm(t.impl->ndim);
-        for (size_t i = 0; i < t.impl->ndim; ++i)
-            perm[i] = i;
+        for (size_t i = 0; i < t.impl->ndim; ++i) perm[i] = i;
         std::swap(perm[t.impl->ndim - 2], perm[t.impl->ndim - 1]);
         return t.permute(perm);
     };
 
-    // --- Step 3: Compute grad w.r.t A ---
+    // ----- grad w.r.t. a -----
     if (a.requires_grad()) {
-        Tensor bt = transpose_last_two(b);
-        Tensor grad_a = matmul_(grad_y, bt);   // ∂L/∂A = ∂L/∂Y @ B^T
-        accumulate_grad(a, grad_a);
+        // vector-vector -> scalar special-case
+        if (a.impl->ndim == 1 && b.impl->ndim == 1) {
+            // grad_y is scalar
+            Tensor da = grad_y * b;        // shape (k,)
+            accumulate_grad(a, da);
+        } else {
+            bool old_ra = a.impl->requires_grad;
+            bool old_rb = b.impl->requires_grad;
+            a.impl->requires_grad = false;
+            b.impl->requires_grad = false;
+            // general: dA = dY @ B^T
+            Tensor bt = transpose_last_two(b);
+            Tensor grad_a = matmul_(grad_y, bt); // shape: batchShape + [m, k]
+            a.impl->requires_grad = old_ra;
+            b.impl->requires_grad = old_rb;
+
+            // if original `a` was 1-D, reduce leading/batch dims so result becomes shape (k,)
+            if (a.impl->ndim == 1) {
+                int nd = (int)grad_a.impl->ndim;
+                // sum over all axes except the last one
+                if (nd > 1) {
+                    std::vector<int> axes;
+                    for (int ax = 0; ax < nd - 1; ++ax) axes.push_back(ax);
+                    grad_a = reduce_sum_axes_keepdims(grad_a, axes); // now shape [..., 1, k] with many 1s
+                }
+                // collapse to 1-D [k]
+                std::vector<size_t> final_shape = { grad_a.impl->shape[grad_a.impl->ndim - 1] };
+                grad_a = grad_a.reshape(final_shape);
+            }
+
+            // accumulate (accumulate_grad will handle broadcasting/reductions if shapes differ)
+            accumulate_grad(a, grad_a);
+        }
     }
 
-    // --- Step 4: Compute grad w.r.t B ---
+    // ----- grad w.r.t. b -----
     if (b.requires_grad()) {
-        Tensor at = transpose_last_two(a);
-        Tensor grad_b = matmul_(at, grad_y);   // ∂L/∂B = A^T @ ∂L/∂Y
-        accumulate_grad(b, grad_b);
+        // vector-vector -> scalar special-case
+        if (a.impl->ndim == 1 && b.impl->ndim == 1) {
+            Tensor db = grad_y * a; // shape (k,)
+            accumulate_grad(b, db);
+        } else {
+            bool old_ra = a.impl->requires_grad;
+            bool old_rb = b.impl->requires_grad;
+            a.impl->requires_grad = false;
+            b.impl->requires_grad = false;
+            // general: dB = A^T @ dY
+            Tensor at = transpose_last_two(a);
+            Tensor grad_b = matmul_(at, grad_y); // shape: batchShape + [k, n]
+            a.impl->requires_grad = old_ra;
+            b.impl->requires_grad = old_rb;
+            // if original `b` was 1-D, reduce leading/batch dims so result becomes shape (k,)
+            if (b.impl->ndim == 1) {
+                int nd = (int)grad_b.impl->ndim;
+                // sum over all axes except the first one (k is at last-1 position when shape is [k,1] etc.)
+                if (nd > 1) {
+                    std::vector<int> axes;
+                    // We want to reduce every axis except the one corresponding to 'k'.
+                    // For grad_b shape batchShape + [k, n] but for vector b we expect k dimension to be
+                    // at position (nd - 2). Simpler: sum all axes except the one that will map to k.
+                    // Build axes list = 0 .. (nd-1) excluding (nd-2)
+                    int keep = nd - 2;
+                    for (int ax = 0; ax < nd; ++ax) {
+                        if (ax == keep) continue;
+                        axes.push_back(ax);
+                    }
+                    grad_b = reduce_sum_axes_keepdims(grad_b, axes); // keeps shape with 1 at reduced axes
+                }
+                // collapse to 1-D [k]
+                std::vector<size_t> final_shape = { grad_b.impl->shape[grad_b.impl->ndim - 2] };
+                grad_b = grad_b.reshape(final_shape);
+            }
+
+            accumulate_grad(b, grad_b);
+        }
     }
 }
 

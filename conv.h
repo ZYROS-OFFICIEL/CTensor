@@ -86,33 +86,7 @@ struct GradConv1d : GradFn {
 
     void backward(const Tensor& self) override;
 };
-struct GradConv2d: GradFn {
-    Tensor input, weight, bias;
-    int stride_h, stride_w, padding_h, padding_w;
-
-    GradConv2d(const Tensor& x, const Tensor& w, const Tensor& b, int sh, int sw, int ph, int pw)
-        : input(x), weight(w), bias(b), stride_h(sh), stride_w(sw), padding_h(ph), padding_w(pw)
-    {
-        parents = {input, weight, bias};
-    }
-    void backward(const Tensor& self) override;
-};
-
-//adding depth for Conv3d
-struct GradConv3d: GradFn {
-    Tensor input, weight, bias;
-    int stride_d, stride_h, stride_w;
-    int padding_d, padding_h, padding_w;
-
-    GradConv3d(const Tensor& x, const Tensor& w, const Tensor& b, int sd, int sh, int sw, int pd, int ph, int pw)
-        : input(x), weight(w), bias(b), 
-          stride_d(sd), stride_h(sh), stride_w(sw),
-          padding_d(pd), padding_h(ph), padding_w(pw)
-    {
-        parents = {input, weight, bias};
-    }
-    void backward(const Tensor& self) override;
-};
+// --- NEW: Grad node for matmul-based conv2d ---
 struct GradConv2dMatmul : GradFn {
     Tensor input, weight, bias, input_patches;
     int stride_h, stride_w, pad_h, pad_w;

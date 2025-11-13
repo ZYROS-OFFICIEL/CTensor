@@ -287,7 +287,7 @@ Tensor Conv2d::forward(const Tensor& input) {
     // create patches and store them
     Tensor input_patches = im2col_2d(input, kernel_size_h, kernel_size_w, stride_h, stride_w, padding_h, padding_w);
 
-    size_t num_patches = batch * out_h * out_w;
+    // size_t num_patches = batch * out_h * out_w; // Unused
     // matmul
     Tensor output_flat = matmul_(w_flat, input_patches);
 
@@ -328,7 +328,7 @@ Tensor Conv3d::forward(const Tensor& input) {
                                      stride_d, stride_h, stride_w,
                                      padding_d, padding_h, padding_w);
 
-    size_t num_patches = batch * out_d * out_h * out_w;
+    // size_t num_patches = batch * out_d * out_h * out_w; // Unused
     Tensor output_flat = matmul_(w_flat, input_patches);
 
     Tensor bias_col = bias.reshape({(size_t)out_channels, 1});
@@ -399,286 +399,12 @@ void GradConv1d::backward(const Tensor& self) {
     }
 
     // accumulate into parents' grad buffers using your helper
-    accumulate_grad(input, grad_input);
-    accumulate_grad(weight, grad_weight);
-    accumulate_grad(bias, grad_bias);
+    // --- BUG FIX: Added checks ---
+    if (input.requires_grad()) accumulate_grad(input, grad_input);
+    if (weight.requires_grad()) accumulate_grad(weight, grad_weight);
+    if (bias.requires_grad()) accumulate_grad(bias, grad_bias);
 }
 
-// --- HIGH-PERFORMANCE GradConv2d::backward (col2im + MatMul) ---
-void GradConv2d::backward(const Tensor& self) {
-    if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
-        throw std::runtime_error("GradConv2d: missing self grad");
-
-    // --- Get shapes and parameters from saved tensors ---
-    size_t batch = input.impl->shape[0];
-    size_t in_c  = input.impl->shape[1];
-    size_t height = input.impl->shape[2];
-    size_t width  = input.impl->shape[3];
-    size_t out_c = weight.impl->shape[0];
-    size_t k_h   = weight.impl->shape[2];
-    size_t k_w   = weight.impl->shape[3];
-    size_t out_h = self.impl->shape[2]; // 'self' is the output tensor
-    size_t out_w = self.impl->shape[3];
-
-    size_t kernel_patch_size = in_c * k_h * k_w;
-    size_t num_patches = batch * out_h * out_w;
-
-    // --- Step 1: Get dL/dOutput (grad_output) ---
-    // This is the incoming gradient from the next layer
-    Tensor grad_output = tensor_from_grad(self); // Shape: [batch, out_c, out_h, out_w]
-    std::cout << "grad_output shape: ";
-    grad_output.print_shape();
-    std::cout << "grad_output first 10 values: ";
-    std::cout << "grad_output first 10 values: [";
-    size_t n = std::min((size_t)10, grad_output.numel());
-    for (size_t i = 0; i < n; ++i) {
-        double v = read_scalar_at(grad_output.impl->storage->data.get(), i, grad_output._dtype());
-        std::cout << v;
-        if (i + 1 < n) std::cout << ", ";
-    }
-    std::cout << "]" << std::endl;
-
-
-
-    // --- Step 2: "Un-permute" and "Un-reshape" grad_output ---
-    // Forward was: permute({1, 0, 2, 3}) -> reshape
-    // Backward is: permute({1, 0, 2, 3}) -> reshape
-    Tensor grad_output_reshaped = grad_output.permute({1, 0, 2, 3});
-    Tensor grad_output_flat = grad_output_reshaped.reshape({out_c, num_patches});
-    // grad_output_flat is dL/dOutput_flat, Shape: [out_c, num_patches]
-
-    // --- Step 3: Gradient w.r.t Bias ---
-    // Forward: output_flat = ... + bias_col
-    // Backward: dL/dBias = sum(dL/dOutput_flat) along the broadcasted dimension (dim 1)
-    if (bias.requires_grad()) {
-        Tensor grad_bias = sum(grad_output_flat, 1); // Sums along dim 1
-        // grad_bias shape is [out_c, 1] or [out_c]. Ensure it matches bias shape [out_c]
-        accumulate_grad(bias, grad_bias.reshape(bias.shape()));
-    }
-
-    // --- Step 4: Re-create w_flat and input_patches (needed for other grads) ---
-    // Re-flatten weights
-    Tensor w_flat = weight.reshape({out_c, kernel_patch_size});
-
-    // Re-create input_patches (im2col)
-    // This is expensive, but necessary as we didn't store it in the GradConv2d struct
-    Tensor input_patches = Tensor::zeros({kernel_patch_size, num_patches}, input._dtype(), false);
-    size_t patch_col_idx = 0;
-    for (size_t b = 0; b < batch; ++b) {
-        for (size_t oh = 0; oh < out_h; ++oh) {
-            for (size_t ow = 0; ow < out_w; ++ow) {
-                size_t patch_row_idx = 0;
-                for (size_t ic = 0; ic < in_c; ++ic) {
-                    for (size_t kh = 0; kh < k_h; ++kh) {
-                        for (size_t kw = 0; kw < k_w; ++kw) {
-                            int ih = (int)oh * stride_h + (int)kh - padding_h;
-                            int iw = (int)ow * stride_w + (int)kw - padding_w;
-                            if (ih >= 0 && ih < (int)height && iw >= 0 && iw < (int)width) {
-                                input_patches[patch_row_idx][patch_col_idx] = input[b][ic][(size_t)ih][(size_t)iw];
-                            }
-                            patch_row_idx++;
-                        }
-                    }
-                }
-                patch_col_idx++;
-            }
-        }
-    }
-    
-    // --- Step 5: Gradient w.r.t Weight ---
-    // Forward: output_flat = w_flat @ input_patches
-    // Backward: dL/dW_flat = dL/dOutput_flat @ input_patches.T
-    if (weight.requires_grad()) {
-        Tensor input_patches_T = input_patches.t_(); // Shape: [num_patches, k_patch_size]
-        Tensor grad_w_flat = matmul_(grad_output_flat, input_patches_T); // Shape: [out_c, k_patch_size]
-        
-        // Reshape grad_w_flat back to original weight shape and accumulate
-        Tensor grad_weight = grad_w_flat.reshape(weight.shape());
-        accumulate_grad(weight, grad_weight);
-    }
-
-    // --- Step 6: Gradient w.r.t Input ---
-    // Forward: output_flat = w_flat @ input_patches
-    // Backward: dL/dInput_patches = w_flat.T @ dL/dOutput_flat
-    if (input.requires_grad()) {
-        Tensor w_flat_T = w_flat.t_(); // Shape: [k_patch_size, out_c]
-        Tensor grad_input_patches = matmul_(w_flat_T, grad_output_flat); // Shape: [k_patch_size, num_patches]
-
-        // Now, perform "col2im" to map grad_input_patches back to grad_input
-        Tensor grad_input = Tensor::zeros(input.shape(), input._dtype(), false);
-        
-        patch_col_idx = 0; // Reset column index
-        for (size_t b = 0; b < batch; ++b) {
-            for (size_t oh = 0; oh < out_h; ++oh) {
-                for (size_t ow = 0; ow < out_w; ++ow) {
-                    size_t patch_row_idx = 0; // Reset row index
-                    for (size_t ic = 0; ic < in_c; ++ic) {
-                        for (size_t kh = 0; kh < k_h; ++kh) {
-                            for (size_t kw = 0; kw < k_w; ++kw) {
-                                int ih = (int)oh * stride_h + (int)kh - padding_h;
-                                int iw = (int)ow * stride_w + (int)kw - padding_w;
-                                
-                                // Check if this was a valid (non-padded) input
-                                if (ih >= 0 && ih < (int)height && iw >= 0 && iw < (int)width) {
-                                    // Read from grad_input_patches
-                                    double grad_val = grad_input_patches[patch_row_idx][patch_col_idx];
-                                    
-                                    // Add (accumulate) to grad_input
-                                    // Note: This needs to be an atomic add if parallelized
-                                    double cur_val = grad_input[b][ic][(size_t)ih][(size_t)iw];
-                                    grad_input[b][ic][(size_t)ih][(size_t)iw] = cur_val + grad_val;
-                                }
-                                patch_row_idx++;
-                            }
-                        }
-                    }
-                    patch_col_idx++;
-                }
-            }
-        }
-        
-        // Finally, accumulate the computed gradient into the original input
-        accumulate_grad(input, grad_input);
-    }
-}
-// --- HIGH-PERFORMANCE GradConv3d::backward (col2im + MatMul) ---
-void GradConv3d::backward(const Tensor& self) {
-    if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
-        throw std::runtime_error("GradConv3d: missing self grad");
-
-    // --- Get shapes and parameters from saved tensors ---
-    size_t batch = input.impl->shape[0];
-    size_t in_c  = input.impl->shape[1];
-    size_t depth = input.impl->shape[2];
-    size_t height = input.impl->shape[3];
-    size_t width  = input.impl->shape[4];
-    size_t out_c = weight.impl->shape[0];
-    size_t k_d   = weight.impl->shape[2];
-    size_t k_h   = weight.impl->shape[3];
-    size_t k_w   = weight.impl->shape[4];
-    size_t out_d = self.impl->shape[2]; // 'self' is the output tensor
-    size_t out_h = self.impl->shape[3]; // 'self' is the output tensor
-    size_t out_w = self.impl->shape[4];
-
-    size_t kernel_patch_size = in_c *k_d* k_h * k_w;
-    size_t num_patches = batch *out_d* out_h * out_w;
-
-    // --- Step 1: Get dL/dOutput (grad_output) ---
-    // This is the incoming gradient from the next layer
-    Tensor grad_output = tensor_from_grad(self); // Shape: [batch, out_c,out_d, out_h, out_w]
-
-    // --- Step 2: "Un-permute" and "Un-reshape" grad_output ---
-    // Forward was: permute({1, 0, 2, 3,4}) -> reshape
-    // Backward is: permute({1, 0, 2, 3,4}) -> reshape
-    Tensor grad_output_reshaped = grad_output.permute({1, 0, 2, 3,4});
-    Tensor grad_output_flat = grad_output_reshaped.reshape({out_c, num_patches});
-    // grad_output_flat is dL/dOutput_flat, Shape: [out_c, num_patches]
-
-    // --- Step 3: Gradient w.r.t Bias ---
-    // Forward: output_flat = ... + bias_col
-    // Backward: dL/dBias = sum(dL/dOutput_flat) along the broadcasted dimension (dim 1)
-    if (bias.requires_grad()) {
-        Tensor grad_bias = sum(grad_output_flat, 1); // Sums along dim 1
-        // grad_bias shape is [out_c, 1] or [out_c]. Ensure it matches bias shape [out_c]
-        accumulate_grad(bias, grad_bias.reshape(bias.shape()));
-    }
-
-    // --- Step 4: Re-create w_flat and input_patches (needed for other grads) ---
-    // Re-flatten weights
-    Tensor w_flat = weight.reshape({out_c, kernel_patch_size});
-
-    // Re-create input_patches (im2col)
-    // This is expensive, but necessary as we didn't store it in the GradConv2d struct
-    Tensor input_patches = Tensor::zeros({kernel_patch_size, num_patches}, input._dtype(), false);
-    size_t patch_col_idx = 0;
-    for (size_t b = 0; b < batch; ++b) {
-        for (size_t od = 0; od < out_d; ++od) {
-            for (size_t oh = 0; oh < out_h; ++oh) {
-                for (size_t ow = 0; ow < out_w; ++ow) {
-                    size_t patch_row_idx = 0;
-                    for (size_t ic = 0; ic < in_c; ++ic) {
-                        for (size_t kd = 0; kd < k_d; ++kd) {
-                            for (size_t kh = 0; kh < k_h; ++kh) {
-                                for (size_t kw = 0; kw < k_w; ++kw) {
-                                    int id = od * stride_d + kd - padding_d;
-                                    int ih = (int)oh * stride_h + (int)kh - padding_h;
-                                    int iw = (int)ow * stride_w + (int)kw - padding_w;
-
-                                    if (id>=0 && id <(int)depth && ih >= 0 && ih < (int)height && iw >= 0 && iw < (int)width ) {
-                                        input_patches[patch_row_idx][patch_col_idx] = input[b][ic][(size_t)id][(size_t)ih][(size_t)iw];
-                                    }
-                                    patch_row_idx++;
-                                }
-                            }
-                        }
-                    }
-                    patch_col_idx++;
-                }
-            }
-        }
-    }
-    
-    // --- Step 5: Gradient w.r.t Weight ---
-    // Forward: output_flat = w_flat @ input_patches
-    // Backward: dL/dW_flat = dL/dOutput_flat @ input_patches.T
-    if (weight.requires_grad()) {
-        Tensor input_patches_T = input_patches.t_(); // Shape: [num_patches, k_patch_size]
-        Tensor grad_w_flat = matmul_(grad_output_flat, input_patches_T); // Shape: [out_c, k_patch_size]
-        
-        // Reshape grad_w_flat back to original weight shape and accumulate
-        Tensor grad_weight = grad_w_flat.reshape(weight.shape());
-        accumulate_grad(weight, grad_weight);
-    }
-
-    // --- Step 6: Gradient w.r.t Input ---
-    // Forward: output_flat = w_flat @ input_patches
-    // Backward: dL/dInput_patches = w_flat.T @ dL/dOutput_flat
-    if (input.requires_grad()) {
-        Tensor w_flat_T = w_flat.t_(); // Shape: [k_patch_size, out_c]
-        Tensor grad_input_patches = matmul_(w_flat_T, grad_output_flat); // Shape: [k_patch_size, num_patches]
-
-        // Now, perform "col2im" to map grad_input_patches back to grad_input
-        Tensor grad_input = Tensor::zeros(input.shape(), input._dtype(), false);
-        
-        patch_col_idx = 0; // Reset column index
-        for (size_t b = 0; b < batch; ++b) {
-            for( size_t od = 0; od < out_d; ++od) {
-                for (size_t oh = 0; oh < out_h; ++oh) {
-                    for (size_t ow = 0; ow < out_w; ++ow) {
-                        size_t patch_row_idx = 0; 
-                        for (size_t ic = 0; ic < in_c; ++ic) {
-                            for( size_t kd = 0; kd < k_d; ++kd) {
-                                for (size_t kh = 0; kh < k_h; ++kh) {
-                                    for (size_t kw = 0; kw < k_w; ++kw) {
-                                        int id = od * stride_d + kd - padding_d;
-                                        int ih = (int)oh * stride_h + (int)kh - padding_h;
-                                        int iw = (int)ow * stride_w + (int)kw - padding_w;
-
-                                        // Check if this was a valid (non-padded) input
-                                        if (id>=0 && id<(int)depth && ih >= 0 && ih < (int)height && iw >= 0 && iw < (int)width) {
-                                            // Read from grad_input_patches
-                                            double grad_val = grad_input_patches[patch_row_idx][patch_col_idx];
-
-                                            // Add (accumulate) to grad_input
-                                            // Note: This needs to be an atomic add if parallelized
-                                            double cur_val = grad_input[b][ic][(size_t)id][(size_t)ih][(size_t)iw];
-                                            grad_input[b][ic][(size_t)id][(size_t)ih][(size_t)iw] = cur_val + grad_val;
-                                        }
-                                        patch_row_idx++;
-                                    }
-                                }
-                            }
-                        }
-                        patch_col_idx++;
-                    }
-                }
-            }
-        }
-        
-        // Finally, accumulate the computed gradient into the original input
-        accumulate_grad(input, grad_input);
-    }
-}
 
 void GradConv2dMatmul::backward(const Tensor& self) {
     if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
@@ -702,14 +428,23 @@ void GradConv2dMatmul::backward(const Tensor& self) {
     Tensor grad_output_reshaped = grad_output.permute({1,0,2,3});
     Tensor grad_output_flat = grad_output_reshaped.reshape({out_c, num_patches});
 
+    // --- BUG FIX: Detach parents ---
+    bool old_grad_input = input.impl->requires_grad;
+    bool old_grad_weight = weight.impl->requires_grad;
+    bool old_grad_bias = bias.impl->requires_grad;
+    input.impl->requires_grad = false;
+    weight.impl->requires_grad = false;
+    bias.impl->requires_grad = false;
+
+
     // bias grad: sum over columns
-    if (bias.requires_grad()) {
+    if (old_grad_bias) {
         Tensor grad_bias = sum(grad_output_flat, 1); // [out_c] or [out_c,1]
         accumulate_grad(bias, grad_bias.reshape(bias.shape()));
     }
 
     // weight grad: grad_output_flat @ input_patches.T
-    if (weight.requires_grad()) {
+    if (old_grad_weight) {
         Tensor input_patches_T = input_patches.t_(); // [num_patches, kernel_patch_size]
         Tensor grad_w_flat = matmul_(grad_output_flat, input_patches_T); // [out_c, kernel_patch_size]
         Tensor grad_weight = grad_w_flat.reshape(weight.shape());
@@ -717,7 +452,7 @@ void GradConv2dMatmul::backward(const Tensor& self) {
     }
 
     // input grad: w_flat.T @ grad_output_flat -> grad_input_patches -> col2im
-    if (input.requires_grad()) {
+    if (old_grad_input) {
         Tensor w_flat = weight.reshape({out_c, kernel_patch_size});
         Tensor w_flat_T = w_flat.t_(); // [kernel_patch_size, out_c]
         Tensor grad_input_patches = matmul_(w_flat_T, grad_output_flat); // [kernel_patch_size, num_patches]
@@ -726,6 +461,11 @@ void GradConv2dMatmul::backward(const Tensor& self) {
         col2im_2d(grad_input_patches, grad_input, kernel_h, kernel_w, stride_h, stride_w, pad_h, pad_w);
         accumulate_grad(input, grad_input);
     }
+    
+    // --- Restore flags ---
+    input.impl->requires_grad = old_grad_input;
+    weight.impl->requires_grad = old_grad_weight;
+    bias.impl->requires_grad = old_grad_bias;
 }
 
 void GradConv3dMatmul::backward(const Tensor& self) {
@@ -750,19 +490,27 @@ void GradConv3dMatmul::backward(const Tensor& self) {
     Tensor grad_output_reshaped = grad_output.permute({1,0,2,3,4});
     Tensor grad_output_flat = grad_output_reshaped.reshape({out_c, num_patches});
 
-    if (bias.requires_grad()) {
+    // --- BUG FIX: Detach parents ---
+    bool old_grad_input = input.impl->requires_grad;
+    bool old_grad_weight = weight.impl->requires_grad;
+    bool old_grad_bias = bias.impl->requires_grad;
+    input.impl->requires_grad = false;
+    weight.impl->requires_grad = false;
+    bias.impl->requires_grad = false;
+
+    if (old_grad_bias) {
         Tensor grad_bias = sum(grad_output_flat, 1);
         accumulate_grad(bias, grad_bias.reshape(bias.shape()));
     }
 
-    if (weight.requires_grad()) {
+    if (old_grad_weight) {
         Tensor input_patches_T = input_patches.t_();
         Tensor grad_w_flat = matmul_(grad_output_flat, input_patches_T);
         Tensor grad_weight = grad_w_flat.reshape(weight.shape());
         accumulate_grad(weight, grad_weight);
     }
 
-    if (input.requires_grad()) {
+    if (old_grad_input) {
         Tensor w_flat = weight.reshape({out_c, kernel_patch_size});
         Tensor w_flat_T = w_flat.t_();
         Tensor grad_input_patches = matmul_(w_flat_T, grad_output_flat);
@@ -773,4 +521,9 @@ void GradConv3dMatmul::backward(const Tensor& self) {
                   pad_d, pad_h, pad_w);
         accumulate_grad(input, grad_input);
     }
+    
+    // --- Restore flags ---
+    input.impl->requires_grad = old_grad_input;
+    weight.impl->requires_grad = old_grad_weight;
+    bias.impl->requires_grad = old_grad_bias;
 }

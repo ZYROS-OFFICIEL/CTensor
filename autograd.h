@@ -14,6 +14,20 @@
 #include "ops1.h"
 
 // -------------------- helpers --------------------
+inline void check_index_in_storage(const Tensorimpl* impl, size_t idx, const char* ctx) {
+    if (!impl || !impl->storage) {
+        std::cerr << ctx << ": missing impl/storage\n";
+        return;
+    }
+    if (idx >= impl->storage->size) {
+        std::cerr << "OOB " << ctx << ": idx=" << idx
+                  << " offset=" << impl->offset
+                  << " storage->size=" << impl->storage->size
+                  << " ndim=" << impl->ndim << " dtype_bytes=" << impl->storage->size
+                  << "\n";
+        throw std::runtime_error("index out of underlying storage bounds");
+    }
+}
 
 // ensure grad buffer exists on tensor; if zero=true fill with zeros
 void ensure_grad_buffer(Tensor &t, bool zero = false);

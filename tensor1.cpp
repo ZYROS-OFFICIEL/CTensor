@@ -9,19 +9,20 @@
 // Storage implementation
 std::shared_ptr<Storage> Storage::allocate(size_t n, DType dt, bool requires_grad) {
     auto s = std::make_shared<Storage>();
-    s->size = n * dtype_size(dt);
+    size_t nbytes = n * dtype_size(dt); // <-- Calculate bytes
+    s->size = n; // <-- Store ELEMENT count
 
     // allocate data
-    void* p = std::malloc(s->size);
-    if (!p && s->size) throw std::bad_alloc();
-    std::memset(p, 0, s->size);
+    void* p = std::malloc(nbytes); // <-- Use bytes
+    if (!p && nbytes) throw std::bad_alloc(); // <-- Check against nbytes
+    std::memset(p, 0, nbytes); // <-- Use bytes
     s->data = std::shared_ptr<void>(p, std::free);
 
     // optional grad
     if (requires_grad) {
-        void* g = std::malloc(s->size);
-        if (!g && s->size) throw std::bad_alloc();
-        std::memset(g, 0, s->size);
+        void* g = std::malloc(nbytes); // <-- Use bytes
+        if (!g && nbytes) throw std::bad_alloc(); // <-- Check against nbytes
+        std::memset(g, 0, nbytes); // <-- Use bytes
         s->grad = std::shared_ptr<void>(g, std::free);
     } else {
         s->grad = nullptr;
@@ -155,7 +156,7 @@ Tensor Tensor::full(const std::vector<size_t>& shape_, double value, DType dt, b
 Tensor Tensor::rand(const std::vector<size_t>& shape_, DType dt, bool requires_grad_) {
     Tensor t(shape_, dt, requires_grad_);
     size_t n = t.numel_();
-    std::srand((unsigned int)std::time(nullptr));
+    // Simple rand, good enough for tests
     for (size_t i = 0; i < n; ++i)
         write_scalar_at(t.impl->storage->data.get(), i, dt, static_cast<double>(std::rand()) / RAND_MAX);
     return t;
@@ -382,21 +383,44 @@ Tensor gather(const Tensor& input, const Tensor& index, size_t dim) {
         size_t rem = i;
         size_t in_offset = input.impl->offset;
         size_t idx_offset = index.impl->offset;
+        
+        // Pre-calculate strides for the output shape
+        std::vector<size_t> out_strides(out_shape.size());
+        out_strides.back() = 1;
+        for(int d = (int)out_shape.size() - 2; d >= 0; --d) {
+            out_strides[d] = out_strides[d+1] * out_shape[d+1];
+        }
+
+        std::vector<size_t> multi_idx(out_shape.size());
+        for(size_t d = 0; d < out_shape.size(); ++d) {
+            multi_idx[d] = rem / out_strides[d];
+            rem %= out_strides[d];
+        }
+
+        // Use multi_idx to compute strided offsets for input and index
+        in_offset = input.impl->offset;
+        idx_offset = index.impl->offset;
+        
         for (size_t d = 0; d < input.impl->ndim; ++d) {
-            size_t s = out_shape[d];
-            size_t idx = rem / (n / s);
-            rem = rem % (n / s);
+            size_t current_idx = multi_idx[d];
             if (d == dim) {
-                size_t gather_idx = static_cast<size_t>(read_scalar_at(index.impl->storage->data.get(), idx_offset + idx * index.impl->strides[d], index._dtype()));
+                // Get the index from the 'index' tensor
+                size_t gather_idx_offset = index.impl->offset;
+                for(size_t di = 0; di < index.impl->ndim; ++di) {
+                    gather_idx_offset += multi_idx[di] * index.impl->strides[di];
+                }
+
+                size_t gather_idx = static_cast<size_t>(read_scalar_at(index.impl->storage->data.get(), gather_idx_offset, index._dtype()));
+                
                 if (gather_idx >= input.impl->shape[d])
                     throw std::out_of_range("gather: index out of bounds");
+                
                 in_offset += gather_idx * input.impl->strides[d];
             } else {
-                in_offset += idx * input.impl->strides[d];
+                in_offset += current_idx * input.impl->strides[d];
             }
-            idx_offset += idx * index.impl->strides[d];
-            n /= s;
         }
+
         double val = read_scalar_at(input.impl->storage->data.get(), in_offset, input._dtype());
         write_scalar_at(out.impl->storage->data.get(), i, out._dtype(), val);
     }
