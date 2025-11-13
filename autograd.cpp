@@ -286,14 +286,26 @@ void GradMul::backward(const Tensor& self) {
 
     // ga = grad_self * b
     if (a.requires_grad()) {
+        bool old_ra = a.impl->requires_grad;
+        bool old_rb = b.impl->requires_grad;
+        a.impl->requires_grad = false;
+        b.impl->requires_grad = false;
         Tensor ga = grad_self * b; // Use op overload
         accumulate_grad(a, ga);
+        a.impl->requires_grad = old_ra;
+        b.impl->requires_grad = old_rb;
     }
 
     // gb = grad_self * a
     if (b.requires_grad()) {
+        bool old_ra = a.impl->requires_grad;
+        bool old_rb = b.impl->requires_grad;
+        a.impl->requires_grad = false;
+        b.impl->requires_grad = false;
         Tensor gb = grad_self * a; // Use op overload
         accumulate_grad(b, gb);
+        a.impl->requires_grad = old_ra;
+        b.impl->requires_grad = old_rb;
     }
 }
 
