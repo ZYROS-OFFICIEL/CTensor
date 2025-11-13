@@ -893,13 +893,22 @@ void backward(Tensor& loss) {
     if (!loss.impl) throw std::runtime_error("backward: loss undefined");
     if (!loss.impl->requires_grad) throw std::runtime_error("backward: loss requires_grad == false");
 
-    // set loss grad to ones (this must be stride-aware!)
-    ensure_grad_buffer(loss, true); // Zeros the whole buffer
-    
-    // Create a tensor of ones with the same shape as loss
-    Tensor ones = Tensor::ones(loss.shape(), loss._dtype(), false);
-    
-    // Write the ones to the gradient buffer, respecting strides/offsets
+    // build topo order first (so we know which tensors are in the graph)
+    std::vector<Tensor> topo;
+    topo_sort_from(loss, topo);
+
+    // Zero (or allocate+zero) grad buffers for all tensors in the graph that may receive grads.
+    // This prevents accumulation from previous backward calls or uninitialized memory.
+    for (Tensor &t : topo) {
+        if (!t.impl) continue;
+        // only zero buffers for tensors that require_grad (leaf or param tensors)
+        if (t.impl->requires_grad) {
+            ensure_grad_buffer(t, true); // allocate if needed and zero entire underlying storage
+        }
+    }
+
+    // Now set loss grad to ones (stride-aware)
+    // Note: loss may be in topo, we already zeroed its grad buffer above.
     size_t n = loss.numel();
     std::vector<size_t> idx_vec(loss.impl->ndim, 0);
     for (size_t flat = 0; flat < n; ++flat) {
@@ -915,11 +924,7 @@ void backward(Tensor& loss) {
         write_scalar_at(loss.impl->storage->grad.get(), strided_idx, loss._dtype(), 1.0);
     }
 
-
-    // build topo order and run reverse
-    std::vector<Tensor> topo;
-    topo_sort_from(loss, topo);
-
+    // run backwards in reverse topo order
     for (auto it = topo.rbegin(); it != topo.rend(); ++it) {
         Tensor cur = *it;
         if (!cur.impl->grad_fn) continue;
