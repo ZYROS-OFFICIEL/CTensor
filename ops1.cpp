@@ -923,49 +923,49 @@ Tensor softplus_(const Tensor& a_) {
 }
 
 
-
 Tensor matmul_(const Tensor& A, const Tensor& B) {
     if (A.impl->ndim < 1 || B.impl->ndim < 1)
         throw std::invalid_argument("matmul: tensors must have at least 1 dimension");
 
-    // shapes & strides pointers available in Tensor
-    // extract m, k, n
+    // --- Determine inner dimensions ---
     size_t kA = A.impl->shape[A.impl->ndim - 1];
     size_t kB = (B.impl->ndim >= 2) ? B.impl->shape[B.impl->ndim - 2] : 1;
     if (kA != kB) throw std::invalid_argument("matmul: inner dimensions do not match.");
-
+    
     size_t m = (A.impl->ndim >= 2) ? A.impl->shape[A.impl->ndim - 2] : 1;
     size_t n = (B.impl->ndim >= 2) ? B.impl->shape[B.impl->ndim - 1] : 1;
-
-    // batch dims vectors (left to right)
+    
+    // batch dims
     std::vector<size_t> batchA;
-    if (A.impl->ndim > 2) batchA = std::vector<size_t>(A.impl->shape, A.impl->shape + (A.impl->ndim - 2));
+    if (A.impl->ndim > 2) {
+        for (size_t i = 0; i < A.impl->ndim - 2; ++i)
+            batchA.push_back(A.impl->shape[i]);
+    }
     std::vector<size_t> batchB;
-    if (B.impl->ndim > 2) batchB = std::vector<size_t>(B.impl->shape, B.impl->shape + (B.impl->ndim - 2));
-
+    if (B.impl->ndim > 2) {
+        for (size_t i = 0; i < B.impl->ndim - 2; ++i)
+            batchB.push_back(B.impl->shape[i]);
+    }
     std::vector<size_t> batchShape = broadcast_batch_shape_from_vectors(batchA, batchB);
 
-    // output shape
+    // --- Output shape ---
     std::vector<size_t> outShape = batchShape;
-    outShape.push_back(m);
-    outShape.push_back(n);
+    if (!(A.impl->ndim == 1 && B.impl->ndim == 1)) { // vector @ vector = scalar
+        outShape.push_back(m);
+        outShape.push_back(n);
+    }
     bool req = A.requires_grad() || B.requires_grad();
     Tensor C(outShape, A.impl->dtype, req);
-    
-    // attach grad_fn if needed (so autograd can traverse)
-    if (req) {
-        C.impl->grad_fn = std::make_shared<GradMatMul>(A, B);
-    }
-    // convenience
+    if (req) C.impl->grad_fn = std::make_shared<GradMatMul>(A, B);
+
+    // --- Compute batch multipliers ---
     size_t batchRank = batchShape.size();
     size_t totalBatch = 1;
     for (auto s : batchShape) totalBatch *= s;
 
-    // precompute multipliers for batch multi-index conversion
     std::vector<size_t> batchMul(batchRank, 1);
     for (int i = (int)batchRank - 2; i >= 0; --i) batchMul[i] = batchMul[i+1] * batchShape[i+1];
 
-    // compute base offset (in elements) for A/B given broadcast-aware batchIndex
     auto compute_base_offset = [&](const Tensor& T, const std::vector<size_t>& T_batch_shape,
                                    const std::vector<size_t>& fullBatchShape,
                                    const std::vector<size_t>& batchIndex) -> size_t {
@@ -981,7 +981,7 @@ Tensor matmul_(const Tensor& A, const Tensor& B) {
 
     std::vector<size_t> batchIndex(batchRank, 0);
     for (size_t batch = 0; batch < totalBatch; ++batch) {
-        // batch -> multi-index
+        // convert batch to multi-index
         size_t rem = batch;
         for (size_t d = 0; d < batchRank; ++d) {
             batchIndex[d] = rem / batchMul[d];
@@ -991,21 +991,26 @@ Tensor matmul_(const Tensor& A, const Tensor& B) {
         size_t baseA = compute_base_offset(A, batchA, batchShape, batchIndex);
         size_t baseB = compute_base_offset(B, batchB, batchShape, batchIndex);
 
+        // --- Core matmul ---
         for (size_t i = 0; i < m; ++i) {
             for (size_t j = 0; j < n; ++j) {
                 double sum = 0.0;
                 for (size_t t = 0; t < kA; ++t) {
-                    size_t offA = baseA + i * A.impl->strides[A.impl->ndim - 2] + t * A.impl->strides[A.impl->ndim - 1];
-                    size_t offB = baseB + t * B.impl->strides[B.impl->ndim - 2] + j * B.impl->strides[B.impl->ndim - 1];
+                    // Handle 1-D cases safely
+                    size_t offA = (A.impl->ndim == 1) ? t : baseA + i * A.impl->strides[A.impl->ndim - 2] + t * A.impl->strides[A.impl->ndim - 1];
+                    size_t offB = (B.impl->ndim == 1) ? t : baseB + t * B.impl->strides[B.impl->ndim - 2] + j * B.impl->strides[B.impl->ndim - 1];
                     double va = read_scalar_at(A.impl->storage->data.get(), offA, A.impl->dtype);
                     double vb = read_scalar_at(B.impl->storage->data.get(), offB, B.impl->dtype);
                     sum += va * vb;
                 }
-                // write to C at (batchIndex..., i, j)
+
+                // --- Write to output ---
                 size_t offC = 0;
                 for (size_t d = 0; d < batchRank; ++d) offC += batchIndex[d] * C.impl->strides[d];
-                offC += i * C.impl->strides[batchRank];
-                offC += j * C.impl->strides[batchRank + 1];
+                if (!(A.impl->ndim == 1 && B.impl->ndim == 1)) {
+                    offC += i * C.impl->strides[batchRank];
+                    offC += j * C.impl->strides[batchRank + 1];
+                }
                 write_scalar_at(C.impl->storage->data.get(), offC, C.impl->dtype, sum);
             }
         }
@@ -1013,6 +1018,7 @@ Tensor matmul_(const Tensor& A, const Tensor& B) {
 
     return C;
 }
+
 Tensor sum(const Tensor& t, int dim ) {
     if (dim == -1) {
         // reduce all elements

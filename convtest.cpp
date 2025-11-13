@@ -3,6 +3,8 @@
 #include <cmath>
 #include <stdexcept>
 #include <iomanip> // For setting precision
+#include <cstdlib> // For srand
+#include <ctime>   // For time
 
 #include "tensor1.h"
 #include "ops1.h"
@@ -38,6 +40,8 @@ bool check_gradients(const std::string& name, const Tensor& param, const Tensor&
 
     if (grad_analytic.numel() != grad_numeric.numel()) {
         std::cout << "FAIL: " << name << ". Shape mismatch!" << std::endl;
+        print_tensor(name + "_analytic", grad_analytic);
+        print_tensor(name + "_numeric", grad_numeric);
         return false;
     }
 
@@ -72,7 +76,8 @@ bool check_gradients(const std::string& name, const Tensor& param, const Tensor&
 }
 
 // --- Test Conv1d ---
-void test_conv1d() {
+bool test_conv1d() {
+    bool ok = true;
     std::cout << "\n--- Testing Conv1d ---" << std::endl;
 
     // --- 1. Forward Pass Check ---
@@ -90,9 +95,9 @@ void test_conv1d() {
     // Manual calculation:
     // out[0,0,0] = (in[0]*w[0] + in[1]*w[1]) + bias = (1*1 + 1*1) + 0 = 2
     // out[0,0,1] = (in[1]*w[0] + in[2]*w[1]) + bias = (1*1 + 1*1) + 0 = 2
-    check_near("Conv1d Forward [0,0,0]", output[0][0][0], 2.0);
-    check_near("Conv1d Forward [0,0,1]", output[0][0][1], 2.0);
-    check_near("Conv1d Forward [0,0,2]", output[0][0][2], 2.0);
+    ok &= check_near("Conv1d Forward [0,0,0]", output[0][0][0], 2.0);
+    ok &= check_near("Conv1d Forward [0,0,1]", output[0][0][1], 2.0);
+    ok &= check_near("Conv1d Forward [0,0,2]", output[0][0][2], 2.0);
 
     // --- 2. Gradient Check ---
     // Use a simple sum() as the loss function
@@ -147,13 +152,15 @@ void test_conv1d() {
     }
 
     // Compare gradients
-    check_gradients("Conv1d Grad Input", input_grad, grad_numeric_input);
-    check_gradients("Conv1d Grad Weight", conv_grad.weight, grad_numeric_weight);
-    check_gradients("Conv1d Grad Bias", conv_grad.bias, grad_numeric_bias);
+    ok &= check_gradients("Conv1d Grad Input", input_grad, grad_numeric_input);
+    ok &= check_gradients("Conv1d Grad Weight", conv_grad.weight, grad_numeric_weight);
+    ok &= check_gradients("Conv1d Grad Bias", conv_grad.bias, grad_numeric_bias);
+    return ok;
 }
 
 // --- Test Conv2d ---
-void test_conv2d() {
+bool test_conv2d() {
+    bool ok = true;
     std::cout << "\n--- Testing Conv2d ---" << std::endl;
 
     // --- 1. Forward Pass Check ---
@@ -169,8 +176,8 @@ void test_conv2d() {
 
     // Manual calculation:
     // out[0,0,0,0] = (1*1 + 1*1 + 1*1 + 1*1) + 0 = 4
-    check_near("Conv2d Forward [0,0,0,0]", output[0][0][0][0], 4.0);
-    check_near("Conv2d Forward [0,0,1,1]", output[0][0][1][1], 4.0);
+    ok &= check_near("Conv2d Forward [0,0,0,0]", output[0][0][0][0], 4.0);
+    ok &= check_near("Conv2d Forward [0,0,1,1]", output[0][0][1][1], 4.0);
     
     // --- 2. Gradient Check ---
     auto compute_loss_2d = [&](Tensor& inp, Conv2d& layer) {
@@ -221,13 +228,15 @@ void test_conv2d() {
     }
 
     // Compare gradients
-    check_gradients("Conv2d Grad Input", input_grad, grad_numeric_input);
-    check_gradients("Conv2d Grad Weight", conv_grad.weight, grad_numeric_weight);
-    check_gradients("Conv2d Grad Bias", conv_grad.bias, grad_numeric_bias);
+    ok &= check_gradients("Conv2d Grad Input", input_grad, grad_numeric_input);
+    ok &= check_gradients("Conv2d Grad Weight", conv_grad.weight, grad_numeric_weight);
+    ok &= check_gradients("Conv2d Grad Bias", conv_grad.bias, grad_numeric_bias);
+    return ok;
 }
 
 // --- Test Conv3d ---
-void test_conv3d() {
+bool test_conv3d() {
+    bool ok = true;
     std::cout << "\n--- Testing Conv3d ---" << std::endl;
 
     // --- 1. Forward Pass Check ---
@@ -243,8 +252,8 @@ void test_conv3d() {
 
     // Manual calculation:
     // out[0,0,0,0,0] = (1*1 + 1*1 + ... 8 times) + 0 = 8
-    check_near("Conv3d Forward [0,0,0,0,0]", output[0][0][0][0][0], 8.0);
-    check_near("Conv3d Forward [0,0,1,1,1]", output[0][0][1][1][1], 8.0);
+    ok &= check_near("Conv3d Forward [0,0,0,0,0]", output[0][0][0][0][0], 8.0);
+    ok &= check_near("Conv3d Forward [0,0,1,1,1]", output[0][0][1][1][1], 8.0);
     
     // --- 2. Gradient Check ---
     auto compute_loss_3d = [&](Tensor& inp, Conv3d& layer) {
@@ -297,20 +306,27 @@ void test_conv3d() {
     }
 
     // Compare gradients
-    check_gradients("Conv3d Grad Input", input_grad, grad_numeric_input);
-    check_gradients("Conv3d Grad Weight", conv_grad.weight, grad_numeric_weight);
-    check_gradients("Conv3d Grad Bias", conv_grad.bias, grad_numeric_bias);
+    ok &= check_gradients("Conv3d Grad Input", input_grad, grad_numeric_input);
+    ok &= check_gradients("Conv3d Grad Weight", conv_grad.weight, grad_numeric_weight);
+    ok &= check_gradients("Conv3d Grad Bias", conv_grad.bias, grad_numeric_bias);
+    return ok;
 }
 
 
 int main() {
+    // Seed the random number generator
+    std::srand((unsigned int)std::time(nullptr));
+    
     // Set output precision for floats
     std::cout << std::fixed << std::setprecision(8);
 
     try {
-        test_conv1d();
-        test_conv2d();
-        test_conv3d();
+        
+        if (!test_conv1d()) return 1;
+        // test_conv1d(); // <-- This was a redundant call
+        if (!test_conv2d()) return 1;
+        if (!test_conv3d()) return 1;
+
     } catch (const std::exception& e) {
         std::cerr << "!!! TEST FAILED (Exception) !!!\n" << e.what() << std::endl;
         return 1;

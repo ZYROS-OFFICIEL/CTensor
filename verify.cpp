@@ -11,8 +11,9 @@ static bool close(double a, double b, double tol=1e-5) {
     return std::fabs(a - b) < tol * std::max({1.0, std::fabs(a), std::fabs(b)});
 }
 void test_tensorftromgrad(){
-    Tensor x = Tensor::zeros({2, 3}, DType::Float32);
-    x.impl->storage->grad = std::shared_ptr<void>(malloc(x.numel()*4), free);
+    Tensor x = Tensor::zeros({2, 3}, DType::Float32, true); // <-- Set requires_grad=true
+    // x.impl->storage->grad = std::shared_ptr<void>(malloc(x.numel()*4), free); // Not needed, ensure_grad does this
+    ensure_grad_buffer(x, true); // Ensure it exists
     float *p = (float*)x.impl->storage->grad.get();
     for (int i=0;i<x.numel();++i) p[i] = i + 1;
 
@@ -29,13 +30,13 @@ void test_grad_storage_allocation() {
 }
 
 void test_accum_grad(){
-    Tensor a({2,1}, DType::Float32);
+    // --- BUG FIX: Set requires_grad=true for tensor 'a' ---
+    Tensor a({2,1}, DType::Float32, true); 
     Tensor b = Tensor::ones({2,3}, DType::Float32);
 
     accumulate_grad(a, b);
     std::cout << "a.grad = "  ;
-    print_t(tensor_from_grad(a));
-
+    print_t(tensor_from_grad(a)); // <-- This will now work
 }
 double numerical_grad(std::function<double(double)> f, double x, double eps=1e-6) {
     return (f(x + eps) - f(x - eps)) / (2 * eps);
@@ -189,6 +190,8 @@ void check_grad_matmul() {
     Tensor A = Tensor::from_vector({1,2,3,4}, {2,2}, DType::Float32, true);
     Tensor B = Tensor::from_vector({5,6,7,8}, {2,2}, DType::Float32, true);
     Tensor Y = matmul_(A,B);
+    print_t(Y);
+    backward(Y);
     Tensor loss = sum(Y);
     backward(loss);
     float* gA = (float*)A.impl->storage->grad.get();
