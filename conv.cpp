@@ -353,10 +353,20 @@ void GradConv1d::backward(const Tensor& self) {
     if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
         throw std::runtime_error("GradConv1d: missing self grad");
 
-    // get grad of output (same shape as forward output)
+    // Detach parents while we compute intermediate grad tensors to avoid
+    // accidentally building new grad-ops that reference the original graph.
+    bool old_req_input  = input.impl ? input.impl->requires_grad : false;
+    bool old_req_weight = weight.impl ? weight.impl->requires_grad : false;
+    bool old_req_bias   = bias.impl ? bias.impl->requires_grad : false;
+
+    if (input.impl)  input.impl->requires_grad  = false;
+    if (weight.impl) weight.impl->requires_grad = false;
+    if (bias.impl)   bias.impl->requires_grad   = false;
+
+    // get grad of output (same shape as forward output) — contiguous DATA tensor
     Tensor grad_output = tensor_from_grad(self);
 
-    // prepare zero tensors for grads (same shapes as originals)
+    // prepare zero tensors for grads (same shapes as originals), not requiring grad
     Tensor grad_input  = Tensor::zeros(input.shape(), input._dtype(), false);
     Tensor grad_weight = Tensor::zeros(weight.shape(), weight._dtype(), false);
     Tensor grad_bias   = Tensor::zeros(bias.shape(), bias._dtype(), false);
@@ -368,13 +378,14 @@ void GradConv1d::backward(const Tensor& self) {
     size_t k_len = weight.impl->shape[2];
     size_t out_w = grad_output.impl->shape[2];
 
-    // accumulate gradients
+    // accumulate gradients (pure scalar math; no grad ops are created because parents are detached)
     for (size_t b = 0; b < batch; ++b) {
         for (size_t oc = 0; oc < out_c; ++oc) {
             for (size_t ow = 0; ow < out_w; ++ow) {
-                double go = grad_output[b][oc][ow]; // grad at this output element
+                // read grad at this output element (should be a small/copy-access)
+                double go = grad_output[b][oc][ow];
 
-                // grad bias
+                // grad bias: sum over batch & width
                 double cur_b = grad_bias[oc];
                 grad_bias[oc] = cur_b + go;
 
@@ -398,13 +409,16 @@ void GradConv1d::backward(const Tensor& self) {
         }
     }
 
-    // accumulate into parents' grad buffers using your helper
-    // --- BUG FIX: Added checks ---
-    if (input.requires_grad()) accumulate_grad(input, grad_input);
-    if (weight.requires_grad()) accumulate_grad(weight, grad_weight);
-    if (bias.requires_grad()) accumulate_grad(bias, grad_bias);
-}
+    // restore original requires_grad flags
+    if (input.impl)  input.impl->requires_grad  = old_req_input;
+    if (weight.impl) weight.impl->requires_grad = old_req_weight;
+    if (bias.impl)   bias.impl->requires_grad   = old_req_bias;
 
+    // accumulate into parents' grad buffers using your helper (only if they requested grads)
+    if (input.requires_grad())  accumulate_grad(input,  grad_input);
+    if (weight.requires_grad()) accumulate_grad(weight, grad_weight);
+    if (bias.requires_grad())   accumulate_grad(bias,   grad_bias);
+}
 
 void GradConv2dMatmul::backward(const Tensor& self) {
     if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
