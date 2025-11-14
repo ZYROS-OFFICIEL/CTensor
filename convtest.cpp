@@ -157,6 +157,95 @@ bool test_conv1d() {
     ok &= check_gradients("Conv1d Grad Bias", conv_grad.bias, grad_numeric_bias);
     return ok;
 }
+// --- Test Conv1d with debug prints ---
+bool test_conv1d_debug() {
+    bool ok = true;
+    std::cout << "\n--- Testing Conv1d ---" << std::endl;
+
+    // --- 1. Forward Pass Check ---
+    Tensor input = Tensor::ones({1, 1, 4}, DType::Double64);
+    Conv1d conv(1, 1, 2, 1, 0); 
+    conv.weight = Tensor::ones(conv.weight.shape(), DType::Double64, true);
+    conv.bias   = Tensor::zeros(conv.bias.shape(), DType::Double64, true);
+
+    Tensor output = conv.forward(input);
+
+    ok &= check_near("Conv1d Forward [0,0,0]", output[0][0][0], 2.0);
+    ok &= check_near("Conv1d Forward [0,0,1]", output[0][0][1], 2.0);
+    ok &= check_near("Conv1d Forward [0,0,2]", output[0][0][2], 2.0);
+
+    print_tensor(input, "Input");
+    print_tensor(conv.weight, "Weight");
+    print_tensor(conv.bias, "Bias");
+    print_tensor(output, "Forward output");
+
+    // --- 2. Gradient Check ---
+    auto compute_loss_1d = [&](Tensor& inp, Conv1d& layer) {
+        return sum(layer.forward(inp), -1);
+    };
+
+    Tensor input_grad = Tensor::rand({1, 1, 4}, DType::Double64, true);
+    Conv1d conv_grad(1, 1, 2, 1, 0);
+
+    Tensor loss = compute_loss_1d(input_grad, conv_grad);
+    backward(loss);
+
+    double h = 1e-5;
+
+    Tensor grad_numeric_input  = Tensor::zeros(input_grad.shape());
+    Tensor grad_numeric_weight = Tensor::zeros(conv_grad.weight.shape());
+    Tensor grad_numeric_bias   = Tensor::zeros(conv_grad.bias.shape());
+
+    // Numeric grad for input
+    for (size_t i = 0; i < input_grad.numel(); ++i) {
+        double orig_val = input_grad.read_scalar(i);
+        input_grad.write_scalar(i, orig_val + h);
+        double loss_plus  = compute_loss_1d(input_grad, conv_grad).read_scalar(0);
+        input_grad.write_scalar(i, orig_val - h);
+        double loss_minus = compute_loss_1d(input_grad, conv_grad).read_scalar(0);
+        grad_numeric_input.write_scalar(i, (loss_plus - loss_minus) / (2 * h));
+        input_grad.write_scalar(i, orig_val);
+    }
+
+    // Numeric grad for weight
+    for (size_t i = 0; i < conv_grad.weight.numel(); ++i) {
+        double orig_val = conv_grad.weight.read_scalar(i);
+        conv_grad.weight.write_scalar(i, orig_val + h);
+        double loss_plus  = compute_loss_1d(input_grad, conv_grad).read_scalar(0);
+        conv_grad.weight.write_scalar(i, orig_val - h);
+        double loss_minus = compute_loss_1d(input_grad, conv_grad).read_scalar(0);
+        grad_numeric_weight.write_scalar(i, (loss_plus - loss_minus) / (2 * h));
+        conv_grad.weight.write_scalar(i, orig_val);
+    }
+
+    // Numeric grad for bias
+    for (size_t i = 0; i < conv_grad.bias.numel(); ++i) {
+        double orig_val = conv_grad.bias.read_scalar(i);
+        conv_grad.bias.write_scalar(i, orig_val + h);
+        double loss_plus  = compute_loss_1d(input_grad, conv_grad).read_scalar(0);
+        conv_grad.bias.write_scalar(i, orig_val - h);
+        double loss_minus = compute_loss_1d(input_grad, conv_grad).read_scalar(0);
+        grad_numeric_bias.write_scalar(i, (loss_plus - loss_minus) / (2 * h));
+        conv_grad.bias.write_scalar(i, orig_val);
+    }
+
+    // Print analytical vs numeric gradients
+    print_tensor(input_grad, "Analytical grad_input");
+    print_tensor(grad_numeric_input, "Numeric grad_input");
+
+    print_tensor(conv_grad.weight, "Analytical grad_weight");
+    print_tensor(grad_numeric_weight, "Numeric grad_weight");
+
+    print_tensor(conv_grad.bias, "Analytical grad_bias");
+    print_tensor(grad_numeric_bias, "Numeric grad_bias");
+
+    // Compare gradients
+    ok &= check_gradients("Conv1d Grad Input", input_grad, grad_numeric_input);
+    ok &= check_gradients("Conv1d Grad Weight", conv_grad.weight, grad_numeric_weight);
+    ok &= check_gradients("Conv1d Grad Bias", conv_grad.bias, grad_numeric_bias);
+
+    return ok;
+}
 
 // --- Test Conv2d ---
 bool test_conv2d() {
@@ -322,7 +411,7 @@ int main() {
 
     try {
         
-        if (!test_conv1d()) return 1;
+        if (!test_conv1d_debug()) return 1;
         // test_conv1d(); // <-- This was a redundant call
         if (!test_conv2d()) return 1;
         if (!test_conv3d()) return 1;

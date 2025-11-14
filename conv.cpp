@@ -227,6 +227,8 @@ Conv3d::Conv3d(int in_c, int out_c,int kd ,int kh, int kw,int sd, int sh, int sw
 // Forward (Conv1d remains naive for simplicity)
 Tensor Conv1d::forward(const Tensor& input) {
     if (!input.impl) throw std::runtime_error("Conv1d::forward: null input");
+    if (input.impl->ndim != 3)
+    throw std::runtime_error("Conv1d forward: input must be [batch, channels, width]");
 
     // input shape assumed [batch, in_channels, width]
     size_t batch = input.impl->shape[0];
@@ -241,12 +243,12 @@ Tensor Conv1d::forward(const Tensor& input) {
 
     Tensor output(out_shape, input._dtype(), req);
 
-    // compute convolution (naive)
     for (size_t b = 0; b < batch; ++b) {
         for (int oc = 0; oc < out_channels; ++oc) {
             for (int ow = 0; ow < out_w; ++ow) {
                 // start with bias
-                double acc = bias[(size_t)oc]; // proxy -> double
+                float* bptr = static_cast<float*>(bias.impl->storage->data.get());
+                double acc = bptr[oc]; // proxy -> double
                 for (size_t ic = 0; ic < in_c; ++ic) {
                     for (int k = 0; k < kernel_size; ++k) {
                         int iw = ow * stride + k - padding;
@@ -348,19 +350,27 @@ Tensor Conv3d::forward(const Tensor& input) {
 }
 
 
-// Backward
 void GradConv1d::backward(const Tensor& self) {
     if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
         throw std::runtime_error("GradConv1d: missing self grad");
 
-    // get grad of output (same shape as forward output)
-    Tensor grad_output = tensor_from_grad(self);
+    // --- 0) save and detach parents ---
+    bool old_req_input  = input.impl ? input.impl->requires_grad : false;
+    bool old_req_weight = weight.impl ? weight.impl->requires_grad : false;
+    bool old_req_bias   = bias.impl ? bias.impl->requires_grad : false;
+    if (input.impl)  input.impl->requires_grad  = false;
+    if (weight.impl) weight.impl->requires_grad = false;
+    if (bias.impl)   bias.impl->requires_grad   = false;
 
-    // prepare zero tensors for grads (same shapes as originals)
-    Tensor grad_input  = Tensor::zeros(input.shape(), input._dtype(), false);
+    // --- 1) get incoming gradient ---
+    Tensor grad_output = tensor_from_grad(self); // contiguous DATA
+
+    // --- 2) prepare zero accumulators ---
+    Tensor grad_input  = Tensor::zeros(input.shape(),  input._dtype(),  false);
     Tensor grad_weight = Tensor::zeros(weight.shape(), weight._dtype(), false);
-    Tensor grad_bias   = Tensor::zeros(bias.shape(), bias._dtype(), false);
+    Tensor grad_bias   = Tensor::zeros(bias.shape(),   bias._dtype(),   false);
 
+    // --- 3) aliases / sizes ---
     size_t batch = input.impl->shape[0];
     size_t in_c  = input.impl->shape[1];
     size_t width = input.impl->shape[2];
@@ -368,40 +378,75 @@ void GradConv1d::backward(const Tensor& self) {
     size_t k_len = weight.impl->shape[2];
     size_t out_w = grad_output.impl->shape[2];
 
-    // accumulate gradients
+    // --- 4) raw pointers / strides ---
+    void* in_data  = input.impl->storage->data.get();
+    void* w_data   = weight.impl->storage->data.get();
+    void* go_data  = grad_output.impl->storage->data.get();
+
+    void* gin_data = grad_input.impl->storage->data.get();
+    void* gw_data  = grad_weight.impl->storage->data.get();
+    void* gb_data  = grad_bias.impl->storage->data.get();
+
+    size_t in_off  = input.impl->offset;
+    size_t w_off   = weight.impl->offset;
+    size_t go_off  = grad_output.impl->offset;
+    size_t gin_off = grad_input.impl->offset;
+    size_t gw_off  = grad_weight.impl->offset;
+    size_t gb_off  = bias.impl->offset;
+
+    size_t in_s0 = input.impl->strides[0], in_s1 = input.impl->strides[1], in_s2 = input.impl->strides[2];
+    size_t w_s0  = weight.impl->strides[0], w_s1 = weight.impl->strides[1], w_s2 = weight.impl->strides[2];
+    size_t go_s0 = grad_output.impl->strides[0], go_s1 = grad_output.impl->strides[1], go_s2 = grad_output.impl->strides[2];
+    size_t gin_s0 = grad_input.impl->strides[0], gin_s1 = grad_input.impl->strides[1], gin_s2 = grad_input.impl->strides[2];
+    size_t gw_s0 = grad_weight.impl->strides[0], gw_s1 = grad_weight.impl->strides[1], gw_s2 = grad_weight.impl->strides[2];
+    size_t gb_s0 = bias.impl->ndim > 0 ? bias.impl->strides[0] : 1;
+
+    // --- 5) main accumulation loops ---
     for (size_t b = 0; b < batch; ++b) {
         for (size_t oc = 0; oc < out_c; ++oc) {
             for (size_t ow = 0; ow < out_w; ++ow) {
-                double go = grad_output[b][oc][ow]; // grad at this output element
+                size_t go_idx = go_off + b*go_s0 + oc*go_s1 + ow*go_s2;
+                double go_val = read_scalar_at(go_data, go_idx, grad_output._dtype());
 
-                // grad bias
-                double cur_b = grad_bias[oc];
-                grad_bias[oc] = cur_b + go;
+                // bias accumulation
+                size_t gb_idx = gb_off + oc*gb_s0;
+                double curb = read_scalar_at(gb_data, gb_idx, grad_bias._dtype());
+                write_scalar_at(gb_data, gb_idx, grad_bias._dtype(), curb + go_val);
 
+                // loop over input channels and kernel
                 for (size_t ic = 0; ic < in_c; ++ic) {
-                    for (size_t kk = 0; kk < k_len; ++kk) {
-                        int iw = (int)ow * stride + (int)kk - padding;
-                        if (iw >= 0 && iw < (int)width) {
-                            // grad_input[b, ic, iw] += go * weight[oc, ic, kk]
-                            double cur_in = grad_input[b][ic][(size_t)iw];
-                            double w_val  = weight[oc][ic][kk];
-                            grad_input[b][ic][(size_t)iw] = cur_in + go * w_val;
+                    for (size_t k = 0; k < k_len; ++k) {
+                        int iw = (int)ow * stride + (int)k - padding;
+                        if (iw < 0 || iw >= (int)width) continue;
 
-                            // grad_weight[oc, ic, kk] += go * input[b, ic, iw]
-                            double cur_w = grad_weight[oc][ic][kk];
-                            double in_val = input[b][ic][(size_t)iw];
-                            grad_weight[oc][ic][kk] = cur_w + go * in_val;
-                        }
+                        // grad_input[b, ic, iw] += go * weight[oc, ic, k]
+                        size_t w_idx = w_off + oc*w_s0 + ic*w_s1 + k*w_s2;
+                        double wval = read_scalar_at(w_data, w_idx, weight._dtype());
+                        size_t gin_idx = gin_off + b*gin_s0 + ic*gin_s1 + (size_t)iw*gin_s2;
+                        double cur_in = read_scalar_at(gin_data, gin_idx, grad_input._dtype());
+                        write_scalar_at(gin_data, gin_idx, grad_input._dtype(), cur_in + go_val * wval);
+
+                        // grad_weight[oc, ic, k] += go * input[b, ic, iw]
+                        size_t in_idx = in_off + b*in_s0 + ic*in_s1 + (size_t)iw*in_s2;
+                        double in_val = read_scalar_at(in_data, in_idx, input._dtype());
+                        size_t gw_idx = gw_off + oc*gw_s0 + ic*gw_s1 + k*gw_s2;
+                        double cur_w = read_scalar_at(gw_data, gw_idx, grad_weight._dtype());
+                        write_scalar_at(gw_data, gw_idx, grad_weight._dtype(), cur_w + go_val * in_val);
                     }
                 }
             }
         }
     }
 
-    // accumulate into parents' grad buffers using your helper
-    accumulate_grad(input, grad_input);
-    accumulate_grad(weight, grad_weight);
-    accumulate_grad(bias, grad_bias);
+    // --- 6) restore requires_grad ---
+    if (input.impl)  input.impl->requires_grad  = old_req_input;
+    if (weight.impl) weight.impl->requires_grad = old_req_weight;
+    if (bias.impl)   bias.impl->requires_grad   = old_req_bias;
+
+    // --- 7) accumulate into parents if they requested grad ---
+    if (old_req_input)  accumulate_grad(input,  grad_input);
+    if (old_req_weight) accumulate_grad(weight, grad_weight);
+    if (old_req_bias)   accumulate_grad(bias,   grad_bias);
 }
 
 
