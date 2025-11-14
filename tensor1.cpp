@@ -426,3 +426,18 @@ Tensor gather(const Tensor& input, const Tensor& index, size_t dim) {
     }
     return out;
 }
+
+Tensor Tensor::detach() {
+    Tensor out = *this;                      // shallow copy
+    out.impl = std::make_shared<Tensorimpl>(*this->impl); // shallow clone metadata
+
+    out.impl->requires_grad = false;         // no gradient tracking
+    out.impl->grad_fn = nullptr;             // cut graph link
+
+    return out;
+}
+Tensor& Tensor::requires_grad_(bool b) {
+    if (!impl) throw std::runtime_error("requires_grad_: undefined tensor");
+    impl->requires_grad = b;
+    return *this;
+}

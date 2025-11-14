@@ -179,6 +179,8 @@ struct Tensor {
     std::shared_ptr<GradFn> grad_fn;
 
     // backward: you may implement a convenience backward() that calls a free function in autograd.cpp
+    Tensor detach() ;
+    Tensor& requires_grad_(bool b);
     void backward(); // declared; implement in autograd.cpp or tensor1.cpp
 };
 
@@ -295,7 +297,25 @@ inline void print_t(const Tensor& t) {
         if (i != n - 1) std::cout << ", ";
     }
     std::cout << "]\n";
+    
 }
+// Helper to print a tensor (works for any shape)
+inline void print_tensor(const Tensor& t, const std::string& name="Tensor") {
+    std::cout << name << " shape: [";
+    for (size_t i = 0; i < t.impl->ndim; ++i) {
+        std::cout << t.impl->shape[i];
+        if (i + 1 < t.impl->ndim) std::cout << ", ";
+    }
+    std::cout << "]\n";
+
+    size_t n = t.numel();
+    std::cout << name << " values: ";
+    for (size_t i = 0; i < n; ++i) {
+        std::cout << t.read_scalar(i) << " ";
+    }
+    std::cout << "\n\n";
+}
+
 static void print_recursive_braces(const Tensor& t, std::vector<size_t>& idx, size_t dim) {
     std::cout << "{";
     size_t dim_size = t.impl->shape[dim];
