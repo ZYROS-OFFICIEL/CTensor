@@ -99,10 +99,16 @@ std::vector<size_t> Tensor::shape() const {
 }
 
 Tensor Tensor::clone() const {
+    // Allocate new tensor with same shape + dtype
     Tensor out(shape(), _dtype(), impl->requires_grad);
-    size_t n = numel();
-    for (size_t i = 0; i < n; ++i)
-        out[i] = (*this)[i];
+
+    size_t bytes = numel() * dtype_size(_dtype());
+
+    // Deep copy raw buffer
+    memcpy(out.impl->storage->data.get(),
+           impl->storage->data.get(),
+           bytes);
+
     return out;
 }
 
