@@ -900,3 +900,13 @@ void backward(Tensor& loss) {
         cur.impl->grad_fn->backward(cur);
     }
 }
+Tensor grad_of(const Tensor& t) {
+    Tensor g;
+    g.impl = std::make_shared<TensorImpl>(
+        t.shape(), t.impl->dtype, false
+    );
+    g.impl->storage = t.impl->storage; 
+    g.impl->storage_offset = t.impl->storage_offset;
+    g.impl->use_grad_buffer = true;
+    return g;
+}

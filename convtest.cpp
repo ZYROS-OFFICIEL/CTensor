@@ -230,19 +230,19 @@ bool test_conv1d_debug() {
     }
 
     // Print analytical vs numeric gradients
-    print_tensor(input_grad, "Analytical grad_input");
+    print_tensor(*input_grad.impl->storage->grad, "Analytical grad_input");
     print_tensor(grad_numeric_input, "Numeric grad_input");
 
-    print_tensor(conv_grad.weight, "Analytical grad_weight");
+    print_tensor(*conv_grad.weight.impl->storage->grad, "Analytical grad_weight");
     print_tensor(grad_numeric_weight, "Numeric grad_weight");
 
-    print_tensor(conv_grad.bias, "Analytical grad_bias");
+    print_tensor(*conv_grad.bias.impl->storage->grad, "Analytical grad_bias");
     print_tensor(grad_numeric_bias, "Numeric grad_bias");
 
     // Compare gradients
-    ok &= check_gradients("Conv1d Grad Input", input_grad, grad_numeric_input);
-    ok &= check_gradients("Conv1d Grad Weight", conv_grad.weight, grad_numeric_weight);
-    ok &= check_gradients("Conv1d Grad Bias", conv_grad.bias, grad_numeric_bias);
+    ok &= check_gradients("Conv1d Grad Input", *input_grad.impl->storage->grad, grad_numeric_input);
+    ok &= check_gradients("Conv1d Grad Weight", *conv_grad.weight.impl->storage->grad, grad_numeric_weight);
+    ok &= check_gradients("Conv1d Grad Bias", *conv_grad.bias.impl->storage->grad, grad_numeric_bias);
 
     return ok;
 }
