@@ -901,12 +901,36 @@ void backward(Tensor& loss) {
     }
 }
 Tensor grad_of(const Tensor& t) {
+    if (!t.impl || !t.impl->requires_grad)
+        return Tensor(); // no gradient
+
+    if (!t.impl->storage || !t.impl->storage->grad)
+        return Tensor(); // no gradient computed
+
     Tensor g;
-    g.impl = std::make_shared<TensorImpl>(
-        t.shape(), t.impl->dtype, false
+    g.impl = std::make_shared<Tensorimpl>(
+        t.shape(),              // same shape
+        t.impl->dtype,          // same dtype
+        false                   // gradients of gradients? no
     );
-    g.impl->storage = t.impl->storage; 
-    g.impl->storage_offset = t.impl->storage_offset;
-    g.impl->use_grad_buffer = true;
+
+    // Reuse same storage (important!)
+    g.impl->storage = t.impl->storage;
+
+    // Same offset, shape, strides (view)
+    g.impl->offset = t.impl->offset;
+    g.impl->ndim = t.impl->ndim;
+
+    // copy shape
+    for (size_t i = 0; i < t.impl->ndim; i++)
+        g.impl->shape[i] = t.impl->shape[i];
+
+    // copy strides
+    for (size_t i = 0; i < t.impl->ndim; i++)
+        g.impl->strides[i] = t.impl->strides[i];
+
+    // Important: do not attach a grad_fn to a pure gradient
+    g.impl->grad_fn = nullptr;
+
     return g;
 }
