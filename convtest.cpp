@@ -181,11 +181,11 @@ bool test_conv1d_debug() {
 
     // --- 2. Gradient Check ---
     auto compute_loss_1d = [&](Tensor& inp, Conv1d& layer) {
-        return sum(layer.forward(inp), -1);
+        return sum(layer.forward(inp));
     };
 
     Tensor input_grad = Tensor::rand({1, 1, 4}, DType::Double64, true);
-    Conv1d conv_grad(1, 1, 2, 1, 0);
+    Conv1d conv_grad(1, 1, 2, 1, 0,DType::Double64);
 
     Tensor loss = compute_loss_1d(input_grad, conv_grad);
     backward(loss);
