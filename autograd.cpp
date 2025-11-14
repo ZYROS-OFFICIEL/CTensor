@@ -148,105 +148,74 @@ inline void accumulate_grad(Tensor& target, const Tensor& grad_src) {
 
     // Determine axes where target has 1 and grad has >1 (these axes need reduction).
     std::vector<int> axes_to_reduce;
-    // We must compare padded shapes
     size_t max_ndim = std::max(nd_t, nd_g);
     for (size_t i = 0; i < max_ndim; ++i) {
         size_t td = dim_in_padded(target, max_ndim, i);
         size_t gd = dim_in_padded(grad_src, max_ndim, i);
         if (td == 1 && gd > 1) {
-            // This is an axis to reduce in grad_src.
-            // The axis index is relative to grad_src's ndim.
             axes_to_reduce.push_back((int)(i - (max_ndim - nd_g)));
         }
     }
 
-    // Prepare a grad tensor `g_aligned` that has same shape as `target` (possibly with singleton dims)
+    // Align grad_src to target shape (reduce broadcast axes and keep dims)
     Tensor g_aligned = grad_src;
     if (!axes_to_reduce.empty()) {
         g_aligned = reduce_sum_axes_keepdims(grad_src, axes_to_reduce);
     }
-    
-    // At this point, g_aligned has had its broadcast dimensions reduced.
-    // Its shape should now match target's shape (or be broadcastable to it,
-    // e.g., target [5, 1, 3], g_aligned [5, 1, 1])
 
-    // We will iterate over all elements of `target` and add the
-    // corresponding (broadcasted) element from `g_aligned`.
-    
-    ensure_grad_buffer(target, false); // Ensure target grad buffer exists
+    // Ensure target grad buffer exists. ZERO it only if we are allocating it now.
+    bool had_gradbuf = (target.impl->storage && target.impl->storage->grad != nullptr);
+    ensure_grad_buffer(target, !had_gradbuf); // zero only on first allocation
 
     size_t N = target.numel_();
-    if (N == 0) return; // Nothing to do
+    if (N == 0) return;
 
-    // If g_aligned has grad buffer, read from it; else read from data
-    bool g_has_gradbuf = (g_aligned.impl->storage->grad != nullptr);
+    // choose pointers (read g_aligned from its grad buffer if present, else from data)
+    bool g_has_gradbuf = (g_aligned.impl->storage && g_aligned.impl->storage->grad != nullptr);
     void* g_data_ptr = g_has_gradbuf ? g_aligned.impl->storage->grad.get() : g_aligned.impl->storage->data.get();
     void* t_grad_ptr = target.impl->storage->grad.get();
 
-    // We need to use multi-dim indexing for both target and g_aligned
-    // to correctly handle offsets and strides (views).
-    
+    // multi-dim index vector for the target
     std::vector<size_t> idx_vec(target.impl->ndim, 0);
 
     for (size_t flat = 0; flat < N; ++flat) {
-        // 1. Convert flat index `flat` (0 to N-1) to multi-dim `idx_vec` for `target`
+        // convert flat -> multi-index for target
         size_t rem = flat;
         for (int d = (int)target.impl->ndim - 1; d >= 0; --d) {
             idx_vec[d] = rem % target.impl->shape[d];
             rem /= target.impl->shape[d];
         }
 
-        // 2. Calculate the strided index for `target`
+        // target strided index
         size_t target_strided_idx = target.impl->offset;
         for (size_t d = 0; d < target.impl->ndim; ++d) {
             target_strided_idx += idx_vec[d] * target.impl->strides[d];
         }
 
-        // 3. Calculate the corresponding broadcasted strided index for `g_aligned`
+        // g_aligned strided index (handle left-pad when ndim differ)
         size_t g_aligned_strided_idx = g_aligned.impl->offset;
         size_t pad = target.impl->ndim > g_aligned.impl->ndim ? (target.impl->ndim - g_aligned.impl->ndim) : 0;
-        
         for (size_t d = 0; d < target.impl->ndim; ++d) {
-            if (d < pad) continue; // This dim doesn't exist in g_aligned, skip
-            
+            if (d < pad) continue;
             size_t g_dim_idx = d - pad;
             size_t g_dim_shape = g_aligned.impl->shape[g_dim_idx];
-            
-            // Use index 0 if g_aligned dim is 1 (broadcasting)
             size_t use_idx = (g_dim_shape == 1) ? 0 : idx_vec[d];
-            
             g_aligned_strided_idx += use_idx * g_aligned.impl->strides[g_dim_idx];
         }
-        // right after computing target_strided_idx and g_aligned_strided_idx
 
-        // debug safety checks (only enabled in debug builds)
+        // debug bounds checks (safe and helpful)
         size_t target_storage_size = target.impl->storage ? target.impl->storage->size : 0;
         size_t g_storage_size = g_aligned.impl->storage ? g_aligned.impl->storage->size : 0;
         if (target_strided_idx >= target_storage_size) {
-            std::cerr << "accumulate_grad: target strided idx out of range! "
-                      << "idx=" << target_strided_idx << " >= storage_size=" << target_storage_size << "\n";
-            // dump shapes/strides to help debugging
-            std::cerr << "target shape:";
-            for (size_t z=0; z<target.impl->ndim; ++z) std::cerr << " " << target.impl->shape[z];
-            std::cerr << " strides:";
-            for (size_t z=0; z<target.impl->ndim; ++z) std::cerr << " " << target.impl->strides[z];
-            std::cerr << " offset=" << target.impl->offset << "\n";
             throw std::runtime_error("accumulate_grad: target index OOB");
         }
         if (g_aligned_strided_idx >= g_storage_size) {
-            std::cerr << "accumulate_grad: g_aligned strided idx out of range! "
-                      << "idx=" << g_aligned_strided_idx << " >= storage_size=" << g_storage_size << "\n";
-            std::cerr << "g_aligned shape:";
-            for (size_t z=0; z<g_aligned.impl->ndim; ++z) std::cerr << " " << g_aligned.impl->shape[z];
-            std::cerr << " strides:";
-            for (size_t z=0; z<g_aligned.impl->ndim; ++z) std::cerr << " " << g_aligned.impl->strides[z];
-            std::cerr << " offset=" << g_aligned.impl->offset << "\n";
             throw std::runtime_error("accumulate_grad: g_aligned index OOB");
         }
 
-        // 4. Perform the accumulation
+        // accumulate: t.grad[idx] += g_aligned[idx_broadcasted]
         double addv = read_scalar_at(g_data_ptr, g_aligned_strided_idx, g_aligned._dtype());
-        double cur = read_scalar_at(t_grad_ptr, target_strided_idx, target._dtype());
+        double cur  = read_scalar_at(t_grad_ptr, target_strided_idx, target._dtype());
         write_scalar_at(t_grad_ptr, target_strided_idx, target._dtype(), cur + addv);
     }
 }
