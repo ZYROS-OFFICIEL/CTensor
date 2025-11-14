@@ -335,3 +335,5 @@ static void topo_sort_from(const Tensor& root, std::vector<Tensor>& topo);
 
 // ------------------ backward ------------------
 void backward(Tensor& loss);
+Tensor grad_of(const Tensor& t) ;
+
