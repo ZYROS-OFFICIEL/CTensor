@@ -349,7 +349,7 @@ Tensor Conv3d::forward(const Tensor& input) {
         output.impl->grad_fn = std::make_shared<GradConv3dMatmul>(input, weight, bias, input_patches,
                                                                  stride_d, stride_h, stride_w,
                                                                  padding_d, padding_h, padding_w,
-                                                                 kernel_size_d, kernel_size_h, kernel_size_w);
+                                                                 kernel_size_d, kernel_size_h, kernel_size_w); // <-- FIX: The middle argument was kernel_size_d
     }
     return output;
 }
