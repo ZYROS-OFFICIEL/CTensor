@@ -142,6 +142,56 @@ static size_t dim_in_padded(const Tensor& target, size_t nd, size_t idx) {
 inline void accumulate_grad(Tensor& target, const Tensor& grad_src) {
     if (!target.impl) throw std::runtime_error("accumulate_grad: target undefined");
     if (!grad_src.impl) throw std::runtime_error("accumulate_grad: grad_src undefined");
+    // Fast-path: accumulate grad for bias-like case:
+    // target: [out_c] (ndim==1)
+    // grad_src: [batch, out_c, out_w] (ndim==3) -> reduce axes 0 and 2
+    if (target.impl && grad_src.impl &&
+        target.impl->ndim == 1 &&
+        grad_src.impl->ndim == 3 &&
+        target.impl->shape[0] == grad_src.impl->shape[1])
+    {
+        // Ensure grad buffer exists (zero it if newly allocated)
+        bool had_gradbuf = (target.impl->storage && target.impl->storage->grad != nullptr);
+        ensure_grad_buffer(target, !had_gradbuf);
+
+        void* dst_grad = target.impl->storage->grad.get();
+        // Prefer reading from grad buffer of grad_src if present (rare),
+        // otherwise read from user-visible data.
+        void* src_ptr = (grad_src.impl->storage && grad_src.impl->storage->grad)
+                        ? grad_src.impl->storage->grad.get()
+                        : grad_src.impl->storage->data.get();
+
+        size_t out_c = target.impl->shape[0];
+        size_t batch = grad_src.impl->shape[0];
+        size_t out_w = grad_src.impl->shape[2];
+
+        size_t src_off = grad_src.impl->offset;
+        size_t dst_off = target.impl->offset;
+
+        size_t s_stride_b = grad_src.impl->strides[0];
+        size_t s_stride_oc = grad_src.impl->strides[1];
+        size_t s_stride_w = grad_src.impl->strides[2];
+        size_t t_stride = target.impl->strides[0];
+
+        DType src_dt = grad_src._dtype();
+        DType dst_dt = target._dtype();
+
+        for (size_t oc = 0; oc < out_c; ++oc) {
+            double sum = 0.0;
+            for (size_t b = 0; b < batch; ++b) {
+                for (size_t w = 0; w < out_w; ++w) {
+                    size_t idx = src_off + b * s_stride_b + oc * s_stride_oc + w * s_stride_w;
+                    sum += read_scalar_at(src_ptr, idx, src_dt);
+                }
+            }
+            size_t ti = dst_off + oc * t_stride;
+            double cur = read_scalar_at(dst_grad, ti, dst_dt);
+            write_scalar_at(dst_grad, ti, dst_dt, cur + sum);
+        }
+
+        // done for this special case
+        return;
+    }
 
     size_t nd_t = target.impl->ndim;
     size_t nd_g = grad_src.impl->ndim;
@@ -177,7 +227,7 @@ inline void accumulate_grad(Tensor& target, const Tensor& grad_src) {
 
     // multi-dim index vector for the target
     std::vector<size_t> idx_vec(target.impl->ndim, 0);
-
+    
     for (size_t flat = 0; flat < N; ++flat) {
         // convert flat -> multi-index for target
         size_t rem = flat;
