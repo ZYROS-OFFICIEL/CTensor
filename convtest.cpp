@@ -284,8 +284,8 @@ bool test_conv2d() {
         return sum(layer.forward(inp), -1);
     };
 
-    Tensor input_grad = Tensor::rand({1, 2, 4, 4}, DType::Float32, true); // B=1, C_in=2, H=4, W=4
-    Conv2d conv_grad(2, 3, 2, 2, 1, 1, 0, 0); // C_in=2, C_out=3, K=2, S=1, P=0
+    Tensor input_grad = Tensor::rand({1, 2, 4, 4}, DType::Double64, true); // B=1, C_in=2, H=4, W=4 <-- FIX: Switched to Double64
+    Conv2d conv_grad(2, 3, 2, 2, 1, 1, 0, 0, DType::Double64); // C_in=2, C_out=3, K=2, S=1, P=0 <-- FIX: Switched to Double64
 
     Tensor loss = compute_loss_2d(input_grad, conv_grad);
     backward(loss);
@@ -361,9 +361,9 @@ bool test_conv3d() {
     };
 
     // B=1, C_in=2, D=3, H=3, W=3
-    Tensor input_grad = Tensor::rand({1, 2, 3, 3, 3}, DType::Float32, true); 
+    Tensor input_grad = Tensor::rand({1, 2, 3, 3, 3}, DType::Double64, true); // <-- FIX: Switched to Double64
     // C_in=2, C_out=3, K=2, S=1, P=0
-    Conv3d conv_grad(2, 3, 2, 2, 2, 1, 1, 1, 0, 0, 0); 
+    Conv3d conv_grad(2, 3, 2, 2, 2, 1, 1, 1, 0, 0, 0, DType::Double64); // <-- FIX: Switched to Double64
 
     Tensor loss = compute_loss_3d(input_grad, conv_grad);
     backward(loss);
@@ -423,6 +423,7 @@ int main() {
     try {
         
         if (!test_conv1d_debug()) return 1;
+        // test_conv1d(); // <-- This was a redundant call
         if (!test_conv2d()) return 1;
         if (!test_conv3d()) return 1;
 
