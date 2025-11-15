@@ -243,3 +243,91 @@ Tensor Maxpool2d::forward(const Tensor& input) {
     return output;
     }
 }
+// forward (MaxPool3d)
+Tensor Maxpool3d::forward(const Tensor& input) {
+    if (!input.impl) throw std::runtime_error("MaxPool3d::forward: null input");
+    if (input.impl->ndim != 5)
+        throw std::runtime_error("MaxPool3d forward: input must be [batch, channels, depth, height, width]");
+
+    // input shape assumed [batch, channels, depth, height, width]
+    size_t batch = input.impl->shape[0];
+    size_t channels  = input.impl->shape[1];
+    size_t depth = input.impl->shape[2];
+    size_t height = input.impl->shape[3];
+    size_t width = input.impl->shape[4];
+
+    int out_d = (int)(( (int)depth + 2 * padding_d - kernel_size_d) / stride_d + 1);
+    int out_h = (int)(( (int)height + 2 * padding_h - kernel_size_h) / stride_h + 1);
+    int out_w = (int)(( (int)width + 2 * padding_w - kernel_size_w) / stride_w + 1);
+    if (out_d <= 0 || out_h <= 0 || out_w <= 0) throw std::runtime_error("MaxPool3d::forward: invalid output dimensions");
+
+    std::vector<size_t> out_shape = { batch, channels, (size_t)out_d, (size_t)out_h, (size_t)out_w };
+    Tensor output(out_shape, input._dtype(), input.requires_grad());
+
+    for (size_t b = 0; b < batch; ++b) {
+        for (size_t c = 0; c < channels; ++c) {
+            for (int od = 0; od < out_d; ++od) {
+                for (int oh = 0; oh < out_h; ++oh) {
+                    for (int ow = 0; ow < out_w; ++ow) {
+                        double max_val = -std::numeric_limits<double>::infinity();
+                        for (int kd = 0; kd < kernel_size_d; ++kd) {
+                            for (int kh = 0; kh < kernel_size_h; ++kh) {
+                                for (int kw = 0; kw < kernel_size_w; ++kw) {
+                                    int id = od * stride_d + kd - padding_d;
+                                    int ih = oh * stride_h + kh - padding_h;
+                                    int iw = ow * stride_w + kw - padding_w;
+                                    if (id >= 0 && id < (int)depth && ih >= 0 && ih < (int)height && iw >= 0 && iw < (int)width) {
+                                        double in_val = input[b][c][(size_t)id][(size_t)ih][(size_t)iw];
+                                        if (in_val > max_val) {
+                                            max_val = in_val;
+                                        }
+                                    }
+                                }
+                            }
+                        output[b][c][(size_t)od][(size_t)oh][(size_t)ow] = max_val;
+                        }
+                    }
+                }
+            }
+        }
+    return output;
+    }
+}
+Avgpool1d::Avgpool1d(int k, int s, int p)
+    : kernel_size(k), stride(s), padding(p) {}
+// forward (AvgPool1d)
+Tensor Avgpool1d::forward(const Tensor& input) {
+    if (!input.impl) throw std::runtime_error("AvgPool1d::forward: null input");
+    if (input.impl->ndim != 3)
+        throw std::runtime_error("AvgPool1d forward: input must be [batch, channels, width]");
+
+    // input shape assumed [batch, channels, width]
+    size_t batch = input.impl->shape[0];
+    size_t channels  = input.impl->shape[1];
+    size_t width = input.impl->shape[2];
+
+    int out_w = (int)(( (int)width + 2 * padding - kernel_size) / stride + 1);
+    if (out_w <= 0) throw std::runtime_error("AvgPool1d::forward: invalid output width");
+
+    std::vector<size_t> out_shape = { batch, channels, (size_t)out_w };
+    Tensor output(out_shape, input._dtype(), input.requires_grad());
+
+    for (size_t b = 0; b < batch; ++b) {
+        for (size_t c = 0; c < channels; ++c) {
+            for (int ow = 0; ow < out_w; ++ow) {
+                double sum_val = 0.0;
+                int count = 0;
+                for (int k = 0; k < kernel_size; ++k) {
+                    int iw = ow * stride + k - padding;
+                    if (iw >= 0 && iw < (int)width) {
+                        double in_val = input[b][c][(size_t)iw];
+                        sum_val += in_val;
+                        count += 1;
+                    }
+                }
+                output[b][c][(size_t)ow] = sum_val / count;
+            }
+        }
+    }
+    return output;
+}
