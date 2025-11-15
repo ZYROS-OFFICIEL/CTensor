@@ -160,3 +160,43 @@ void col2im_3d_pool(const Tensor& grad_patches,
         }
     }
 }
+
+//----------------Pooling Classes---------------------------------------------
+Maxpool1d::Maxpool1d(int k, int s, int p)
+    : kernel_size(k), stride(s), padding(p) {}
+// forward (MaxPool1d)
+Tensor Maxpool1d::forward(const Tensor& input) {
+    if (!input.impl) throw std::runtime_error("MaxPool1d::forward: null input");
+    if (input.impl->ndim != 3)
+        throw std::runtime_error("MaxPool1d forward: input must be [batch, channels, width]");
+
+    // input shape assumed [batch, channels, width]
+    size_t batch = input.impl->shape[0];
+    size_t channels  = input.impl->shape[1];
+    size_t width = input.impl->shape[2];
+
+    int out_w = (int)(( (int)width + 2 * padding - kernel_size) / stride + 1);
+    if (out_w <= 0) throw std::runtime_error("MaxPool1d::forward: invalid output width");
+
+    std::vector<size_t> out_shape = { batch, channels, (size_t)out_w };
+    Tensor output(out_shape, input._dtype(), input.requires_grad());
+
+    for (size_t b = 0; b < batch; ++b) {
+        for (size_t c = 0; c < channels; ++c) {
+            for (int ow = 0; ow < out_w; ++ow) {
+                double max_val = -std::numeric_limits<double>::infinity();
+                for (int k = 0; k < kernel_size; ++k) {
+                    int iw = ow * stride + k - padding;
+                    if (iw >= 0 && iw < (int)width) {
+                        double in_val = input[b][c][(size_t)iw];
+                        if (in_val > max_val) {
+                            max_val = in_val;
+                        }
+                    }
+                }
+                output[b][c][(size_t)ow] = max_val;
+            }
+        }
+    }
+    return output;
+}
