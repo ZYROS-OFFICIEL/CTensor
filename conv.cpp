@@ -224,7 +224,8 @@ Conv3d::Conv3d(int in_c, int out_c,int kd ,int kh, int kw,int sd, int sh, int sw
     bias   = Tensor::zeros({(size_t)out_c}, dt, true);
 }
 
-// Forward (Conv1d remains naive for simplicity)
+
+// Forward (Conv1d )
 Tensor Conv1d::forward(const Tensor& input) {
     if (!input.impl) throw std::runtime_error("Conv1d::forward: null input");
     if (input.impl->ndim != 3)
@@ -247,8 +248,13 @@ Tensor Conv1d::forward(const Tensor& input) {
         for (int oc = 0; oc < out_channels; ++oc) {
             for (int ow = 0; ow < out_w; ++ow) {
                 // start with bias
-                float* bptr = static_cast<float*>(bias.impl->storage->data.get());
-                double acc = bptr[oc]; // proxy -> double
+                // --- FIX START ---
+                // The bias tensor is 1D [out_c]. Its stride is 1 (or bias.impl->strides[0])
+                // We must read it using the correct DType, not hardcode float*
+                size_t bias_idx = bias.impl->offset + (size_t)oc * bias.impl->strides[0];
+                double acc = read_scalar_at(bias.impl->storage->data.get(), bias_idx, bias._dtype());
+                // --- FIX END ---
+                
                 for (size_t ic = 0; ic < in_c; ++ic) {
                     for (int k = 0; k < kernel_size; ++k) {
                         int iw = ow * stride + k - padding;
@@ -271,7 +277,6 @@ Tensor Conv1d::forward(const Tensor& input) {
 
     return output;
 }
-
 // --- HIGH-PERFORMANCE Conv2d::forward (im2col + MatMul) ---
 Tensor Conv2d::forward(const Tensor& input) {
     if (!input.impl) throw std::runtime_error("Conv2d::forward: null input");
@@ -501,8 +506,32 @@ void GradConv1d::backward(const Tensor& self) {
     } else {
         std::cerr << "DEBUG weight.grad still null after accumulate\n";
     }
+    // debug: show whether bias requested grad originally
+    std::cerr << "DEBUG: old_req_bias=" << old_req_bias << "\n";
 
-    if (old_req_bias)   accumulate_grad(bias,  grad_bias);
+    // debug: local grad_bias (values)
+    std::cerr << "DEBUG local grad_bias (flat): ";
+    for (size_t i = 0; i < grad_bias.numel(); ++i) {
+        std::cerr << grad_bias.read_scalar(i) << (i+1<grad_bias.numel()? " ":"\n");
+    }
+
+    // debug: bias.grad before accumulate (if any)
+    if (bias.impl->storage->grad) {
+        std::cerr << "DEBUG bias.grad (before): ";
+        void* bgrad_raw = bias.impl->storage->grad.get();
+        for (size_t i = 0; i < bias.numel_(); ++i)
+            std::cerr << read_scalar_at(bgrad_raw, i + bias.impl->offset, bias._dtype())
+                      << (i+1<bias.numel_()? " ":"\n");
+    } else {
+        std::cerr << "DEBUG bias.grad == null (before)\n";
+    }
+
+    if (old_req_bias) accumulate_grad(bias,  grad_bias);
+    if (bias.impl->storage->grad) {
+    void* g = bias.impl->storage->grad.get();
+        std::cerr << "bias.grad raw[0] = " << read_scalar_at(g, bias.impl->offset, bias._dtype()) << "\n";
+    }
+
 }
 
 
