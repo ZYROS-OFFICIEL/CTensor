@@ -13,6 +13,10 @@
 
 // Helper function to print a tensor (from tensor1.h, good for debugging)
 void print_tensor(const std::string& name, const Tensor& t) {
+    if (!t.impl) {
+        std::cout << "Tensor: " << name << " is null" << std::endl;
+        return;
+    }
     std::cout << "Tensor: " << name << " Shape: (";
     auto s = t.shape();
     for(size_t i=0; i<s.size(); ++i) {
@@ -36,6 +40,7 @@ bool check_near(const std::string& name, double val, double expected, double tol
 // Helper function to compare two gradient tensors
 bool check_gradients(const std::string& name, const Tensor& param, const Tensor& grad_numeric, double tolerance = 1e-4) {
     // Get the analytical gradient computed by backward()
+    // This function correctly reads from param.impl->storage->grad
     Tensor grad_analytic = tensor_from_grad(param);
 
     if (grad_analytic.numel() != grad_numeric.numel()) {
@@ -66,8 +71,8 @@ bool check_gradients(const std::string& name, const Tensor& param, const Tensor&
     if (max_rel_error > tolerance) {
         std::cout << "FAIL: " << name << ". Max relative error: " << max_rel_error << " (Tolerance: " << tolerance << ")" << std::endl;
         // Optional: print tensors for debugging
-        // print_tensor(name + "_analytic", grad_analytic);
-        // print_tensor(name + "_numeric", grad_numeric);
+        print_tensor(name + "_analytic", grad_analytic);
+        print_tensor(name + "_numeric", grad_numeric);
         return false;
     }
 
@@ -174,10 +179,10 @@ bool test_conv1d_debug() {
     ok &= check_near("Conv1d Forward [0,0,1]", output[0][0][1], 2.0);
     ok &= check_near("Conv1d Forward [0,0,2]", output[0][0][2], 2.0);
 
-    print_tensor(input, "Input");
-    print_tensor(conv.weight, "Weight");
-    print_tensor(conv.bias, "Bias");
-    print_tensor(output, "Forward output");
+    print_tensor("Input", input);
+    print_tensor("Weight", conv.weight);
+    print_tensor("Bias", conv.bias);
+    print_tensor("Forward output", output);
 
     // --- 2. Gradient Check ---
     auto compute_loss_1d = [&](Tensor& inp, Conv1d& layer) {
@@ -230,19 +235,25 @@ bool test_conv1d_debug() {
     }
 
     // Print analytical vs numeric gradients
-    print_tensor(grad_of(input_grad), "Analytical grad_input");
-    print_tensor(grad_numeric_input, "Numeric grad_input");
+    // --- FIX: Use tensor_from_grad to print the *gradient* values, not grad_of ---
+    print_tensor("Analytical grad_input", tensor_from_grad(input_grad));
+    print_tensor("Numeric grad_input", grad_numeric_input);
 
-    print_tensor(grad_of(conv_grad.weight), "Analytical grad_weight");
-    print_tensor(grad_numeric_weight, "Numeric grad_weight");
+    print_tensor("Analytical grad_weight", tensor_from_grad(conv_grad.weight));
+    print_tensor("Numeric grad_weight", grad_numeric_weight);
 
-    print_tensor(grad_of(conv_grad.bias), "Analytical grad_bias");
-    print_tensor(grad_numeric_bias, "Numeric grad_bias");
+    print_tensor("Analytical grad_bias", tensor_from_grad(conv_grad.bias));
+    print_tensor("Numeric grad_bias", grad_numeric_bias);
 
     // Compare gradients
-    ok &= check_gradients("Conv1d Grad Input", grad_of(input_grad), grad_numeric_input);
-    ok &= check_gradients("Conv1d Grad Weight", grad_of(conv_grad.weight), grad_numeric_weight);
-    ok &= check_gradients("Conv1d Grad Bias", grad_of(conv_grad.bias), grad_numeric_bias);
+    // --- FIX: Pass the original parameter tensor, not grad_of(...) ---
+    ok &= check_gradients("Conv1d Grad Input", input_grad, grad_numeric_input);
+    ok &= check_gradients("Conv1d Grad Weight", conv_grad.weight, grad_numeric_weight);
+    ok &= check_gradients("Conv1d Grad Bias", conv_grad.bias, grad_numeric_bias);
+    
+    // This debug print is fine
+    std::cout << "Analytic bias data ptr = " << (void*)conv_grad.bias.impl->storage->data.get() << "\n";
+    std::cout << "Numeric bias data ptr  = " << (void*)grad_numeric_bias.impl->storage->data.get() << "\n";
 
     return ok;
 }
@@ -412,7 +423,6 @@ int main() {
     try {
         
         if (!test_conv1d_debug()) return 1;
-        // test_conv1d(); // <-- This was a redundant call
         if (!test_conv2d()) return 1;
         if (!test_conv3d()) return 1;
 
