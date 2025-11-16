@@ -9,6 +9,31 @@
 #include <string>
 #pragma once
 
+//______________________Helpers________________________________
+Tensor im2col_2d_pool(const Tensor& input,
+                      int kernel_h, int kernel_w,
+                      int stride_h, int stride_w,
+                      int pad_h, int pad_w);
+void col2im_2d_pool(const Tensor& grad_patches,
+                    Tensor& grad_input,
+                    int kernel_h, int kernel_w,
+                    int stride_h, int stride_w,
+                    int pad_h, int pad_w);
+Tensor im2col_3d_pool(const Tensor& input,
+                      int kernel_d, int kernel_h, int kernel_w,
+                      int stride_d, int stride_h, int stride_w,
+                      int pad_d, int pad_h, int pad_w);
+void col2im_3d_pool(const Tensor& grad_patches,
+                    Tensor& grad_input,
+                    int kernel_d, int kernel_h, int kernel_w,
+                    int stride_d, int stride_h, int stride_w,
+                    int pad_d, int pad_h, int pad_w);
+                            
+
+
+
+
+//----------------Pooling Classes---------------------------------------------
 class MaxPool1d {
 public:
     int kernel_size, stride, padding;
@@ -79,4 +104,42 @@ public:
     Tensor forward(const Tensor& input);
     Tensor operator()(const Tensor& input) { return forward(input); }
 };
+//-------------------------------------------------------------------------------
+struct GradAvgPool1d : public GradFn {
+    Tensor input;
+    int kernel_size;
+    int stride;
+    int padding;
 
+    GradAvgPool1d(const Tensor& inp,
+                  int k,
+                  int s,
+                  int p)
+        : input(inp),
+          kernel_size(k),
+          stride(s),
+          padding(p) {
+        parents.push_back(input);
+    }
+
+    void backward(const Tensor& self) override;
+};
+struct GradAvgPool2d : public GradFn {
+    Tensor input;
+    int kernel_size_h, kernel_size_w;
+    int stride_h, stride_w;
+    int padding_h, padding_w;
+
+    GradAvgPool2d(const Tensor& inp,
+                  int kh, int kw,
+                  int sh, int sw,
+                  int ph, int pw)
+        : input(inp),
+          kernel_size_h(kh), kernel_size_w(kw),
+          stride_h(sh), stride_w(sw),
+          padding_h(ph), padding_w(pw) {
+        parents.push_back(input);
+    }
+
+    void backward(const Tensor& self) override;
+};
