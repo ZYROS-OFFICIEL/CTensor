@@ -331,3 +331,47 @@ Tensor Avgpool1d::forward(const Tensor& input) {
     }
     return output;
 }
+// forward (AvgPool2d)
+Tensor Avgpool2d::forward(const Tensor& input) {
+    if (!input.impl) throw std::runtime_error("AvgPool2d::forward: null input");
+    if (input.impl->ndim != 4)
+        throw std::runtime_error("AvgPool2d forward: input must be [batch, channels, height, width]");
+
+    // input shape assumed [batch, channels, height, width]
+    size_t batch = input.impl->shape[0];
+    size_t channels  = input.impl->shape[1];
+    size_t height = input.impl->shape[2];
+    size_t width = input.impl->shape[3];
+
+    int out_h = (int)(( (int)height + 2 * padding_h - kernel_size_h) / stride_h + 1);
+    int out_w = (int)(( (int)width + 2 * padding_w - kernel_size_w) / stride_w + 1);
+    if (out_h <= 0 || out_w <= 0) throw std::runtime_error("AvgPool2d::forward: invalid output dimensions");
+
+    std::vector<size_t> out_shape = { batch, channels, (size_t)out_h, (size_t)out_w };
+    Tensor output(out_shape, input._dtype(), input.requires_grad());
+
+    for (size_t b = 0; b < batch; ++b) {
+        for (size_t c = 0; c < channels; ++c) {
+            for (int oh = 0; oh < out_h; ++oh) {
+                for (int ow = 0; ow < out_w; ++ow) {
+                    double sum_val = 0.0;
+                    int count = 0;
+                    for (int kh = 0; kh < kernel_size_h; ++kh) {
+                        for (int kw = 0; kw < kernel_size_w; ++kw) {
+                            int ih = oh * stride_h + kh - padding_h;
+                            int iw = ow * stride_w + kw - padding_w;
+                            if (ih >= 0 && ih < (int)height && iw >= 0 && iw < (int)width) {
+                                double in_val = input[b][c][(size_t)ih][(size_t)iw];
+                                sum_val += in_val;
+                                count += 1;
+                            }
+                        }
+                    }
+                    output[b][c][(size_t)oh][(size_t)ow] = sum_val / count;
+                }
+            }
+        }
+    return output;
+    }
+}
+// forward (AvgPool3d)
