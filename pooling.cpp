@@ -517,7 +517,7 @@ void GradMaxPool2d::backward(const Tensor& self) {
             }
         }
     }
-    input.impl->storage->grad = grad_input.impl->storage->grad;
+    input.impl->storage->grad = grad_input.impl->storage->grad;}
 }
 void GradMaxPool3d::backward(const Tensor& self) {
     Tensor input = parents[0];
@@ -576,5 +576,48 @@ void GradMaxPool3d::backward(const Tensor& self) {
                 }
             }
         }
+    input.impl->storage->grad = grad_input.impl->storage->grad; }
+    }
+}
+void GradAvgPool1d::backward(const Tensor& self) {
+    Tensor input = parents[0];
+    if (!input.impl || !self.impl) throw std::runtime_error("GradAvgPool1d::backward: null tensor");
+    if (input.impl->ndim != 3 || self.impl->ndim != 3)
+        throw std::runtime_error("GradAvgPool1d backward: input and self must be [batch, channels, width]");
+
+    // input shape assumed [batch, channels, width]
+    size_t batch = input.impl->shape[0];
+    size_t channels  = input.impl->shape[1];
+    size_t width = input.impl->shape[2];
+
+    int out_w = (int)(( (int)width + 2 * padding - kernel_size) / stride + 1);
+    if (out_w <= 0) throw std::runtime_error("GradAvgPool1d::backward: invalid output width");
+
+    Tensor grad_input = Tensor::zeros(input.shape(), input._dtype(), false);
+    Tensor grad_output = self.impl->storage->grad;
+
+    for (size_t b = 0; b < batch; ++b) {
+        for (size_t c = 0; c < channels; ++c) {
+            for (int ow = 0; ow < out_w; ++ow) {
+                int count = 0;
+                for (int k = 0; k < kernel_size; ++k) {
+                    int iw = ow * stride + k - padding;
+                    if (iw >= 0 && iw < (int)width) {
+                        count += 1;
+                    }
+                }
+                double grad_out_val = grad_output[b][c][(size_t)ow];
+                double grad_contribution = grad_out_val / count;
+                for (int k = 0; k < kernel_size; ++k) {
+                    int iw = ow * stride + k - padding;
+                    if (iw >= 0 && iw < (int)width) {
+                        double existing_grad = grad_input[b][c][(size_t)iw];
+                        grad_input.write_scalar(((b * channels + c) * width + iw),
+                                                existing_grad + grad_contribution);
+                    }
+                }
+            }
+        }
+    }
     input.impl->storage->grad = grad_input.impl->storage->grad;
 }
