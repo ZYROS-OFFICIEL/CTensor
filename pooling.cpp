@@ -162,10 +162,10 @@ void col2im_3d_pool(const Tensor& grad_patches,
 }
 
 //----------------Pooling Classes---------------------------------------------
-Maxpool1d::Maxpool1d(int k, int s, int p)
+MaxPool1d::MaxPool1d(int k, int s, int p)
     : kernel_size(k), stride(s), padding(p) {}
 // forward (MaxPool1d)
-Tensor Maxpool1d::forward(const Tensor& input) {
+Tensor MaxPool1d::forward(const Tensor& input) {
     if (!input.impl) throw std::runtime_error("MaxPool1d::forward: null input");
     if (input.impl->ndim != 3)
         throw std::runtime_error("MaxPool1d forward: input must be [batch, channels, width]");
@@ -201,7 +201,7 @@ Tensor Maxpool1d::forward(const Tensor& input) {
     return output;
 }
 // forward (MaxPool2d)
-Tensor Maxpool2d::forward(const Tensor& input) {
+Tensor MaxPool2d::forward(const Tensor& input) {
     if (!input.impl) throw std::runtime_error("MaxPool2d::forward: null input");
     if (input.impl->ndim != 4)
         throw std::runtime_error("MaxPool2d forward: input must be [batch, channels, height, width]");
@@ -244,7 +244,7 @@ Tensor Maxpool2d::forward(const Tensor& input) {
     }
 }
 // forward (MaxPool3d)
-Tensor Maxpool3d::forward(const Tensor& input) {
+Tensor MaxPool3d::forward(const Tensor& input) {
     if (!input.impl) throw std::runtime_error("MaxPool3d::forward: null input");
     if (input.impl->ndim != 5)
         throw std::runtime_error("MaxPool3d forward: input must be [batch, channels, depth, height, width]");
@@ -293,10 +293,10 @@ Tensor Maxpool3d::forward(const Tensor& input) {
     return output;
     }
 }
-Avgpool1d::Avgpool1d(int k, int s, int p)
+AvgPool1d::AvgPool1d(int k, int s, int p)
     : kernel_size(k), stride(s), padding(p) {}
 // forward (AvgPool1d)
-Tensor Avgpool1d::forward(const Tensor& input) {
+Tensor AvgPool1d::forward(const Tensor& input) {
     if (!input.impl) throw std::runtime_error("AvgPool1d::forward: null input");
     if (input.impl->ndim != 3)
         throw std::runtime_error("AvgPool1d forward: input must be [batch, channels, width]");
@@ -332,7 +332,7 @@ Tensor Avgpool1d::forward(const Tensor& input) {
     return output;
 }
 // forward (AvgPool2d)
-Tensor Avgpool2d::forward(const Tensor& input) {
+Tensor AvgPool2d::forward(const Tensor& input) {
     if (!input.impl) throw std::runtime_error("AvgPool2d::forward: null input");
     if (input.impl->ndim != 4)
         throw std::runtime_error("AvgPool2d forward: input must be [batch, channels, height, width]");
@@ -375,7 +375,7 @@ Tensor Avgpool2d::forward(const Tensor& input) {
     }
 }
 // forward (AvgPool3d)
-Tensor Avgpool3d::forward(const Tensor& input) {
+Tensor AvgPool3d::forward(const Tensor& input) {
     if (!input.impl) throw std::runtime_error("AvgPool3d::forward: null input");
     if (input.impl->ndim != 5)
         throw std::runtime_error("AvgPool3d forward: input must be [batch, channels, depth, height, width]");
@@ -424,4 +424,47 @@ Tensor Avgpool3d::forward(const Tensor& input) {
         }
     return output;
     }
+}
+void GradMaxPool1d::backward(const Tensor& self) {
+    Tensor input = parents[0];
+    if (!input.impl || !self.impl) throw std::runtime_error("GradMaxPool1d::backward: null tensor");
+    if (input.impl->ndim != 3 || self.impl->ndim != 3)
+        throw std::runtime_error("GradMaxPool1d backward: input and self must be [batch, channels, width]");
+
+    // input shape assumed [batch, channels, width]
+    size_t batch = input.impl->shape[0];
+    size_t channels  = input.impl->shape[1];
+    size_t width = input.impl->shape[2];
+
+    int out_w = (int)(( (int)width + 2 * padding - kernel_size) / stride + 1);
+    if (out_w <= 0) throw std::runtime_error("GradMaxPool1d::backward: invalid output width");
+
+    Tensor grad_input = Tensor::zeros(input.shape(), input._dtype(), false);
+    Tensor grad_output = self.impl->storage->grad;
+
+    for (size_t b = 0; b < batch; ++b) {
+        for (size_t c = 0; c < channels; ++c) {
+            for (int ow = 0; ow < out_w; ++ow) {
+                double max_val = -std::numeric_limits<double>::infinity();
+                int max_idx = -1;
+                for (int k = 0; k < kernel_size; ++k) {
+                    int iw = ow * stride + k - padding;
+                    if (iw >= 0 && iw < (int)width) {
+                        double in_val = input[b][c][(size_t)iw];
+                        if (in_val > max_val) {
+                            max_val = in_val;
+                            max_idx = iw;
+                        }
+                    }
+                }
+                if (max_idx != -1) {
+                    double grad_out_val = grad_output[b][c][(size_t)ow];
+                    double existing_grad = grad_input[b][c][(size_t)max_idx];
+                    grad_input.write_scalar(((b * channels + c) * width + max_idx),
+                                            existing_grad + grad_out_val);
+                }
+            }
+        }
+    }
+    input.impl->storage->grad = grad_input.impl->storage->grad;
 }
