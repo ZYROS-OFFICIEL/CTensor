@@ -9,7 +9,7 @@ Tensor LeakyRelu(const Tensor& a_,double negative_slope ){
     Tensor result(a_.impl->shape,a_.impl->ndim, a_.impl->dtype, req);
     
     if (req) {
-        result.impl->grad_fn = std::make_shared<GradRelu>(a_);
+        result.impl->grad_fn = std::make_shared<GradLeakyRelu>(a_);
     }
 
     auto* a_data = a_.impl->storage->data.get();
@@ -21,5 +21,17 @@ Tensor LeakyRelu(const Tensor& a_,double negative_slope ){
     }
 
     return result;
+
+}
+Tensor PRelu(const Tensor& a_,DType init,int num_parameters,DType dtype){
+    size_t in_c  = a_.impl->shape[1];
+    if (!a_.impl)
+        throw std::runtime_error("Relu_: null tensor implementation");
+
+    bool req = a_.requires_grad();
+    Tensor result(a_.impl->shape,a_.impl->ndim, a_.impl->dtype, req);
+    if(num_parameters == in_c && num_parameters>1){
+
+    }
 
 }
