@@ -10,3 +10,4 @@
 #pragma once
 
 Tensor LeakyRelu(const Tensor& a_,double negative_slope=1e-2);
+Tensor PRelu(const Tensor& a_,DType init=0.25,int num_parameters=1,DType dtype=DType::Double64);
