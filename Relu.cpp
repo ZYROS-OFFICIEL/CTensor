@@ -88,6 +88,33 @@ Tensor PRelu(const Tensor& a_, double init, int num_parameters, DType dtype) {
 
     return result;
 }
+struct GradLeakyRelu : public GradFn {
+    Tensor input;
+    double neg_slope;
+
+    GradLeakyRelu(const Tensor& x, double ns)
+        : input(x), neg_slope(ns) {
+        parents.push_back(x);
+    }
+
+    void backward(const Tensor& self_grad) override {
+        Tensor& gx = input.grad();
+
+        auto* inp = input.impl->storage->data.get();
+        auto* sg  = self_grad.impl->storage->data.get();
+        auto* out = gx.impl->storage->data.get();
+
+        size_t n = input.numel();
+
+        for (size_t i = 0; i < n; i++) {
+            double v = read_scalar_at(inp, i, input.dtype());
+            double g = read_scalar_at(sg, i, self_grad.dtype());
+            double res = (v >= 0.0) ? g : g * neg_slope;
+            write_scalar_at(out, i, gx.dtype(), res);
+        }
+    }
+};
+
 struct GradPRelu : public GradFn {
     Tensor input;
     Tensor weight;   // shape = {1} or {C}
