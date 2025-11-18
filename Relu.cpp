@@ -1,4 +1,5 @@
 #include "Relu.h"
+#include "ops1.h" 
 
 
 Tensor LeakyRelu(const Tensor& a_, double negative_slope) {
@@ -8,196 +9,177 @@ Tensor LeakyRelu(const Tensor& a_, double negative_slope) {
     size_t n = a_.numel();
     bool req = a_.requires_grad();
 
-    Tensor result(a_.shape(), a_.dtype(), req);
+    Tensor result(a_.shape(), a_._dtype(), req);
 
     if (req)
         result.impl->grad_fn = std::make_shared<GradLeakyRelu>(a_, negative_slope);
 
-    auto* a_data = a_.impl->storage->data.get();
-    auto* r_data = result.impl->storage->data.get();
+    std::vector<size_t> idx_vec(a_.impl->ndim, 0);
+    for (size_t flat = 0; flat < n; ++flat) {
+        // 1. Convert flat index to multi-dim
+        size_t rem = flat;
+        for (int d = (int)a_.impl->ndim - 1; d >= 0; --d) {
+            idx_vec[d] = rem % a_.impl->shape[d];
+            rem /= a_.impl->shape[d];
+        }
+        // 2. Convert multi-dim to strided index
+        size_t strided_idx = a_.impl->offset;
+        for (size_t d = 0; d < a_.impl->ndim; ++d) {
+            strided_idx += idx_vec[d] * a_.impl->strides[d];
+        }
 
-    for (size_t i = 0; i < n; ++i) {
-        double v = read_scalar_at(a_data, i, a_.dtype());
+        // 3. Read from strided src, write to strided dest
+        double v = read_scalar_at(a_.impl->storage->data.get(), strided_idx, a_._dtype());
         double out = (v >= 0.0) ? v : v * negative_slope;
-        write_scalar_at(r_data, i, result.dtype(), out);
+        write_scalar_at(result.impl->storage->data.get(), strided_idx, result._dtype(), out);
     }
 
     return result;
 }
 
-Tensor PRelu(const Tensor& a_, double init, int num_parameters, DType dtype) {
-    if (!a_.impl)
-        throw std::runtime_error("PRelu: null tensor implementation");
+void GradLeakyRelu::backward(const Tensor& self) {
+    if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
+        throw std::runtime_error("GradLeakyRelu: missing self grad");
+    if (!a.impl || !a.requires_grad()) return;
 
-    size_t in_c = a_.shape()[1];
-    size_t n = a_.numel();
-    bool req = a_.requires_grad();
+    Tensor grad_output = tensor_from_grad(self); 
+    Tensor grad_input = Tensor::zeros(a.shape(), a._dtype(), false);
+    
+    size_t n = a.numel();
+    std::vector<size_t> idx_vec(a.impl->ndim, 0);
+    for (size_t flat = 0; flat < n; ++flat) {
+        // 1. Convert flat index to multi-dim
+        size_t rem = flat;
+        for (int d = (int)a.impl->ndim - 1; d >= 0; --d) {
+            idx_vec[d] = rem % a_.impl->shape[d];
+            rem /= a_.impl->shape[d];
+        }
+        // 2. Convert multi-dim to strided index
+        size_t strided_idx = a.impl->offset;
+        for (size_t d = 0; d < a.impl->ndim; ++d) {
+            strided_idx += idx_vec[d] * a_.impl->strides[d];
+        }
 
-    // -------------------------------
-    // VALIDATE num_parameters
-    // -------------------------------
-    if (!(num_parameters == 1 || num_parameters == in_c)) {
-        throw std::runtime_error(
-            "PRelu: RuntimeError: mismatch in shape between input and weight");
+        // 3. Read/Write using strided index
+        double v = read_scalar_at(a.impl->storage->data.get(), strided_idx, a._dtype());
+        double go = read_scalar_at(grad_output.impl->storage->data.get(), strided_idx, grad_output._dtype());
+        double gin = (v >= 0.0) ? go : go * negative_slope;
+        write_scalar_at(grad_input.impl->storage->data.get(), strided_idx, grad_input._dtype(), gin);
     }
 
-    bool per_channel = (num_parameters == in_c);
+    accumulate_grad(a, grad_input);
+}
 
-    // -------------------------------
-    // CREATE α PARAMETER
-    // -------------------------------
-    std::vector<size_t> wshape;
-    if (per_channel)
-        wshape = {in_c};
-    else
-        wshape = {1};
+PRelu::PRelu(int num_params, double init, DType dtype) 
+    : num_parameters(num_params) 
+{
+    if (num_parameters == 1) {
+        // Shared parameter
+        weight = Tensor::full({1}, init, dtype, true);
+    } else {
+        // Per-channel parameter
+        weight = Tensor::full({(size_t)num_parameters}, init, dtype, true);
+    }
+}
 
-    Tensor weight(wshape, dtype, req);
+Tensor PRelu::forward(const Tensor& input) {
+    if (!input.impl)
+        throw std::runtime_error("PRelu: null input tensor");
+    if (num_parameters > 1 && num_parameters != (int)input.impl->shape[1])
+        throw std::runtime_error("PRelu: num_parameters must be 1 or equal to input channels");
 
-    // fill weight with "init" value
-    auto* w_data = weight.impl->storage->data.get();
-    for (size_t i = 0; i < num_parameters; i++)
-        write_scalar_at(w_data, i, dtype, init);
-    Tensor result(a_.shape(), a_.dtype(), req);
+    size_t n = input.numel();
+    bool req = input.requires_grad() || weight.requires_grad();
+
+    Tensor result(input.shape(), input._dtype(), req);
 
     if (req)
-        result.impl->grad_fn = std::make_shared<GradPRelu>(a_, weight);
+        result.impl->grad_fn = std::make_shared<GradPRelu>(input, weight);
+    
+    bool per_channel = (num_parameters > 1);
+    size_t C = per_channel ? input.impl->shape[1] : 1;
+    size_t spatial_dims = n / (input.impl->shape[0] * C);
 
-    auto* a_data = a_.impl->storage->data.get();
-    auto* r_data = result.impl->storage->data.get();
-
-    size_t spatial = 1;
-    for (int i = 2; i < a_.ndim(); i++)
-        spatial *= a_.shape()[i];
-
-    size_t idx = 0;
-    for (size_t n_idx = 0; n_idx < a_.shape()[0]; n_idx++) {
-        for (size_t c = 0; c < in_c; c++) {
-
-            double alpha = per_channel ?
-                read_scalar_at(w_data, c, dtype) :
-                read_scalar_at(w_data, 0, dtype);
-
-            for (size_t s = 0; s < spatial; s++, idx++) {
-                double v = read_scalar_at(a_data, idx, a_.dtype());
-                double out = (v >= 0.0) ? v : v * alpha;
-                write_scalar_at(r_data, idx, result.dtype(), out);
-            }
+    std::vector<size_t> idx_vec(input.impl->ndim, 0);
+    for (size_t flat = 0; flat < n; ++flat) {
+        // 1. Convert flat index to multi-dim
+        size_t rem = flat;
+        for (int d = (int)input.impl->ndim - 1; d >= 0; --d) {
+            idx_vec[d] = rem % input.impl->shape[d];
+            rem /= input.impl->shape[d];
         }
+        // 2. Convert multi-dim to strided index
+        size_t strided_idx = input.impl->offset;
+        for (size_t d = 0; d < input.impl->ndim; ++d) {
+            strided_idx += idx_vec[d] * input.impl->strides[d];
+        }
+
+        // 3. Get alpha (weight)
+        size_t channel_idx = per_channel ? idx_vec[1] : 0;
+        double alpha = read_scalar_at(weight.impl->storage->data.get(), channel_idx, weight._dtype());
+
+        // 4. Read/Write using strided index
+        double v = read_scalar_at(input.impl->storage->data.get(), strided_idx, input._dtype());
+        double out = (v >= 0.0) ? v : v * alpha;
+        write_scalar_at(result.impl->storage->data.get(), strided_idx, result._dtype(), out);
     }
 
     return result;
 }
-struct GradLeakyRelu : public GradFn {
-    Tensor input;
-    double neg_slope;
 
-    GradLeakyRelu(const Tensor& x, double ns)
-        : input(x), neg_slope(ns) {
-        parents.push_back(x);
-    }
+void GradPRelu::backward(const Tensor& self) {
+    if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
+        throw std::runtime_error("GradPRelu: missing self grad");
+    if (!input.impl)
+        throw std::runtime_error("GradPRelu: missing input tensor");
+    
+    Tensor grad_output = tensor_from_grad(self); // Stride-aware
+    Tensor grad_input = Tensor::zeros(input.shape(), input._dtype(), false);
+    Tensor grad_weight = Tensor::zeros(weight.shape(), weight._dtype(), false);
 
-    void backward(const Tensor& self_grad) override {
-        Tensor& gx = input.grad();
+    bool per_channel = (weight.numel() > 1);
+    size_t n = input.numel();
+    
+    std::vector<size_t> idx_vec(input.impl->ndim, 0);
+    for (size_t flat = 0; flat < n; ++flat) {
+        // 1. Convert flat index to multi-dim
+        size_t rem = flat;
+        for (int d = (int)input.impl->ndim - 1; d >= 0; --d) {
+            idx_vec[d] = rem % input.impl->shape[d];
+            rem /= input.impl->shape[d];
+        }
+        // 2. Convert multi-dim to strided index
+        size_t strided_idx = input.impl->offset;
+        for (size_t d = 0; d < input.impl->ndim; ++d) {
+            strided_idx += idx_vec[d] * input.impl->strides[d];
+        }
 
-        auto* inp = input.impl->storage->data.get();
-        auto* sg  = self_grad.impl->storage->data.get();
-        auto* out = gx.impl->storage->data.get();
+        // 3. Get alpha (weight) and channel index
+        size_t channel_idx = per_channel ? idx_vec[1] : 0;
+        double alpha = read_scalar_at(weight.impl->storage->data.get(), channel_idx, weight._dtype());
 
-        size_t n = input.numel();
+        // 4. Read/Write using strided index
+        double v = read_scalar_at(input.impl->storage->data.get(), strided_idx, input._dtype());
+        double go = read_scalar_at(grad_output.impl->storage->data.get(), strided_idx, grad_output._dtype());
+        
+        // Grad Input
+        double gin = (v >= 0.0) ? go : go * alpha;
+        write_scalar_at(grad_input.impl->storage->data.get(), strided_idx, grad_input._dtype(), gin);
 
-        for (size_t i = 0; i < n; i++) {
-            double v = read_scalar_at(inp, i, input.dtype());
-            double g = read_scalar_at(sg, i, self_grad.dtype());
-            double res = (v >= 0.0) ? g : g * neg_slope;
-            write_scalar_at(out, i, gx.dtype(), res);
+        // Grad Weight (Alpha)
+        if (weight.requires_grad() && v < 0.0) {
+            double g_alpha = go * v;
+            // Accumulate gradient for this alpha
+            double cur_w_grad = read_scalar_at(grad_weight.impl->storage->data.get(), channel_idx, grad_weight._dtype());
+            write_scalar_at(grad_weight.impl->storage->data.get(), channel_idx, grad_weight._dtype(), cur_w_grad + g_alpha);
         }
     }
-};
 
-struct GradPRelu : public GradFn {
-    Tensor input;
-    Tensor weight;   // shape = {1} or {C}
-    bool per_channel;
-
-    GradPRelu(const Tensor& inp, const Tensor& w)
-        : input(inp), weight(w)
-    {
-        parents.push_back(input);
-        parents.push_back(weight);
-        per_channel = (w.shape()[0] > 1);
+    // Accumulate final gradients
+    if (input.requires_grad()) {
+        accumulate_grad(input, grad_input);
     }
-
-    void backward(const Tensor& self) override {
-        // ---------------------------
-        // self = grad_output
-        // ---------------------------
-        const Tensor& grad_output = self;
-
-        // Ensure grad buffers exist
-        input.ensure_grad();
-        weight.ensure_grad();
-
-        auto* inp_data = input.impl->storage->data.get();
-        auto* wgrad = weight.impl->storage->grad.get();
-        auto* in_grad = input.impl->storage->grad.get();
-        auto* gout_data = grad_output.impl->storage->data.get();
-        auto* w_data = weight.impl->storage->data.get();
-
-        size_t N = input.shape()[0];
-        size_t C = input.shape()[1];
-
-        // spatial dimension count
-        size_t spatial = 1;
-        for (int i = 2; i < input.ndim(); i++)
-            spatial *= input.shape()[i];
-
-        // ----------------------------------
-        // Zero weight grad (size 1 or C)
-        // ----------------------------------
-        for (size_t i = 0; i < weight.numel(); i++)
-            write_scalar_at(wgrad, i, weight.dtype(), 0.0);
-
-        size_t idx = 0;
-
-        // ----------------------------------
-        // Main backward
-        // ----------------------------------
-        for (size_t n = 0; n < N; n++) {
-            for (size_t c = 0; c < C; c++) {
-
-                double alpha = (per_channel ?
-                    read_scalar_at(w_data, c, weight.dtype()) :
-                    read_scalar_at(w_data, 0, weight.dtype()));
-
-                double wacc = 0.0; // accumulate per channel (or global)
-
-                for (size_t s = 0; s < spatial; s++, idx++) {
-
-                    double x = read_scalar_at(inp_data, idx, input.dtype());
-                    double go = read_scalar_at(gout_data, idx, grad_output.dtype());
-
-                    // grad_input
-                    double gx = (x >= 0.0 ? 1.0 : alpha) * go;
-                    write_scalar_at(in_grad, idx, input.dtype(), 
-                                    read_scalar_at(in_grad, idx, input.dtype()) + gx);
-
-                    // contribution to grad_alpha
-                    if (x < 0.0) {
-                        wacc += x * go; // PyTorch: only x < 0 contributes
-                    }
-                }
-
-                // accumulate into weight.grad
-                if (per_channel) {
-                    double oldv = read_scalar_at(wgrad, c, weight.dtype());
-                    write_scalar_at(wgrad, c, weight.dtype(), oldv + wacc);
-                } else {
-                    // shared alpha
-                    double oldv = read_scalar_at(wgrad, 0, weight.dtype());
-                    write_scalar_at(wgrad, 0, weight.dtype(), oldv + wacc);
-                }
-            }
-        }
+    if (weight.requires_grad()) {
+        accumulate_grad(weight, grad_weight);
     }
-};
+}
