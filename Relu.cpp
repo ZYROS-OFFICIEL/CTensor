@@ -14,7 +14,8 @@ Tensor LeakyRelu(const Tensor& a_,double negative_slope ){
 
     auto* a_data = a_.impl->storage->data.get();
     auto* r_data = result.impl->storage->data.get();
-
+    size_t n = a_.numel();
+    
     for (size_t i = 0; i < n; ++i) {
         double val = read_scalar_at(a_data, i, a_.impl->dtype);
         write_scalar_at(r_data, i, result.impl->dtype, ((val >= 0.0 )? val : val*negative_slope));
