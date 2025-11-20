@@ -31,3 +31,38 @@ public:
     Tensor forward(const Tensor& input);
     Tensor operator()(const Tensor& input) { return forward(input); }
 };
+// --- Autograd Node ---
+struct GradBatchNorm : GradFn {
+    Tensor input;
+    Tensor gamma; // We need gamma for input gradient
+    Tensor mean;  // Saved from forward
+    Tensor var;   // Saved from forward (actually 1/sqrt(var+eps) usually saved as inv_std)
+    double eps;
+    
+    // We save centered input (x - mean) and inv_std for efficiency
+    Tensor x_centered; 
+    Tensor inv_std;
+
+    GradBatchNorm(const Tensor& input_, const Tensor& gamma_, const Tensor& x_centered_, const Tensor& inv_std_)
+        : input(input_), gamma(gamma_), x_centered(x_centered_), inv_std(inv_std_) {
+        parents = {input, gamma_}; 
+        // But our GradFn structure usually stores references.
+        // Beta is a separate leaf. We need to store it if we compute its grad here?
+        // Actually, standard BN backward computes dgamma and dbeta and dx all at once.
+        // So we should list them as parents if they require grad.
+    }
+    
+    // We'll handle beta manually in backward or add it to parents.
+    // To be safe/clean, let's store references to everything we need to update.
+    // Re-defining constructor below.
+    
+    Tensor beta; // Stored just to have the reference for accumulation
+    
+    GradBatchNorm(const Tensor& input_, const Tensor& gamma_, const Tensor& beta_, 
+                  const Tensor& x_centered_, const Tensor& inv_std_)
+        : input(input_), gamma(gamma_), beta(beta_), x_centered(x_centered_), inv_std(inv_std_) {
+        parents = {input, gamma, beta};
+    }
+
+    void backward(const Tensor& self) override;
+};
