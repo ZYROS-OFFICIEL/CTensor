@@ -147,3 +147,87 @@ Tensor BatchNorm::forward(const Tensor& input) {
 
     return output;
 }
+
+void GradBatchNorm::backward(const Tensor& self) {
+    if (!self.impl->storage->grad) throw std::runtime_error("GradBatchNorm: missing self grad");
+
+    // Inputs:
+    // self.grad (dL/dy): [N, C, H, W]
+    // x_centered: [N, C, H, W]
+    // inv_std: [1, C, 1, 1] (broadcastable)
+    // gamma: [C]
+    
+    Tensor grad_output = tensor_from_grad(self);
+    
+    // Broadcast dimensions logic
+    int ndim = (int)input.impl->ndim;
+    std::vector<size_t> broadcast_shape(ndim, 1);
+    broadcast_shape[1] = gamma.numel();
+    Tensor gamma_bc = gamma.reshape(broadcast_shape);
+
+    // 1. dL/dGamma = sum(grad_output * normalized)
+    // normalized = x_centered * inv_std
+    Tensor normalized = x_centered * inv_std;
+    
+    // dBeta and dGamma are summed over (N, H, W)
+    // We need to sum over all dims EXCEPT dim 1.
+    // Helper to sum over N, H, W...
+    // We can repurpose the "permute -> reshape -> sum" trick.
+    
+    auto sum_exclude_dim1 = [&](const Tensor& t) -> Tensor {
+        // Permute to [C, N, H, W]
+        std::vector<size_t> perm(t.impl->ndim);
+        perm[0] = 1; 
+        perm[1] = 0;
+        for (int i = 2; i < (int)t.impl->ndim; ++i) perm[i] = i;
+        Tensor t_perm = t.permute(perm);
+        
+        // Flatten to [C, Rest]
+        size_t C = t_perm.impl->shape[0];
+        size_t Rest = t_perm.numel() / C;
+        Tensor t_flat = t_perm.reshape({C, Rest});
+        
+        // Sum over dim 1 -> [C]
+        return sum(t_flat, 1);
+    };
+
+    if (gamma.requires_grad()) {
+        Tensor grad_gamma_full = grad_output * normalized;
+        Tensor dgamma = sum_exclude_dim1(grad_gamma_full);
+        accumulate_grad(gamma, dgamma);
+    }
+
+    if (beta.requires_grad()) {
+        Tensor dbeta = sum_exclude_dim1(grad_output);
+        accumulate_grad(beta, dbeta);
+    }
+
+    if (input.requires_grad()) {
+        // dL/dx calculation for Batch Norm is specific.
+        // Refer to standard derivation (e.g., from the original paper or reliable source).
+        // dL/dx = (1 / (N * std)) * ( N * dL/dx_hat - sum(dL/dx_hat) - x_hat * sum(dL/dx_hat * x_hat) )
+        // where x_hat is normalized input.
+        // Wait, simpler form involves dGamma.
+        
+        // Let M = N * H * W (number of elements per channel)
+        size_t C = gamma.numel();
+        double M = (double)(input.numel() / C);
+        
+        // dx_hat = grad_output * gamma
+        Tensor dx_hat = grad_output * gamma_bc;
+        
+        // term1 = sum(dx_hat) over axis (N,H,W) -> Shape [C] -> broadcast to [1, C, 1, 1]
+        Tensor sum_dx_hat = sum_exclude_dim1(dx_hat).reshape(broadcast_shape);
+        
+        // term2 = sum(dx_hat * normalized) -> Shape [C] -> broadcast
+        Tensor sum_dx_hat_norm = sum_exclude_dim1(dx_hat * normalized).reshape(broadcast_shape);
+        
+        // dL/dx = inv_std * (dx_hat - sum_dx_hat/M - normalized * sum_dx_hat_norm/M)
+        //       = (inv_std / M) * (M * dx_hat - sum_dx_hat - normalized * sum_dx_hat_norm)
+        
+        Tensor term_brackets = (dx_hat * M) - sum_dx_hat - (normalized * sum_dx_hat_norm);
+        Tensor grad_input = term_brackets * (inv_std / M);
+        
+        accumulate_grad(input, grad_input);
+    }
+}
