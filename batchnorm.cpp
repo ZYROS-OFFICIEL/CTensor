@@ -2,6 +2,7 @@
 #include "ops1.h" // sum, mean, etc.
 #include <stdexcept>
 #include <cmath>
+#include <numeric> // for std::iota
 
 // Constructor
 BatchNorm::BatchNorm(int num_features, double eps, double momentum)
@@ -19,41 +20,24 @@ BatchNorm::BatchNorm(int num_features, double eps, double momentum)
 Tensor BatchNorm::forward(const Tensor& input) {
     if (!input.impl) throw std::runtime_error("BatchNorm: null input");
     
-    // Input must be [N, C] or [N, C, H, W] (or [N, C, D, H, W])
+    // Input must be [N, C] or [N, C, H, W] etc.
     if (input.impl->shape[1] != (size_t)num_features) {
         throw std::runtime_error("BatchNorm: input channels != num_features");
     }
 
     int ndim = (int)input.impl->ndim;
-    // Identify axes to reduce over. 
-    // For [N, C, H, W], we reduce over N(0), H(2), W(3). We keep C(1).
-    std::vector<int> reduce_axes;
-    reduce_axes.push_back(0); // Batch dim
-    for (int i = 2; i < ndim; ++i) reduce_axes.push_back(i);
+    
+    // We need to reshape mean/var/gamma/beta to broadcast correctly.
+    // They are [C]. We need them to be [1, C, 1, 1, ...] matching input ndim.
+    std::vector<size_t> broadcast_shape(ndim, 1);
+    broadcast_shape[1] = num_features;
 
     Tensor mean_val, var_val;
 
     if (training) {
-        // 1. Calculate Mean and Variance of current batch
-        // We don't have a single "mean over axes" function exposed cleanly in ops1.h yet 
-        // (only `mean` over one dim).
-        // But we can implement it using sum and dividing by count.
+        // --- TRAINING MODE ---
         
-        // Calculate sum over reduction axes
-        Tensor sum_val = input;
-        // To avoid complex reduce logic here, let's loop over axes?
-        // Or better: implement a helper or use the `mean` repeatedly?
-        // `ops1.h` has `mean(t, dim)`.
-        // Let's reduce repeatedly.
-        // Note: reduces rank each time. Indices shift.
-        // E.g. [N, C, H, W] -> mean(0) -> [C, H, W] -> mean(1) -> [C, W] ...
-        // Wait, reducing dim 0 shifts C to dim 0. 
-        // Correct strategy: Always reduce the *last* dimension involved, or handle permutations.
-        // 
-        // Alternative: Permute input to [C, N, H, W], flatten to [C, Rest], then mean/var over dim 1.
-        // This is robust.
-        
-        // Permute: put Channel at dim 0.
+        // 1. Permute to put Channel at dim 0: [C, N, H, W...]
         std::vector<size_t> perm(ndim);
         perm[0] = 1; // C
         perm[1] = 0; // N
@@ -61,54 +45,48 @@ Tensor BatchNorm::forward(const Tensor& input) {
         
         Tensor input_perm = input.permute(perm);
         
-        // Reshape to [C, -1]
+        // 2. Flatten to [C, Rest]
         size_t C = num_features;
         size_t rest = input.numel() / C;
         Tensor input_flat = input_perm.reshape({C, rest});
         
-        // Mean over dim 1
+        // 3. Compute Mean and Var over dim 1 (the flattened spatial/batch dims)
         mean_val = mean(input_flat, 1); // Shape [C]
         
         // Variance: mean((x - mean)^2)
-        // We need to broadcast mean to [C, rest].
-        // Manual broadcast for now since our ops broadcasting logic handles tensors.
-        // input_flat - mean_val.reshape({C, 1})
+        // Broadcast mean manually for the subtraction
         Tensor mean_reshaped = mean_val.reshape({C, 1});
         Tensor diff = input_flat - mean_reshaped;
         Tensor sq_diff = diff * diff;
         var_val = mean(sq_diff, 1); // Shape [C] (biased variance)
         
-        // Unbiased variance correction for running stats? Standard is usually biased for BN forward
-        // but unbiased for running stats update.
-        // Let's use biased for the normalization (standard PyTorch behavior).
-
-        // Update running stats (detached)
+        // 4. Update running stats (momentum update)
         // running_mean = (1-m)*running_mean + m*mean
-        // running_var  = (1-m)*running_var  + m*var * (n/(n-1))
-        // We'll stick to simple update for now.
-        Tensor m_tensor = Tensor::full(running_mean.shape(), momentum, DType::Float32, false);
+        // running_var  = (1-m)*running_var  + m*unbiased_var
         
-        // We need proper operator support or loops for these updates.
-        // Let's do a manual loop for the update to be safe and easy.
-        // Note: `running_mean` is a 1D tensor of size C.
+        // We use a manual loop for now as we lack some tensor ops
         auto* rm_data = running_mean.impl->storage->data.get();
         auto* rv_data = running_var.impl->storage->data.get();
+        
+        // Calculate unbiased variance factor: N / (N - 1)
+        double n_count = (double)rest;
+        double unbiased_factor = (n_count > 1.0) ? (n_count / (n_count - 1.0)) : 1.0;
+
         for(size_t i=0; i<C; ++i) {
             double m_curr = read_scalar_at(mean_val.impl->storage->data.get(), i, DType::Float32);
             double v_curr = read_scalar_at(var_val.impl->storage->data.get(), i, DType::Float32);
+            
             double rm_old = read_scalar_at(rm_data, i, DType::Float32);
             double rv_old = read_scalar_at(rv_data, i, DType::Float32);
             
-            // Update
-            double n_count = (double)rest;
-            double unbiased_v = v_curr * (n_count / (n_count - 1.0));
+            double unbiased_v = v_curr * unbiased_factor;
             
             write_scalar_at(rm_data, i, DType::Float32, (1.0 - momentum) * rm_old + momentum * m_curr);
             write_scalar_at(rv_data, i, DType::Float32, (1.0 - momentum) * rv_old + momentum * unbiased_v);
         }
 
     } else {
-        // Evaluation mode: use running stats
+        // --- INFERENCE MODE ---
         mean_val = running_mean;
         var_val = running_var;
     }
@@ -116,11 +94,7 @@ Tensor BatchNorm::forward(const Tensor& input) {
     // --- Normalization ---
     // y = (x - mean) / sqrt(var + eps) * gamma + beta
     
-    // We need to reshape mean/var/gamma/beta to broadcast correctly against [N, C, H, W].
-    // They are all [C]. We need them to look like [1, C, 1, 1].
-    std::vector<size_t> broadcast_shape(ndim, 1);
-    broadcast_shape[1] = num_features;
-    
+    // Reshape statistics for broadcasting
     Tensor mean_bc = mean_val.reshape(broadcast_shape);
     Tensor var_bc = var_val.reshape(broadcast_shape);
     Tensor gamma_bc = gamma.reshape(broadcast_shape);
@@ -139,9 +113,6 @@ Tensor BatchNorm::forward(const Tensor& input) {
     Tensor output = normalized * gamma_bc + beta_bc;
 
     if (training && (input.requires_grad() || gamma.requires_grad() || beta.requires_grad())) {
-        // Save state for backward
-        // Note: we save x_centered and inv_std as they are reused in backward formulas
-        // They are already broadcast-ready 4D tensors (or whatever input ndim is).
         output.impl->grad_fn = std::make_shared<GradBatchNorm>(input, gamma, beta, x_centered, inv_std);
     }
 
@@ -151,49 +122,40 @@ Tensor BatchNorm::forward(const Tensor& input) {
 void GradBatchNorm::backward(const Tensor& self) {
     if (!self.impl->storage->grad) throw std::runtime_error("GradBatchNorm: missing self grad");
 
-    // Inputs:
-    // self.grad (dL/dy): [N, C, H, W]
-    // x_centered: [N, C, H, W]
-    // inv_std: [1, C, 1, 1] (broadcastable)
-    // gamma: [C]
-    
     Tensor grad_output = tensor_from_grad(self);
     
-    // Broadcast dimensions logic
     int ndim = (int)input.impl->ndim;
+    size_t C = gamma.numel();
+    
+    // Create broadcast shape: [1, C, 1, 1...]
     std::vector<size_t> broadcast_shape(ndim, 1);
-    broadcast_shape[1] = gamma.numel();
+    broadcast_shape[1] = C;
+    
     Tensor gamma_bc = gamma.reshape(broadcast_shape);
 
-    // 1. dL/dGamma = sum(grad_output * normalized)
     // normalized = x_centered * inv_std
     Tensor normalized = x_centered * inv_std;
     
-    // dBeta and dGamma are summed over (N, H, W)
-    // We need to sum over all dims EXCEPT dim 1.
-    // Helper to sum over N, H, W...
-    // We can repurpose the "permute -> reshape -> sum" trick.
-    
+    // Helper to sum over all dims EXCEPT dim 1 (Channel)
     auto sum_exclude_dim1 = [&](const Tensor& t) -> Tensor {
-        // Permute to [C, N, H, W]
+        // Permute to [C, Rest] logic
         std::vector<size_t> perm(t.impl->ndim);
         perm[0] = 1; 
         perm[1] = 0;
         for (int i = 2; i < (int)t.impl->ndim; ++i) perm[i] = i;
-        Tensor t_perm = t.permute(perm);
         
-        // Flatten to [C, Rest]
-        size_t C = t_perm.impl->shape[0];
-        size_t Rest = t_perm.numel() / C;
-        Tensor t_flat = t_perm.reshape({C, Rest});
+        Tensor t_perm = t.permute(perm);
+        Tensor t_flat = t_perm.reshape({C, t_perm.numel() / C});
         
         // Sum over dim 1 -> [C]
         return sum(t_flat, 1);
     };
 
+    // 1. Gradients for Gamma and Beta
     if (gamma.requires_grad()) {
         Tensor grad_gamma_full = grad_output * normalized;
         Tensor dgamma = sum_exclude_dim1(grad_gamma_full);
+        // Reshape to [C] just in case, though sum returns [C]
         accumulate_grad(gamma, dgamma);
     }
 
@@ -202,31 +164,25 @@ void GradBatchNorm::backward(const Tensor& self) {
         accumulate_grad(beta, dbeta);
     }
 
+    // 2. Gradient for Input
     if (input.requires_grad()) {
-        // dL/dx calculation for Batch Norm is specific.
-        // Refer to standard derivation (e.g., from the original paper or reliable source).
-        // dL/dx = (1 / (N * std)) * ( N * dL/dx_hat - sum(dL/dx_hat) - x_hat * sum(dL/dx_hat * x_hat) )
-        // where x_hat is normalized input.
-        // Wait, simpler form involves dGamma.
-        
-        // Let M = N * H * W (number of elements per channel)
-        size_t C = gamma.numel();
         double M = (double)(input.numel() / C);
         
         // dx_hat = grad_output * gamma
         Tensor dx_hat = grad_output * gamma_bc;
         
-        // term1 = sum(dx_hat) over axis (N,H,W) -> Shape [C] -> broadcast to [1, C, 1, 1]
+        // Sums need to be broadcast back to [1, C, 1...] for elementwise math
         Tensor sum_dx_hat = sum_exclude_dim1(dx_hat).reshape(broadcast_shape);
-        
-        // term2 = sum(dx_hat * normalized) -> Shape [C] -> broadcast
         Tensor sum_dx_hat_norm = sum_exclude_dim1(dx_hat * normalized).reshape(broadcast_shape);
         
-        // dL/dx = inv_std * (dx_hat - sum_dx_hat/M - normalized * sum_dx_hat_norm/M)
-        //       = (inv_std / M) * (M * dx_hat - sum_dx_hat - normalized * sum_dx_hat_norm)
+        // dL/dx formula for Batch Norm
+        // = (inv_std / M) * (M * dx_hat - sum_dx_hat - normalized * sum_dx_hat_norm)
         
-        Tensor term_brackets = (dx_hat * M) - sum_dx_hat - (normalized * sum_dx_hat_norm);
-        Tensor grad_input = term_brackets * (inv_std / M);
+        Tensor term1 = dx_hat * M;
+        Tensor term2 = sum_dx_hat;
+        Tensor term3 = normalized * sum_dx_hat_norm;
+        
+        Tensor grad_input = (term1 - term2 - term3) * (inv_std / M);
         
         accumulate_grad(input, grad_input);
     }
