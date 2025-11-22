@@ -34,7 +34,7 @@ void col2im_3d_pool(const Tensor& grad_patches,
 
 
 //----------------Pooling Classes---------------------------------------------
-class MaxPool1d {
+class MaxPool1d : public Module{
 public:
     int kernel_size, stride, padding;
 
@@ -44,7 +44,7 @@ public:
     Tensor forward(const Tensor& input);
     Tensor operator()(const Tensor& input) { return forward(input); }
 };
-class MaxPool2d {
+class MaxPool2d : public Module{
 public:
     int kernel_size_h, kernel_size_w;
     int stride_h, stride_w;
@@ -57,7 +57,7 @@ public:
     Tensor operator()(const Tensor& input) { return forward(input); }
 };
 
-class MaxPool3d {
+class MaxPool3d : public Module{
 public:
     int kernel_size_d, kernel_size_h, kernel_size_w;
     int stride_d, stride_h, stride_w;
@@ -80,7 +80,7 @@ public:
     Tensor operator()(const Tensor& input) { return forward(input); }
 };
 
-class AvgPool2d {
+class AvgPool2d : public Module{
 public:
     int kernel_size_h, kernel_size_w;
     int stride_h, stride_w;
@@ -92,7 +92,7 @@ public:
     Tensor forward(const Tensor& input);
     Tensor operator()(const Tensor& input) { return forward(input); }
 };
-class AvgPool3d {
+class AvgPool3d : public Module{
 public:
     int kernel_size_d, kernel_size_h, kernel_size_w;
     int stride_d, stride_h, stride_w;
