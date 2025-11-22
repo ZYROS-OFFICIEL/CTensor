@@ -6,6 +6,7 @@
 #include <immintrin.h>
 #include <cstring>
 #include "ops1.h"
+#include "module.h"
 #include <string>
 #pragma once
 
@@ -92,7 +93,7 @@ public:
     Tensor forward(const Tensor& input);
     Tensor operator()(const Tensor& input) { return forward(input); }
 };
-class AvgPool3d : public Module{
+class AvgPool3d : public Module {
 public:
     int kernel_size_d, kernel_size_h, kernel_size_w;
     int stride_d, stride_h, stride_w;
