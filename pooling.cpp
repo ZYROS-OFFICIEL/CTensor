@@ -1,778 +1,650 @@
-#include "pooling.h" // Changed from "tensor1.h"
-#include <vector>
-#include <stdexcept>
-#include <cmath>
-#include "autograd.h"
-// #include <immintrin.h> // Not used in this file
-#include <cstring>
+#include "pooling.h"
 #include "ops1.h"
-#include <string>
+#include <stdexcept>
 #include <limits>
+#include <algorithm>
 
-//----------------Helpers---------------------------------------------
-// These im2col/col2im helpers seem overly complex and use flat indexing,
-// which is very bug-prone. The 2D/3D im2col/col2im from conv.cpp
-// are more standard, but I will leave your implementations for now.
-Tensor im2col_2d_pool(const Tensor& input,
-                      int kernel_h, int kernel_w,
-                      int stride_h, int stride_w,
-                      int pad_h, int pad_w){
-    // Calculate output dimensions
-    int batch_size = input.shape()[0];
-    int in_channels = input.shape()[1];
-    int in_h = input.shape()[2];
-    int in_w = input.shape()[3];
-    int out_h = (in_h + 2 * pad_h - kernel_h) / stride_h + 1;
-    int out_w = (in_w + 2 * pad_w - kernel_w) / stride_w + 1;
-    Tensor cols = Tensor::zeros({(size_t)batch_size, (size_t)in_channels, (size_t)kernel_h, (size_t)kernel_w, (size_t)out_h, (size_t)out_w}, input._dtype());
-    for (int b = 0; b < batch_size; ++b) {
-        for (int c = 0; c < in_channels; ++c) {
-            for (int kh = 0; kh < kernel_h; ++kh) {
-                for (int kw = 0; kw < kernel_w; ++kw) {
-                    for (int oh = 0; oh < out_h; ++oh) {
-                        for (int ow = 0; ow < out_w; ++ow) {
-                            int ih = oh * stride_h - pad_h + kh;
-                            int iw = ow * stride_w - pad_w + kw;
-                            if (ih >= 0 && ih < in_h && iw >= 0 && iw < in_w) {
-                                // Using proxy access for clarity, though your flat index math might be correct
-                                cols[b][c][kh][kw][oh][ow] = input[b][c][ih][iw];
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    return cols;
-}
-void col2im_2d_pool(const Tensor& grad_patches,
-                    Tensor& grad_input,
-                    int kernel_h, int kernel_w,
-                    int stride_h, int stride_w,
-                    int pad_h, int pad_w){
+// ======================================================================================
+//                                      HELPERS
+// ======================================================================================
+Tensor im2col_2d_pool(const Tensor& input, int kh, int kw, int sh, int sw, int ph, int pw) { return Tensor(); }
+void col2im_2d_pool(const Tensor& gp, Tensor& gi, int kh, int kw, int sh, int sw, int ph, int pw) {}
+Tensor im2col_3d_pool(const Tensor& i, int kd, int kh, int kw, int sd, int sh, int sw, int pd, int ph, int pw) { return Tensor(); }
+void col2im_3d_pool(const Tensor& gp, Tensor& gi, int kd, int kh, int kw, int sd, int sh, int sw, int pd, int ph, int pw) {}
 
-    int batch_size = grad_input.shape()[0];
-    int in_channels = grad_input.shape()[1];
-    int in_h = grad_input.shape()[2];
-    int in_w = grad_input.shape()[3];
-    int out_h = (in_h + 2 * pad_h - kernel_h) / stride_h + 1;
-    int out_w = (in_w + 2 * pad_w - kernel_w) / stride_w + 1;
-    for (int b = 0; b < batch_size; ++b) {
-        for (int c = 0; c < in_channels; ++c) {
-            for (int kh = 0; kh < kernel_h; ++kh) {
-                for (int kw = 0; kw < kernel_w; ++kw) {
-                    for (int oh = 0; oh < out_h; ++oh) {
-                        for (int ow = 0; ow < out_w; ++ow) {
-                            int ih = oh * stride_h - pad_h + kh;
-                            int iw = ow * stride_w - pad_w + kw;
-                            if (ih >= 0 && ih < in_h && iw >= 0 && iw < in_w) {
-                                double val = grad_patches[b][c][kh][kw][oh][ow];
-                                double existing = grad_input[b][c][ih][iw];
-                                grad_input[b][c][ih][iw] = existing + val;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
+
+// ======================================================================================
+//                                   MAX POOLING
+// ======================================================================================
+
+// --- MaxPool1d ---
+MaxPool1d::MaxPool1d(int k, int s, int p) : kernel_size(k), stride(s), padding(p) {
+    if (stride == -1) stride = kernel_size;
 }
 
-
-
-Tensor im2col_3d_pool(const Tensor& input,
-                      int kernel_d, int kernel_h, int kernel_w,
-                      int stride_d, int stride_h, int stride_w,
-                      int pad_d, int pad_h, int pad_w){
-    // Calculate output dimensions
-    int batch_size = input.shape()[0];
-    int in_channels = input.shape()[1];
-    int in_d = input.shape()[2];
-    int in_h = input.shape()[3];
-    int in_w = input.shape()[4];
-    int out_d = (in_d + 2 * pad_d - kernel_d) / stride_d + 1;
-    int out_h = (in_h + 2 * pad_h - kernel_h) / stride_h + 1;
-    int out_w = (in_w + 2 * pad_w - kernel_w) / stride_w + 1;
-    Tensor cols = Tensor::zeros({(size_t)batch_size, (size_t)in_channels, (size_t)kernel_d, (size_t)kernel_h, (size_t)kernel_w, (size_t)out_d, (size_t)out_h, (size_t)out_w}, input._dtype());
-    for (int b = 0; b < batch_size; ++b) {
-        for (int c = 0; c < in_channels; ++c) {
-            for (int kd = 0; kd < kernel_d; ++kd) {
-                for (int kh = 0; kh < kernel_h; ++kh) {
-                    for (int kw = 0; kw < kernel_w; ++kw) {
-                        for (int od = 0; od < out_d; ++od) {
-                            for (int oh = 0; oh < out_h; ++oh) {
-                                for (int ow = 0; ow < out_w; ++ow) {
-                                    int id = od * stride_d - pad_d + kd;
-                                    int ih = oh * stride_h - pad_h + kh;
-                                    int iw = ow * stride_w - pad_w + kw;
-                                    if (id >= 0 && id < in_d && ih >= 0 && ih < in_h && iw >= 0 && iw < in_w) {
-                                        cols[b][c][kd][kh][kw][od][oh][ow] = input[b][c][id][ih][iw];
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    } // <-- FIX: Moved return statement outside of loops
-    return cols;
-}
-void col2im_3d_pool(const Tensor& grad_patches,
-                    Tensor& grad_input,
-                    int kernel_d, int kernel_h, int kernel_w,
-                    int stride_d, int stride_h, int stride_w,
-                    int pad_d, int pad_h, int pad_w){
-    int batch_size = grad_input.shape()[0];
-    int in_channels = grad_input.shape()[1];
-    int in_d = grad_input.shape()[2];
-    int in_h = grad_input.shape()[3];
-    int in_w = grad_input.shape()[4];
-    int out_d = (in_d + 2 * pad_d - kernel_d) / stride_d + 1;
-    int out_h = (in_h + 2 * pad_h - kernel_h) / stride_h + 1;
-    int out_w = (in_w + 2 * pad_w - kernel_w) / stride_w + 1;
-    for (int b = 0; b < batch_size; ++b) {
-        for (int c = 0; c < in_channels; ++c) {
-            for (int kd = 0; kd < kernel_d; ++kd) {
-                for (int kh = 0; kh < kernel_h; ++kh) {
-                    for (int kw = 0; kw < kernel_w; ++kw) {
-                        for (int od = 0; od < out_d; ++od) {
-                            for (int oh = 0; oh < out_h; ++oh) {
-                                for (int ow = 0; ow < out_w; ++ow) {
-                                    int id = od * stride_d - pad_d + kd;
-                                    int ih = oh * stride_h - pad_h + kh;
-                                    int iw = ow * stride_w - pad_w + kw;
-                                    if (id >= 0 && id < in_d && ih >= 0 && ih < in_h && iw >= 0 && iw < in_w) {
-                                        double val = grad_patches[b][c][kd][kh][kw][od][oh][ow];
-                                        double existing = grad_input[b][c][id][ih][iw];
-                                        grad_input[b][c][id][ih][iw] = existing + val;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-//----------------Pooling Classes---------------------------------------------
-MaxPool1d::MaxPool1d(int k, int s, int p)
-    : kernel_size(k), stride(s), padding(p) {}
-// forward (MaxPool1d)
 Tensor MaxPool1d::forward(const Tensor& input) {
-    if (!input.impl) throw std::runtime_error("MaxPool1d::forward: null input");
-    if (input.impl->ndim != 3)
-        throw std::runtime_error("MaxPool1d forward: input must be [batch, channels, width]");
+    if (!input.impl) throw std::runtime_error("MaxPool1d: null input");
+    size_t N = input.impl->shape[0];
+    size_t C = input.impl->shape[1];
+    size_t L = input.impl->shape[2];
 
-    // input shape assumed [batch, channels, width]
-    size_t batch = input.impl->shape[0];
-    size_t channels  = input.impl->shape[1];
-    size_t width = input.impl->shape[2];
+    int out_l = (int)((L + 2 * padding - kernel_size) / stride + 1);
+    if (out_l <= 0) throw std::runtime_error("MaxPool1d: invalid output dims");
 
-    int out_w = (int)(( (int)width + 2 * padding - kernel_size) / stride + 1);
-    if (out_w <= 0) throw std::runtime_error("MaxPool1d::forward: invalid output width");
+    Tensor output({N, C, (size_t)out_l}, input._dtype(), input.requires_grad());
 
-    std::vector<size_t> out_shape = { batch, channels, (size_t)out_w };
-    Tensor output(out_shape, input._dtype(), input.requires_grad());
+    #pragma omp parallel for collapse(2)
+    for (size_t n = 0; n < N; ++n) {
+        for (size_t c = 0; c < C; ++c) {
+            for (int i = 0; i < out_l; ++i) {
+                int start = i * stride - padding;
+                int end = std::min((int)L, start + kernel_size);
+                start = std::max(0, start);
 
-    for (size_t b = 0; b < batch; ++b) {
-        for (size_t c = 0; c < channels; ++c) {
-            for (int ow = 0; ow < out_w; ++ow) {
                 double max_val = -std::numeric_limits<double>::infinity();
-                for (int k = 0; k < kernel_size; ++k) {
-                    int iw = ow * stride + k - padding;
-                    if (iw >= 0 && iw < (int)width) {
-                        double in_val = input[b][c][(size_t)iw];
-                        if (in_val > max_val) {
-                            max_val = in_val;
-                        }
-                    }
+                
+                for (int k = start; k < end; ++k) {
+                    size_t offset = input.impl->offset + 
+                                    n * input.impl->strides[0] + 
+                                    c * input.impl->strides[1] + 
+                                    k * input.impl->strides[2];
+                    double val = read_scalar_at(input.impl->storage->data.get(), offset, input._dtype());
+                    if (val > max_val) max_val = val;
                 }
-                output[b][c][(size_t)ow] = max_val;
+                
+                size_t out_offset = output.impl->offset + 
+                                    n * output.impl->strides[0] + 
+                                    c * output.impl->strides[1] + 
+                                    i * output.impl->strides[2];
+                write_scalar_at(output.impl->storage->data.get(), out_offset, output._dtype(), max_val);
             }
         }
     }
 
-    // --- FIX: Attach GradFn ---
     if (input.requires_grad()) {
         output.impl->grad_fn = std::make_shared<GradMaxPool1d>(input, kernel_size, stride, padding);
     }
     return output;
 }
 
-MaxPool2d::MaxPool2d(int kh, int kw, int sh, int sw, int ph, int pw)
-    : kernel_size_h(kh), kernel_size_w(kw), stride_h(sh), stride_w(sw), padding_h(ph), padding_w(pw) {}
+void GradMaxPool1d::backward(const Tensor& self) {
+    if (!self.impl->storage->grad) throw std::runtime_error("GradMaxPool1d: missing self grad");
+    Tensor grad_output = tensor_from_grad(self);
+    Tensor grad_input = Tensor::zeros(input.shape(), input._dtype(), false);
 
-// forward (MaxPool2d)
-Tensor MaxPool2d::forward(const Tensor& input) {
-    if (!input.impl) throw std::runtime_error("MaxPool2d::forward: null input");
-    if (input.impl->ndim != 4)
-        throw std::runtime_error("MaxPool2d forward: input must be [batch, channels, height, width]");
+    size_t N = input.impl->shape[0];
+    size_t C = input.impl->shape[1];
+    size_t L = input.impl->shape[2];
+    int out_l = grad_output.impl->shape[2];
 
-    // input shape assumed [batch, channels, height, width]
-    size_t batch = input.impl->shape[0];
-    size_t channels  = input.impl->shape[1];
-    size_t height = input.impl->shape[2];
-    size_t width = input.impl->shape[3];
+    #pragma omp parallel for collapse(2)
+    for (size_t n = 0; n < N; ++n) {
+        for (size_t c = 0; c < C; ++c) {
+            for (int i = 0; i < out_l; ++i) {
+                size_t go_idx = grad_output.impl->offset + n * grad_output.impl->strides[0] + c * grad_output.impl->strides[1] + i * grad_output.impl->strides[2];
+                double g = read_scalar_at(grad_output.impl->storage->data.get(), go_idx, grad_output._dtype());
 
-    int out_h = (int)(( (int)height + 2 * padding_h - kernel_size_h) / stride_h + 1);
-    int out_w = (int)(( (int)width + 2 * padding_w - kernel_size_w) / stride_w + 1);
-    if (out_h <= 0 || out_w <= 0) throw std::runtime_error("MaxPool2d::forward: invalid output dimensions");
+                int start = i * stride - padding;
+                int end = std::min((int)L, start + kernel_size);
+                start = std::max(0, start);
 
-    std::vector<size_t> out_shape = { batch, channels, (size_t)out_h, (size_t)out_w };
-    Tensor output(out_shape, input._dtype(), input.requires_grad());
+                double max_val = -std::numeric_limits<double>::infinity();
+                int max_idx = -1;
 
-    for (size_t b = 0; b < batch; ++b) {
-        for (size_t c = 0; c < channels; ++c) {
-            for (int oh = 0; oh < out_h; ++oh) {
-                for (int ow = 0; ow < out_w; ++ow) {
-                    double max_val = -std::numeric_limits<double>::infinity();
-                    for (int kh = 0; kh < kernel_size_h; ++kh) {
-                        for (int kw = 0; kw < kernel_size_w; ++kw) {
-                            int ih = oh * stride_h + kh - padding_h;
-                            int iw = ow * stride_w + kw - padding_w;
-                            if (ih >= 0 && ih < (int)height && iw >= 0 && iw < (int)width) {
-                                double in_val = input[b][c][(size_t)ih][(size_t)iw];
-                                if (in_val > max_val) {
-                                    max_val = in_val;
-                                }
-                            }
-                        }
+                for (int k = start; k < end; ++k) {
+                    size_t in_idx = input.impl->offset + n * input.impl->strides[0] + c * input.impl->strides[1] + k * input.impl->strides[2];
+                    double val = read_scalar_at(input.impl->storage->data.get(), in_idx, input._dtype());
+                    if (val > max_val) {
+                        max_val = val;
+                        max_idx = k;
                     }
-                    output[b][c][(size_t)oh][(size_t)ow] = max_val;
+                }
+
+                if (max_idx != -1) {
+                    size_t in_idx = input.impl->offset + n * input.impl->strides[0] + c * input.impl->strides[1] + max_idx * input.impl->strides[2];
+                    double cur = read_scalar_at(grad_input.impl->storage->data.get(), in_idx, grad_input._dtype());
+                    write_scalar_at(grad_input.impl->storage->data.get(), in_idx, grad_input._dtype(), cur + g);
                 }
             }
         }
-    } // <-- FIX: Added missing brace
-    
-    // --- FIX: Attach GradFn ---
+    }
+    accumulate_grad(input, grad_input);
+}
+
+
+// --- MaxPool2d ---
+MaxPool2d::MaxPool2d(int kh, int kw, int sh, int sw, int ph, int pw) 
+    : kernel_size_h(kh), kernel_size_w(kw), stride_h(sh), stride_w(sw), padding_h(ph), padding_w(pw) {
+    if (stride_h == -1) stride_h = kernel_size_h;
+    if (stride_w == -1) stride_w = kernel_size_w;
+}
+
+Tensor MaxPool2d::forward(const Tensor& input) {
+    if (!input.impl) throw std::runtime_error("MaxPool2d: null input");
+    size_t N = input.impl->shape[0];
+    size_t C = input.impl->shape[1];
+    size_t H = input.impl->shape[2];
+    size_t W = input.impl->shape[3];
+
+    int out_h = (int)((H + 2 * padding_h - kernel_size_h) / stride_h + 1);
+    int out_w = (int)((W + 2 * padding_w - kernel_size_w) / stride_w + 1);
+    if (out_h <= 0 || out_w <= 0) throw std::runtime_error("MaxPool2d: invalid output dims");
+
+    Tensor output({N, C, (size_t)out_h, (size_t)out_w}, input._dtype(), input.requires_grad());
+
+    #pragma omp parallel for collapse(2)
+    for (size_t n = 0; n < N; ++n) {
+        for (size_t c = 0; c < C; ++c) {
+            for (int oh = 0; oh < out_h; ++oh) {
+                for (int ow = 0; ow < out_w; ++ow) {
+                    int h_start = std::max(0, oh * stride_h - padding_h);
+                    int w_start = std::max(0, ow * stride_w - padding_w);
+                    int h_end = std::min((int)H, oh * stride_h - padding_h + kernel_size_h);
+                    int w_end = std::min((int)W, ow * stride_w - padding_w + kernel_size_w);
+
+                    double max_val = -std::numeric_limits<double>::infinity();
+
+                    for (int h = h_start; h < h_end; ++h) {
+                        for (int w = w_start; w < w_end; ++w) {
+                            size_t off = input.impl->offset + 
+                                         n * input.impl->strides[0] + c * input.impl->strides[1] + 
+                                         h * input.impl->strides[2] + w * input.impl->strides[3];
+                            double v = read_scalar_at(input.impl->storage->data.get(), off, input._dtype());
+                            if (v > max_val) max_val = v;
+                        }
+                    }
+                    size_t out_off = output.impl->offset + 
+                                     n * output.impl->strides[0] + c * output.impl->strides[1] + 
+                                     oh * output.impl->strides[2] + ow * output.impl->strides[3];
+                    write_scalar_at(output.impl->storage->data.get(), out_off, output._dtype(), max_val);
+                }
+            }
+        }
+    }
+
     if (input.requires_grad()) {
         output.impl->grad_fn = std::make_shared<GradMaxPool2d>(input, kernel_size_h, kernel_size_w, stride_h, stride_w, padding_h, padding_w);
     }
     return output;
 }
 
-MaxPool3d::MaxPool3d(int kd, int kh, int kw, int sd, int sh, int sw, int pd, int ph, int pw)
-    : kernel_size_d(kd), kernel_size_h(kh), kernel_size_w(kw),
-      stride_d(sd), stride_h(sh), stride_w(sw),
-      padding_d(pd), padding_h(ph), padding_w(pw) {}
+void GradMaxPool2d::backward(const Tensor& self) {
+    if (!self.impl->storage->grad) throw std::runtime_error("GradMaxPool2d: missing self grad");
+    Tensor grad_output = tensor_from_grad(self);
+    Tensor grad_input = Tensor::zeros(input.shape(), input._dtype(), false);
 
-// forward (MaxPool3d)
-Tensor MaxPool3d::forward(const Tensor& input) {
-    if (!input.impl) throw std::runtime_error("MaxPool3d::forward: null input");
-    if (input.impl->ndim != 5)
-        throw std::runtime_error("MaxPool3d forward: input must be [batch, channels, depth, height, width]");
+    size_t N = input.impl->shape[0];
+    size_t C = input.impl->shape[1];
+    size_t H = input.impl->shape[2];
+    size_t W = input.impl->shape[3];
+    int out_h = grad_output.impl->shape[2];
+    int out_w = grad_output.impl->shape[3];
 
-    // input shape assumed [batch, channels, depth, height, width]
-    size_t batch = input.impl->shape[0];
-    size_t channels  = input.impl->shape[1];
-    size_t depth = input.impl->shape[2];
-    size_t height = input.impl->shape[3];
-    size_t width = input.impl->shape[4];
+    #pragma omp parallel for collapse(2)
+    for (size_t n = 0; n < N; ++n) {
+        for (size_t c = 0; c < C; ++c) {
+            for (int oh = 0; oh < out_h; ++oh) {
+                for (int ow = 0; ow < out_w; ++ow) {
+                    size_t g_off = grad_output.impl->offset + n * grad_output.impl->strides[0] + c * grad_output.impl->strides[1] + oh * grad_output.impl->strides[2] + ow * grad_output.impl->strides[3];
+                    double g = read_scalar_at(grad_output.impl->storage->data.get(), g_off, grad_output._dtype());
 
-    int out_d = (int)(( (int)depth + 2 * padding_d - kernel_size_d) / stride_d + 1);
-    int out_h = (int)(( (int)height + 2 * padding_h - kernel_size_h) / stride_h + 1);
-    int out_w = (int)(( (int)width + 2 * padding_w - kernel_size_w) / stride_w + 1);
-    if (out_d <= 0 || out_h <= 0 || out_w <= 0) throw std::runtime_error("MaxPool3d::forward: invalid output dimensions");
+                    int h_start = std::max(0, oh * stride_h - padding_h);
+                    int w_start = std::max(0, ow * stride_w - padding_w);
+                    int h_end = std::min((int)H, oh * stride_h - padding_h + kernel_size_h);
+                    int w_end = std::min((int)W, ow * stride_w - padding_w + kernel_size_w);
 
-    std::vector<size_t> out_shape = { batch, channels, (size_t)out_d, (size_t)out_h, (size_t)out_w };
-    Tensor output(out_shape, input._dtype(), input.requires_grad());
+                    double max_val = -std::numeric_limits<double>::infinity();
+                    int max_h = -1, max_w = -1;
 
-    for (size_t b = 0; b < batch; ++b) {
-        for (size_t c = 0; c < channels; ++c) {
-            for (int od = 0; od < out_d; ++od) {
-                for (int oh = 0; oh < out_h; ++oh) {
-                    for (int ow = 0; ow < out_w; ++ow) {
-                        double max_val = -std::numeric_limits<double>::infinity();
-                        for (int kd = 0; kd < kernel_size_d; ++kd) {
-                            for (int kh = 0; kh < kernel_size_h; ++kh) {
-                                for (int kw = 0; kw < kernel_size_w; ++kw) {
-                                    int id = od * stride_d + kd - padding_d;
-                                    int ih = oh * stride_h + kh - padding_h;
-                                    int iw = ow * stride_w + kw - padding_w;
-                                    if (id >= 0 && id < (int)depth && ih >= 0 && ih < (int)height && iw >= 0 && iw < (int)width) {
-                                        double in_val = input[b][c][(size_t)id][(size_t)ih][(size_t)iw];
-                                        if (in_val > max_val) {
-                                            max_val = in_val;
-                                        }
-                                    }
-                                }
+                    for (int h = h_start; h < h_end; ++h) {
+                        for (int w = w_start; w < w_end; ++w) {
+                            size_t off = input.impl->offset + n * input.impl->strides[0] + c * input.impl->strides[1] + h * input.impl->strides[2] + w * input.impl->strides[3];
+                            double v = read_scalar_at(input.impl->storage->data.get(), off, input._dtype());
+                            if (v > max_val) {
+                                max_val = v;
+                                max_h = h;
+                                max_w = w;
                             }
-                        } // <-- FIX: Added missing brace
-                        output[b][c][(size_t)od][(size_t)oh][(size_t)ow] = max_val; // <-- FIX: Moved assignment outside kernel loops
+                        }
+                    }
+
+                    if (max_h != -1) {
+                        size_t in_off = input.impl->offset + n * input.impl->strides[0] + c * input.impl->strides[1] + max_h * input.impl->strides[2] + max_w * input.impl->strides[3];
+                        double cur = read_scalar_at(grad_input.impl->storage->data.get(), in_off, grad_input._dtype());
+                        write_scalar_at(grad_input.impl->storage->data.get(), in_off, grad_input._dtype(), cur + g);
                     }
                 }
             }
         }
-    } // <-- FIX: Added missing brace
+    }
+    accumulate_grad(input, grad_input);
+}
+
+
+// --- MaxPool3d ---
+MaxPool3d::MaxPool3d(int kd, int kh, int kw, int sd, int sh, int sw, int pd, int ph, int pw)
+    : kernel_size_d(kd), kernel_size_h(kh), kernel_size_w(kw),
+      stride_d(sd), stride_h(sh), stride_w(sw),
+      padding_d(pd), padding_h(ph), padding_w(pw) {
+    if (stride_d == -1) stride_d = kernel_size_d;
+    if (stride_h == -1) stride_h = kernel_size_h;
+    if (stride_w == -1) stride_w = kernel_size_w;
+}
+
+Tensor MaxPool3d::forward(const Tensor& input) {
+    if (!input.impl) throw std::runtime_error("MaxPool3d: null input");
+    size_t N = input.impl->shape[0];
+    size_t C = input.impl->shape[1];
+    size_t D = input.impl->shape[2];
+    size_t H = input.impl->shape[3];
+    size_t W = input.impl->shape[4];
+
+    int out_d = (int)((D + 2 * padding_d - kernel_size_d) / stride_d + 1);
+    int out_h = (int)((H + 2 * padding_h - kernel_size_h) / stride_h + 1);
+    int out_w = (int)((W + 2 * padding_w - kernel_size_w) / stride_w + 1);
     
-    // --- FIX: Attach GradFn ---
+    if (out_d <= 0 || out_h <= 0 || out_w <= 0) throw std::runtime_error("MaxPool3d: invalid output dims");
+
+    Tensor output({N, C, (size_t)out_d, (size_t)out_h, (size_t)out_w}, input._dtype(), input.requires_grad());
+
+    #pragma omp parallel for collapse(2)
+    for (size_t n = 0; n < N; ++n) {
+        for (size_t c = 0; c < C; ++c) {
+            for (int od = 0; od < out_d; ++od) {
+                for (int oh = 0; oh < out_h; ++oh) {
+                    for (int ow = 0; ow < out_w; ++ow) {
+                        int d_start = std::max(0, od * stride_d - padding_d);
+                        int h_start = std::max(0, oh * stride_h - padding_h);
+                        int w_start = std::max(0, ow * stride_w - padding_w);
+                        int d_end = std::min((int)D, od * stride_d - padding_d + kernel_size_d);
+                        int h_end = std::min((int)H, oh * stride_h - padding_h + kernel_size_h);
+                        int w_end = std::min((int)W, ow * stride_w - padding_w + kernel_size_w);
+
+                        double max_val = -std::numeric_limits<double>::infinity();
+
+                        for (int d_idx = d_start; d_idx < d_end; ++d_idx) {
+                            for (int h = h_start; h < h_end; ++h) {
+                                for (int w = w_start; w < w_end; ++w) {
+                                    size_t off = input.impl->offset + 
+                                        n*input.impl->strides[0] + c*input.impl->strides[1] + 
+                                        d_idx*input.impl->strides[2] + h*input.impl->strides[3] + w*input.impl->strides[4];
+                                    double v = read_scalar_at(input.impl->storage->data.get(), off, input._dtype());
+                                    if (v > max_val) max_val = v;
+                                }
+                            }
+                        }
+                        size_t out_off = output.impl->offset + 
+                            n*output.impl->strides[0] + c*output.impl->strides[1] + 
+                            od*output.impl->strides[2] + oh*output.impl->strides[3] + ow*output.impl->strides[4];
+                        write_scalar_at(output.impl->storage->data.get(), out_off, output._dtype(), max_val);
+                    }
+                }
+            }
+        }
+    }
+
     if (input.requires_grad()) {
         output.impl->grad_fn = std::make_shared<GradMaxPool3d>(input, kernel_size_d, kernel_size_h, kernel_size_w, stride_d, stride_h, stride_w, padding_d, padding_h, padding_w);
     }
     return output;
 }
 
-AvgPool1d::AvgPool1d(int k, int s, int p)
-    : kernel_size(k), stride(s), padding(p) {}
-// forward (AvgPool1d)
-Tensor AvgPool1d::forward(const Tensor& input) {
-    if (!input.impl) throw std::runtime_error("AvgPool1d::forward: null input");
-    if (input.impl->ndim != 3)
-        throw std::runtime_error("AvgPool1d forward: input must be [batch, channels, width]");
+void GradMaxPool3d::backward(const Tensor& self) {
+    if (!self.impl->storage->grad) throw std::runtime_error("GradMaxPool3d: missing self grad");
+    Tensor grad_output = tensor_from_grad(self);
+    Tensor grad_input = Tensor::zeros(input.shape(), input._dtype(), false);
 
-    // input shape assumed [batch, channels, width]
-    size_t batch = input.impl->shape[0];
-    size_t channels  = input.impl->shape[1];
-    size_t width = input.impl->shape[2];
+    size_t N = input.impl->shape[0];
+    size_t C = input.impl->shape[1];
+    size_t D = input.impl->shape[2];
+    size_t H = input.impl->shape[3];
+    size_t W = input.impl->shape[4];
+    
+    int out_d = grad_output.impl->shape[2];
+    int out_h = grad_output.impl->shape[3];
+    int out_w = grad_output.impl->shape[4];
 
-    int out_w = (int)(( (int)width + 2 * padding - kernel_size) / stride + 1);
-    if (out_w <= 0) throw std::runtime_error("AvgPool1d::forward: invalid output width");
+    #pragma omp parallel for collapse(2)
+    for (size_t n = 0; n < N; ++n) {
+        for (size_t c = 0; c < C; ++c) {
+            for (int od = 0; od < out_d; ++od) {
+                for (int oh = 0; oh < out_h; ++oh) {
+                    for (int ow = 0; ow < out_w; ++ow) {
+                        size_t g_off = grad_output.impl->offset + n*grad_output.impl->strides[0] + c*grad_output.impl->strides[1] + od*grad_output.impl->strides[2] + oh*grad_output.impl->strides[3] + ow*grad_output.impl->strides[4];
+                        double g = read_scalar_at(grad_output.impl->storage->data.get(), g_off, grad_output._dtype());
 
-    std::vector<size_t> out_shape = { batch, channels, (size_t)out_w };
-    Tensor output(out_shape, input._dtype(), input.requires_grad());
+                        int d_start = std::max(0, od * stride_d - padding_d);
+                        int h_start = std::max(0, oh * stride_h - padding_h);
+                        int w_start = std::max(0, ow * stride_w - padding_w);
+                        int d_end = std::min((int)D, od * stride_d - padding_d + kernel_size_d);
+                        int h_end = std::min((int)H, oh * stride_h - padding_h + kernel_size_h);
+                        int w_end = std::min((int)W, ow * stride_w - padding_w + kernel_size_w);
 
-    for (size_t b = 0; b < batch; ++b) {
-        for (size_t c = 0; c < channels; ++c) {
-            for (int ow = 0; ow < out_w; ++ow) {
-                double sum_val = 0.0;
-                int count = 0;
-                for (int k = 0; k < kernel_size; ++k) {
-                    int iw = ow * stride + k - padding;
-                    if (iw >= 0 && iw < (int)width) {
-                        double in_val = input[b][c][(size_t)iw];
-                        sum_val += in_val;
-                        count += 1;
+                        double max_val = -std::numeric_limits<double>::infinity();
+                        int max_d = -1, max_h = -1, max_w = -1;
+
+                        for (int d_idx = d_start; d_idx < d_end; ++d_idx) {
+                            for (int h = h_start; h < h_end; ++h) {
+                                for (int w = w_start; w < w_end; ++w) {
+                                    size_t off = input.impl->offset + n*input.impl->strides[0] + c*input.impl->strides[1] + d_idx*input.impl->strides[2] + h*input.impl->strides[3] + w*input.impl->strides[4];
+                                    double v = read_scalar_at(input.impl->storage->data.get(), off, input._dtype());
+                                    if (v > max_val) {
+                                        max_val = v;
+                                        max_d = d_idx;
+                                        max_h = h;
+                                        max_w = w;
+                                    }
+                                }
+                            }
+                        }
+
+                        if (max_d != -1) {
+                            size_t in_off = input.impl->offset + n*input.impl->strides[0] + c*input.impl->strides[1] + max_d*input.impl->strides[2] + max_h*input.impl->strides[3] + max_w*input.impl->strides[4];
+                            double cur = read_scalar_at(grad_input.impl->storage->data.get(), in_off, grad_input._dtype());
+                            write_scalar_at(grad_input.impl->storage->data.get(), in_off, grad_input._dtype(), cur + g);
+                        }
                     }
                 }
-                output[b][c][(size_t)ow] = (count > 0) ? (sum_val / count) : 0.0;
             }
         }
     }
-    
-    // --- FIX: Attach GradFn ---
+    accumulate_grad(input, grad_input);
+}
+
+
+// ======================================================================================
+//                                   AVERAGE POOLING
+// ======================================================================================
+
+// --- AvgPool1d ---
+AvgPool1d::AvgPool1d(int k, int s, int p) : kernel_size(k), stride(s), padding(p) {
+    if (stride == -1) stride = kernel_size;
+}
+
+Tensor AvgPool1d::forward(const Tensor& input) {
+    if (!input.impl) throw std::runtime_error("AvgPool1d: null input");
+    size_t N = input.impl->shape[0];
+    size_t C = input.impl->shape[1];
+    size_t L = input.impl->shape[2];
+
+    int out_l = (int)((L + 2 * padding - kernel_size) / stride + 1);
+    if (out_l <= 0) throw std::runtime_error("AvgPool1d: invalid output dims");
+
+    Tensor output({N, C, (size_t)out_l}, input._dtype(), input.requires_grad());
+
+    #pragma omp parallel for collapse(2)
+    for (size_t n = 0; n < N; ++n) {
+        for (size_t c = 0; c < C; ++c) {
+            for (int i = 0; i < out_l; ++i) {
+                int start = i * stride - padding;
+                int end = std::min((int)L, start + kernel_size);
+                start = std::max(0, start);
+                
+                double sum_val = 0.0;
+                int count = 0;
+                for (int k = start; k < end; ++k) {
+                    size_t offset = input.impl->offset + n * input.impl->strides[0] + c * input.impl->strides[1] + k * input.impl->strides[2];
+                    sum_val += read_scalar_at(input.impl->storage->data.get(), offset, input._dtype());
+                    count++;
+                }
+                
+                double avg = (count > 0) ? sum_val / kernel_size : 0.0; // Div by kernel_size (standard) or count (if count_include_pad=False)
+                // Standard AvgPool usually divides by kernel_size, but PyTorch has count_include_pad.
+                // Let's divide by actual window size (count) for correctness at edges
+                if (count > 0) avg = sum_val / count;
+
+                size_t out_offset = output.impl->offset + n * output.impl->strides[0] + c * output.impl->strides[1] + i * output.impl->strides[2];
+                write_scalar_at(output.impl->storage->data.get(), out_offset, output._dtype(), avg);
+            }
+        }
+    }
+
     if (input.requires_grad()) {
         output.impl->grad_fn = std::make_shared<GradAvgPool1d>(input, kernel_size, stride, padding);
     }
     return output;
 }
 
-AvgPool2d::AvgPool2d(int kh, int kw, int sh, int sw, int ph, int pw)
-    : kernel_size_h(kh), kernel_size_w(kw), stride_h(sh), stride_w(sw), padding_h(ph), padding_w(pw) {}
+void GradAvgPool1d::backward(const Tensor& self) {
+    if (!self.impl->storage->grad) throw std::runtime_error("GradAvgPool1d: missing self grad");
+    Tensor grad_output = tensor_from_grad(self);
+    Tensor grad_input = Tensor::zeros(input.shape(), input._dtype(), false);
 
-// forward (AvgPool2d)
-Tensor AvgPool2d::forward(const Tensor& input) {
-    if (!input.impl) throw std::runtime_error("AvgPool2d::forward: null input");
-    if (input.impl->ndim != 4)
-        throw std::runtime_error("AvgPool2d forward: input must be [batch, channels, height, width]");
+    size_t N = input.impl->shape[0];
+    size_t C = input.impl->shape[1];
+    size_t L = input.impl->shape[2];
+    int out_l = grad_output.impl->shape[2];
 
-    // input shape assumed [batch, channels, height, width]
-    size_t batch = input.impl->shape[0];
-    size_t channels  = input.impl->shape[1];
-    size_t height = input.impl->shape[2];
-    size_t width = input.impl->shape[3];
+    #pragma omp parallel for collapse(2)
+    for (size_t n = 0; n < N; ++n) {
+        for (size_t c = 0; c < C; ++c) {
+            for (int i = 0; i < out_l; ++i) {
+                size_t go_idx = grad_output.impl->offset + n * grad_output.impl->strides[0] + c * grad_output.impl->strides[1] + i * grad_output.impl->strides[2];
+                double g = read_scalar_at(grad_output.impl->storage->data.get(), go_idx, grad_output._dtype());
 
-    int out_h = (int)(( (int)height + 2 * padding_h - kernel_size_h) / stride_h + 1);
-    int out_w = (int)(( (int)width + 2 * padding_w - kernel_size_w) / stride_w + 1);
-    if (out_h <= 0 || out_w <= 0) throw std::runtime_error("AvgPool2d::forward: invalid output dimensions");
-
-    std::vector<size_t> out_shape = { batch, channels, (size_t)out_h, (size_t)out_w };
-    Tensor output(out_shape, input._dtype(), input.requires_grad());
-
-    for (size_t b = 0; b < batch; ++b) {
-        for (size_t c = 0; c < channels; ++c) {
-            for (int oh = 0; oh < out_h; ++oh) {
-                for (int ow = 0; ow < out_w; ++ow) {
-                    double sum_val = 0.0;
-                    int count = 0;
-                    for (int kh = 0; kh < kernel_size_h; ++kh) {
-                        for (int kw = 0; kw < kernel_size_w; ++kw) {
-                            int ih = oh * stride_h + kh - padding_h;
-                            int iw = ow * stride_w + kw - padding_w;
-                            if (ih >= 0 && ih < (int)height && iw >= 0 && iw < (int)width) {
-                                double in_val = input[b][c][(size_t)ih][(size_t)iw];
-                                sum_val += in_val;
-                                count += 1;
-                            }
-                        }
+                int start = i * stride - padding;
+                int end = std::min((int)L, start + kernel_size);
+                start = std::max(0, start);
+                
+                int count = end - start; // Using actual overlap count
+                if (count > 0) {
+                    double grad_val = g / count;
+                    for (int k = start; k < end; ++k) {
+                        size_t in_idx = input.impl->offset + n * input.impl->strides[0] + c * input.impl->strides[1] + k * input.impl->strides[2];
+                        double cur = read_scalar_at(grad_input.impl->storage->data.get(), in_idx, grad_input._dtype());
+                        write_scalar_at(grad_input.impl->storage->data.get(), in_idx, grad_input._dtype(), cur + grad_val);
                     }
-                    output[b][c][(size_t)oh][(size_t)ow] = (count > 0) ? (sum_val / count) : 0.0;
                 }
             }
         }
-    } // <-- FIX: Added missing brace
-    
-    // --- FIX: Attach GradFn ---
+    }
+    accumulate_grad(input, grad_input);
+}
+
+
+// --- AvgPool2d ---
+AvgPool2d::AvgPool2d(int kh, int kw, int sh, int sw, int ph, int pw) 
+    : kernel_size_h(kh), kernel_size_w(kw), stride_h(sh), stride_w(sw), padding_h(ph), padding_w(pw) {
+    if (stride_h == -1) stride_h = kernel_size_h;
+    if (stride_w == -1) stride_w = kernel_size_w;
+}
+
+Tensor AvgPool2d::forward(const Tensor& input) {
+    if (!input.impl) throw std::runtime_error("AvgPool2d: null input");
+    size_t N = input.impl->shape[0];
+    size_t C = input.impl->shape[1];
+    size_t H = input.impl->shape[2];
+    size_t W = input.impl->shape[3];
+
+    int out_h = (int)((H + 2 * padding_h - kernel_size_h) / stride_h + 1);
+    int out_w = (int)((W + 2 * padding_w - kernel_size_w) / stride_w + 1);
+    if (out_h <= 0 || out_w <= 0) throw std::runtime_error("AvgPool2d: invalid output dims");
+
+    Tensor output({N, C, (size_t)out_h, (size_t)out_w}, input._dtype(), input.requires_grad());
+
+    #pragma omp parallel for collapse(2)
+    for (size_t n = 0; n < N; ++n) {
+        for (size_t c = 0; c < C; ++c) {
+            for (int oh = 0; oh < out_h; ++oh) {
+                for (int ow = 0; ow < out_w; ++ow) {
+                    int h_start = std::max(0, oh * stride_h - padding_h);
+                    int w_start = std::max(0, ow * stride_w - padding_w);
+                    int h_end = std::min((int)H, oh * stride_h - padding_h + kernel_size_h);
+                    int w_end = std::min((int)W, ow * stride_w - padding_w + kernel_size_w);
+
+                    double sum_val = 0.0;
+                    int count = 0;
+                    for (int h = h_start; h < h_end; ++h) {
+                        for (int w = w_start; w < w_end; ++w) {
+                            size_t off = input.impl->offset + n*input.impl->strides[0] + c*input.impl->strides[1] + h*input.impl->strides[2] + w*input.impl->strides[3];
+                            sum_val += read_scalar_at(input.impl->storage->data.get(), off, input._dtype());
+                            count++;
+                        }
+                    }
+                    
+                    double avg = (count > 0) ? sum_val / count : 0.0;
+                    size_t out_off = output.impl->offset + n*output.impl->strides[0] + c*output.impl->strides[1] + oh*output.impl->strides[2] + ow*output.impl->strides[3];
+                    write_scalar_at(output.impl->storage->data.get(), out_off, output._dtype(), avg);
+                }
+            }
+        }
+    }
+
     if (input.requires_grad()) {
         output.impl->grad_fn = std::make_shared<GradAvgPool2d>(input, kernel_size_h, kernel_size_w, stride_h, stride_w, padding_h, padding_w);
     }
     return output;
 }
 
-AvgPool3d::AvgPool3d(int kd, int kh, int kw, int sd, int sh, int sw, int pd, int ph, int pw)
-    : kernel_size_d(kd), kernel_size_h(kh), kernel_size_w(kw),
-      stride_d(sd), stride_h(sh), stride_w(sw),
-      padding_d(pd), padding_h(ph), padding_w(pw) {}
+void GradAvgPool2d::backward(const Tensor& self) {
+    if (!self.impl->storage->grad) throw std::runtime_error("GradAvgPool2d: missing self grad");
+    Tensor grad_output = tensor_from_grad(self);
+    Tensor grad_input = Tensor::zeros(input.shape(), input._dtype(), false);
 
-// forward (AvgPool3d)
-Tensor AvgPool3d::forward(const Tensor& input) {
-    if (!input.impl) throw std::runtime_error("AvgPool3d::forward: null input");
-    if (input.impl->ndim != 5)
-        throw std::runtime_error("AvgPool3d forward: input must be [batch, channels, depth, height, width]");
+    size_t N = input.impl->shape[0];
+    size_t C = input.impl->shape[1];
+    size_t H = input.impl->shape[2];
+    size_t W = input.impl->shape[3];
+    int out_h = grad_output.impl->shape[2];
+    int out_w = grad_output.impl->shape[3];
 
-    // input shape assumed [batch, channels, depth, height, width]
-    size_t batch = input.impl->shape[0];
-    size_t channels  = input.impl->shape[1];
-    size_t depth = input.impl->shape[2];
-    size_t height = input.impl->shape[3];
-    size_t width = input.impl->shape[4];
+    #pragma omp parallel for collapse(2)
+    for (size_t n = 0; n < N; ++n) {
+        for (size_t c = 0; c < C; ++c) {
+            for (int oh = 0; oh < out_h; ++oh) {
+                for (int ow = 0; ow < out_w; ++ow) {
+                    size_t g_off = grad_output.impl->offset + n*grad_output.impl->strides[0] + c*grad_output.impl->strides[1] + oh*grad_output.impl->strides[2] + ow*grad_output.impl->strides[3];
+                    double g = read_scalar_at(grad_output.impl->storage->data.get(), g_off, grad_output._dtype());
 
-    int out_d = (int)(( (int)depth + 2 * padding_d - kernel_size_d) / stride_d + 1);
-    int out_h = (int)(( (int)height + 2 * padding_h - kernel_size_h) / stride_h + 1);
-    int out_w = (int)(( (int)width + 2 * padding_w - kernel_size_w) / stride_w + 1);
-    if (out_d <= 0 || out_h <= 0 || out_w <= 0) throw std::runtime_error("AvgPool3d::forward: invalid output dimensions");
+                    int h_start = std::max(0, oh * stride_h - padding_h);
+                    int w_start = std::max(0, ow * stride_w - padding_w);
+                    int h_end = std::min((int)H, oh * stride_h - padding_h + kernel_size_h);
+                    int w_end = std::min((int)W, ow * stride_w - padding_w + kernel_size_w);
 
-    std::vector<size_t> out_shape = { batch, channels, (size_t)out_d, (size_t)out_h, (size_t)out_w };
-    Tensor output(out_shape, input._dtype(), input.requires_grad());
-
-    for (size_t b = 0; b < batch; ++b) {
-        for (size_t c = 0; c < channels; ++c) {
-            for (int od = 0; od < out_d; ++od) {
-                for (int oh = 0; oh < out_h; ++oh) {
-                    for (int ow = 0; ow < out_w; ++ow) {
-                        double sum_val = 0.0;
-                        int count = 0;
-                        for (int kd = 0; kd < kernel_size_d; ++kd) {
-                            for (int kh = 0; kh < kernel_size_h; ++kh) {
-                                for (int kw = 0; kw < kernel_size_w; ++kw) {
-                                    int id = od * stride_d + kd - padding_d;
-                                    int ih = oh * stride_h + kh - padding_h;
-                                    int iw = ow * stride_w + kw - padding_w;
-                                    if (id >= 0 && id < (int)depth && ih >= 0
-                                        && ih < (int)height && iw >= 0 && iw < (int)width) {
-                                        double in_val = input[b][c][(size_t)id][(size_t)ih][(size_t)iw];
-                                        sum_val += in_val;
-                                        count += 1;
-                                    }
-                                }
+                    int count = (h_end - h_start) * (w_end - w_start);
+                    if (count > 0) {
+                        double grad_val = g / count;
+                        for (int h = h_start; h < h_end; ++h) {
+                            for (int w = w_start; w < w_end; ++w) {
+                                size_t off = input.impl->offset + n*input.impl->strides[0] + c*input.impl->strides[1] + h*input.impl->strides[2] + w*input.impl->strides[3];
+                                double cur = read_scalar_at(grad_input.impl->storage->data.get(), off, grad_input._dtype());
+                                write_scalar_at(grad_input.impl->storage->data.get(), off, grad_input._dtype(), cur + grad_val);
                             }
-                        } // <-- FIX: Added missing brace
-                        output[b][c][(size_t)od][(size_t)oh][(size_t)ow] = (count > 0) ? (sum_val / count) : 0.0; // <-- FIX: Moved assignment outside kernel loops
+                        }
                     }
                 }
             }
         }
-    } // <-- FIX: Added missing brace
+    }
+    accumulate_grad(input, grad_input);
+}
+
+
+// --- AvgPool3d ---
+AvgPool3d::AvgPool3d(int kd, int kh, int kw, int sd, int sh, int sw, int pd, int ph, int pw)
+    : kernel_size_d(kd), kernel_size_h(kh), kernel_size_w(kw),
+      stride_d(sd), stride_h(sh), stride_w(sw),
+      padding_d(pd), padding_h(ph), padding_w(pw) {
+    if (stride_d == -1) stride_d = kernel_size_d;
+    if (stride_h == -1) stride_h = kernel_size_h;
+    if (stride_w == -1) stride_w = kernel_size_w;
+}
+
+Tensor AvgPool3d::forward(const Tensor& input) {
+    if (!input.impl) throw std::runtime_error("AvgPool3d: null input");
+    size_t N = input.impl->shape[0];
+    size_t C = input.impl->shape[1];
+    size_t D = input.impl->shape[2];
+    size_t H = input.impl->shape[3];
+    size_t W = input.impl->shape[4];
+
+    int out_d = (int)((D + 2 * padding_d - kernel_size_d) / stride_d + 1);
+    int out_h = (int)((H + 2 * padding_h - kernel_size_h) / stride_h + 1);
+    int out_w = (int)((W + 2 * padding_w - kernel_size_w) / stride_w + 1);
     
-    // --- FIX: Attach GradFn ---
+    if (out_d <= 0 || out_h <= 0 || out_w <= 0) throw std::runtime_error("AvgPool3d: invalid output dims");
+
+    Tensor output({N, C, (size_t)out_d, (size_t)out_h, (size_t)out_w}, input._dtype(), input.requires_grad());
+
+    #pragma omp parallel for collapse(2)
+    for (size_t n = 0; n < N; ++n) {
+        for (size_t c = 0; c < C; ++c) {
+            for (int od = 0; od < out_d; ++od) {
+                for (int oh = 0; oh < out_h; ++oh) {
+                    for (int ow = 0; ow < out_w; ++ow) {
+                        int d_start = std::max(0, od * stride_d - padding_d);
+                        int h_start = std::max(0, oh * stride_h - padding_h);
+                        int w_start = std::max(0, ow * stride_w - padding_w);
+                        int d_end = std::min((int)D, od * stride_d - padding_d + kernel_size_d);
+                        int h_end = std::min((int)H, oh * stride_h - padding_h + kernel_size_h);
+                        int w_end = std::min((int)W, ow * stride_w - padding_w + kernel_size_w);
+
+                        double sum_val = 0.0;
+                        int count = 0;
+                        for (int d_idx = d_start; d_idx < d_end; ++d_idx) {
+                            for (int h = h_start; h < h_end; ++h) {
+                                for (int w = w_start; w < w_end; ++w) {
+                                    size_t off = input.impl->offset + n*input.impl->strides[0] + c*input.impl->strides[1] + d_idx*input.impl->strides[2] + h*input.impl->strides[3] + w*input.impl->strides[4];
+                                    sum_val += read_scalar_at(input.impl->storage->data.get(), off, input._dtype());
+                                    count++;
+                                }
+                            }
+                        }
+                        double avg = (count > 0) ? sum_val / count : 0.0;
+                        size_t out_off = output.impl->offset + n*output.impl->strides[0] + c*output.impl->strides[1] + od*output.impl->strides[2] + oh*output.impl->strides[3] + ow*output.impl->strides[4];
+                        write_scalar_at(output.impl->storage->data.get(), out_off, output._dtype(), avg);
+                    }
+                }
+            }
+        }
+    }
+
     if (input.requires_grad()) {
         output.impl->grad_fn = std::make_shared<GradAvgPool3d>(input, kernel_size_d, kernel_size_h, kernel_size_w, stride_d, stride_h, stride_w, padding_d, padding_h, padding_w);
     }
     return output;
 }
-void GradMaxPool1d::backward(const Tensor& self) {
-    // Tensor input = parents[0]; // <-- FIX: Use member 'input'
-    if (!input.impl || !self.impl) throw std::runtime_error("GradMaxPool1d::backward: null tensor");
-    if (input.impl->ndim != 3 || self.impl->ndim != 3)
-        throw std::runtime_error("GradMaxPool1d backward: input and self must be [batch, channels, width]");
 
-    // input shape assumed [batch, channels, width]
-    size_t batch = input.impl->shape[0];
-    size_t channels  = input.impl->shape[1];
-    size_t width = input.impl->shape[2];
-
-    int out_w = (int)(( (int)width + 2 * padding - kernel_size) / stride + 1);
-    if (out_w <= 0) throw std::runtime_error("GradMaxPool1d::backward: invalid output width");
-
-    Tensor grad_input = Tensor::zeros(input.shape(), input._dtype(), false);
-    Tensor grad_output = tensor_from_grad(self); // <-- FIX: Use tensor_from_grad
-
-    for (size_t b = 0; b < batch; ++b) {
-        for (size_t c = 0; c < channels; ++c) {
-            for (int ow = 0; ow < out_w; ++ow) {
-                double max_val = -std::numeric_limits<double>::infinity();
-                int max_idx = -1;
-                for (int k = 0; k < kernel_size; ++k) {
-                    int iw = ow * stride + k - padding;
-                    if (iw >= 0 && iw < (int)width) {
-                        double in_val = input[b][c][(size_t)iw];
-                        if (in_val > max_val) {
-                            max_val = in_val;
-                            max_idx = iw;
-                        }
-                    }
-                }
-                if (max_idx != -1) {
-                    double grad_out_val = grad_output[b][c][(size_t)ow];
-                    // Use proxy for accumulation
-                    grad_input[b][c][(size_t)max_idx] = grad_input[b][c][(size_t)max_idx] + grad_out_val;
-                }
-            }
-        }
-    }
-    accumulate_grad(input, grad_input); // <-- FIX: Use accumulate_grad
-}
-void GradMaxPool2d::backward(const Tensor& self) {
-    // Tensor input = parents[0]; // <-- FIX: Use member 'input'
-    if (!input.impl || !self.impl) throw std::runtime_error("GradMaxPool2d::backward: null tensor");
-    if (input.impl->ndim != 4 || self.impl->ndim != 4)
-        throw std::runtime_error("GradMaxPool2d backward: input and self must be [batch, channels, height, width]");
-
-    // input shape assumed [batch, channels, height, width]
-    size_t batch = input.impl->shape[0];
-    size_t channels  = input.impl->shape[1];
-    size_t height = input.impl->shape[2];
-    size_t width = input.impl->shape[3];
-
-    int out_h = (int)(( (int)height + 2 * padding_h - kernel_size_h) / stride_h + 1);
-    int out_w = (int)(( (int)width + 2 * padding_w - kernel_size_w) / stride_w + 1);
-    if (out_h <= 0 || out_w <= 0) throw std::runtime_error("GradMaxPool2d::backward: invalid output dimensions");
-
-    Tensor grad_input = Tensor::zeros(input.shape(), input._dtype(), false);
-    Tensor grad_output = tensor_from_grad(self); // <-- FIX: Use tensor_from_grad
-
-    for (size_t b = 0; b < batch; ++b) {
-        for (size_t c = 0; c < channels; ++c) {
-            for (int oh = 0; oh < out_h; ++oh) {
-                for (int ow = 0; ow < out_w; ++ow) {
-                    double max_val = -std::numeric_limits<double>::infinity();
-                    int max_ih = -1;
-                    int max_iw = -1;
-                    for (int kh = 0; kh < kernel_size_h; ++kh) {
-                        for (int kw = 0; kw < kernel_size_w; ++kw) {
-                            int ih = oh * stride_h + kh - padding_h;
-                            int iw = ow * stride_w + kw - padding_w;
-                            if (ih >= 0 && ih < (int)height && iw >= 0 && iw < (int)width) {
-                                double in_val = input[b][c][(size_t)ih][(size_t)iw];
-                                if (in_val > max_val) {
-                                    max_val = in_val;
-                                    max_ih = ih;
-                                    max_iw = iw;
-                                }
-                            }
-                        }
-                    } 
-                    if (max_ih != -1 && max_iw != -1) {
-                        double grad_out_val = grad_output[b][c][(size_t)oh][(size_t)ow];
-                        grad_input[b][c][(size_t)max_ih][(size_t)max_iw] = grad_input[b][c][(size_t)max_ih][(size_t)max_iw] + grad_out_val;
-                    }
-                }
-            }
-        }
-    }
-    accumulate_grad(input, grad_input); 
-}
-
-void GradMaxPool3d::backward(const Tensor& self) {
-    // Tensor input = parents[0]; // <-- FIX: Use member 'input'
-    if (!input.impl || !self.impl) throw std::runtime_error("GradMaxPool3d::backward: null tensor");
-    if (input.impl->ndim != 5 || self.impl->ndim != 5)
-        throw std::runtime_error("GradMaxPool3d backward: input and self must be [batch, channels, depth, height, width]");
-
-    // input shape assumed [batch, channels, depth, height, width]
-    size_t batch = input.impl->shape[0];
-    size_t channels  = input.impl->shape[1];
-    size_t depth = input.impl->shape[2];
-    size_t height = input.impl->shape[3];
-    size_t width = input.impl->shape[4];
-
-    int out_d = (int)(( (int)depth + 2 * padding_d - kernel_size_d) / stride_d + 1);
-    int out_h = (int)(( (int)height + 2 * padding_h - kernel_size_h) / stride_h + 1);
-    int out_w = (int)(( (int)width + 2 * padding_w - kernel_size_w) / stride_w + 1);
-    if (out_d <= 0 || out_h <= 0 || out_w <= 0) throw std::runtime_error("GradMaxPool3d::backward: invalid output dimensions");
-
-    Tensor grad_input = Tensor::zeros(input.shape(), input._dtype(), false);
-    Tensor grad_output = tensor_from_grad(self); 
-
-    for (size_t b = 0; b < batch; ++b) {
-        for (size_t c = 0; c < channels; ++c) {
-            for (int od = 0; od < out_d; ++od) {
-                for (int oh = 0; oh < out_h; ++oh) {
-                    for (int ow = 0; ow < out_w; ++ow) {
-                        double max_val = -std::numeric_limits<double>::infinity();
-                        int max_id = -1;
-                        int max_ih = -1;
-                        int max_iw = -1;
-                        for (int kd = 0; kd < kernel_size_d; ++kd) {
-                            for (int kh = 0; kh < kernel_size_h; ++kh) {
-                                for (int kw = 0; kw < kernel_size_w; ++kw) {
-                                    int id = od * stride_d + kd - padding_d;
-                                    int ih = oh * stride_h + kh - padding_h;
-                                    int iw = ow * stride_w + kw - padding_w;
-                                    if (id >= 0 && id < (int)depth && ih >= 0 && ih < (int)height && iw >= 0 && iw < (int)width) {
-                                        double in_val = input[b][c][(size_t)id][(size_t)ih][(size_t)iw];
-                                        if (in_val > max_val) {
-                                            max_val = in_val;
-                                            max_id = id;
-                                            max_ih = ih;
-                                            max_iw = iw;
-                                        }
-                                    }
-                                }
-                            }
-                        } 
-                        if (max_id != -1 && max_ih != -1 && max_iw != -1) {
-                            double grad_out_val = grad_output[b][c][(size_t)od][(size_t)oh][(size_t)ow];
-                            grad_input[b][c][(size_t)max_id][(size_t)max_ih][(size_t)max_iw] = grad_input[b][c][(size_t)max_id][(size_t)max_ih][(size_t)max_iw] + grad_out_val;
-                        }
-                    }
-                }
-            }
-        }
-    } 
-    accumulate_grad(input, grad_input); 
-}
-
-void GradAvgPool1d::backward(const Tensor& self) {
-    // Tensor input = parents[0]; // <-- FIX: Use member 'input'
-    if (!input.impl || !self.impl) throw std::runtime_error("GradAvgPool1d::backward: null tensor");
-    if (input.impl->ndim != 3 || self.impl->ndim != 3)
-        throw std::runtime_error("GradAvgPool1d backward: input and self must be [batch, channels, width]");
-
-    // input shape assumed [batch, channels, width]
-    size_t batch = input.impl->shape[0];
-    size_t channels  = input.impl->shape[1];
-    size_t width = input.impl->shape[2];
-
-    int out_w = (int)(( (int)width + 2 * padding - kernel_size) / stride + 1);
-    if (out_w <= 0) throw std::runtime_error("GradAvgPool1d::backward: invalid output width");
-
-    Tensor grad_input = Tensor::zeros(input.shape(), input._dtype(), false);
-    Tensor grad_output = tensor_from_grad(self); // <-- FIX: Use tensor_from_grad
-
-    for (size_t b = 0; b < batch; ++b) {
-        for (size_t c = 0; c < channels; ++c) {
-            for (int ow = 0; ow < out_w; ++ow) {
-                int count = 0;
-                for (int k = 0; k < kernel_size; ++k) {
-                    int iw = ow * stride + k - padding;
-                    if (iw >= 0 && iw < (int)width) {
-                        count += 1;
-                    }
-                }
-                
-                if (count > 0) { 
-                    double grad_out_val = grad_output[b][c][(size_t)ow];
-                    double grad_contribution = grad_out_val / count;
-                    for (int k = 0; k < kernel_size; ++k) {
-                        int iw = ow * stride + k - padding;
-                        if (iw >= 0 && iw < (int)width) {
-                            grad_input[b][c][(size_t)iw] = grad_input[b][c][(size_t)iw] + grad_contribution;
-                        }
-                    }
-                }
-            }
-        }
-    }
-    accumulate_grad(input, grad_input); 
-}
-void GradAvgPool2d::backward(const Tensor& self) {
-    // Tensor input = parents[0]; // <-- FIX: Use member 'input'
-    if (!input.impl || !self.impl) throw std::runtime_error("GradAvgPool2d::backward: null tensor");
-    if (input.impl->ndim != 4 || self.impl->ndim != 4)
-        throw std::runtime_error("GradAvgPool2d backward: input and self must be [batch, channels, height, width]");
-
-    // input shape assumed [batch, channels, height, width]
-    size_t batch = input.impl->shape[0];
-    size_t channels  = input.impl->shape[1];
-    size_t height = input.impl->shape[2];
-    size_t width = input.impl->shape[3];
-
-    int out_h = (int)(( (int)height + 2 * padding_h - kernel_size_h) / stride_h + 1);
-    int out_w = (int)(( (int)width + 2 * padding_w - kernel_size_w) / stride_w + 1);
-    if (out_h <= 0 || out_w <= 0) throw std::runtime_error("GradAvgPool2d::backward: invalid output dimensions");
-
-    Tensor grad_input = Tensor::zeros(input.shape(), input._dtype(), false);
-    Tensor grad_output = tensor_from_grad(self); // <-- FIX: Use tensor_from_grad
-
-    for (size_t b = 0; b < batch; ++b) {
-        for (size_t c = 0; c < channels; ++c) {
-            for (int oh = 0; oh < out_h; ++oh) {
-                for (int ow = 0; ow < out_w; ++ow) {
-                    int count = 0;
-                    for (int kh = 0; kh < kernel_size_h; ++kh) {
-                        for (int kw = 0; kw < kernel_size_w; ++kw) {
-                            int ih = oh * stride_h + kh - padding_h;
-                            int iw = ow * stride_w + kw - padding_w;
-                            if (ih >= 0 && ih < (int)height && iw >= 0 && iw < (int)width) {
-                                count += 1;
-                            }
-                        }
-                    }
-
-                    if (count > 0) { 
-                        double grad_out_val = grad_output[b][c][(size_t)oh][(size_t)ow];
-                        double grad_contribution = grad_out_val / count;
-                        for (int kh = 0; kh < kernel_size_h; ++kh) {
-                            for (int kw = 0; kw < kernel_size_w; ++kw) {
-                                int ih = oh * stride_h + kh - padding_h;
-                                int iw = ow * stride_w + kw - padding_w;
-                                if (ih >= 0 && ih < (int)height && iw >= 0 && iw < (int)width) {
-                                    grad_input[b][c][(size_t)ih][(size_t)iw] = grad_input[b][c][(size_t)ih][(size_t)iw] + grad_contribution;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    accumulate_grad(input, grad_input); 
-}
 void GradAvgPool3d::backward(const Tensor& self) {
-    // Tensor input = parents[0]; // <-- FIX: Use member 'input'
-    if (!input.impl || !self.impl) throw std::runtime_error("GradAvgPool3d::backward: null tensor");
-    if (input.impl->ndim != 5 || self.impl->ndim != 5)
-        throw std::runtime_error("GradAvgPool3d backward: input and self must be [batch, channels, depth, height, width]");
-
-    // input shape assumed [batch, channels, depth, height, width]
-    size_t batch = input.impl->shape[0];
-    size_t channels  = input.impl->shape[1];
-    size_t depth = input.impl->shape[2];
-    size_t height = input.impl->shape[3];
-    size_t width = input.impl->shape[4];
-
-    int out_d = (int)(( (int)depth + 2 * padding_d - kernel_size_d) / stride_d + 1);
-    int out_h = (int)(( (int)height + 2 * padding_h - kernel_size_h) / stride_h + 1);
-    int out_w = (int)(( (int)width + 2 * padding_w - kernel_size_w) / stride_w + 1);
-    if (out_d <= 0 || out_h <= 0 || out_w <= 0) throw std::runtime_error("GradAvgPool3d::backward: invalid output dimensions");
-
+    if (!self.impl->storage->grad) throw std::runtime_error("GradAvgPool3d: missing self grad");
+    Tensor grad_output = tensor_from_grad(self);
     Tensor grad_input = Tensor::zeros(input.shape(), input._dtype(), false);
-    Tensor grad_output = tensor_from_grad(self); // <-- FIX: Use tensor_from_grad
 
-    for (size_t b = 0; b < batch; ++b) {
-        for (size_t c = 0; c < channels; ++c) {
+    size_t N = input.impl->shape[0];
+    size_t C = input.impl->shape[1];
+    size_t D = input.impl->shape[2];
+    size_t H = input.impl->shape[3];
+    size_t W = input.impl->shape[4];
+    
+    int out_d = grad_output.impl->shape[2];
+    int out_h = grad_output.impl->shape[3];
+    int out_w = grad_output.impl->shape[4];
+
+    #pragma omp parallel for collapse(2)
+    for (size_t n = 0; n < N; ++n) {
+        for (size_t c = 0; c < C; ++c) {
             for (int od = 0; od < out_d; ++od) {
                 for (int oh = 0; oh < out_h; ++oh) {
                     for (int ow = 0; ow < out_w; ++ow) {
-                        int count = 0;
-                        for (int kd = 0; kd < kernel_size_d; ++kd) {
-                            for (int kh = 0; kh < kernel_size_h; ++kh) {
-                                for (int kw = 0; kw < kernel_size_w; ++kw) {
-                                    int id = od * stride_d + kd - padding_d;
-                                    int ih = oh * stride_h + kh - padding_h;
-                                    int iw = ow * stride_w + kw - padding_w;
-                                    if (id >= 0 && id < (int)depth && ih >= 0 && ih < (int)height && iw >= 0 && iw < (int)width) {
-                                        count += 1;
-                                    }
-                                }
-                            }
-                        } // <-- FIX: Moved accumulation block outside kernel loops
-                        
-                        if (count > 0) { // <-- FIX: Avoid division by zero
-                            double grad_out_val = grad_output[b][c][(size_t)od][(size_t)oh][(size_t)ow];
-                            double grad_contribution = grad_out_val / count;
-                            for (int kd = 0; kd < kernel_size_d; ++kd) {
-                                for (int kh = 0; kh < kernel_size_h; ++kh) {
-                                    for (int kw = 0; kw < kernel_size_w; ++kw) {
-                                        int id = od * stride_d + kd - padding_d;
-                                        int ih = oh * stride_h + kh - padding_h;
-                                        int iw = ow * stride_w + kw - padding_w;
-                                        if (id >= 0 && id < (int)depth && ih >= 0 && ih < (int)height && iw >= 0 && iw < (int)width) {
-                                            grad_input[b][c][(size_t)id][(size_t)ih][(size_t)iw] = grad_input[b][c][(size_t)id][(size_t)ih][(size_t)iw] + grad_contribution;
-                                        }
+                        size_t g_off = grad_output.impl->offset + n*grad_output.impl->strides[0] + c*grad_output.impl->strides[1] + od*grad_output.impl->strides[2] + oh*grad_output.impl->strides[3] + ow*grad_output.impl->strides[4];
+                        double g = read_scalar_at(grad_output.impl->storage->data.get(), g_off, grad_output._dtype());
+
+                        int d_start = std::max(0, od * stride_d - padding_d);
+                        int h_start = std::max(0, oh * stride_h - padding_h);
+                        int w_start = std::max(0, ow * stride_w - padding_w);
+                        int d_end = std::min((int)D, od * stride_d - padding_d + kernel_size_d);
+                        int h_end = std::min((int)H, oh * stride_h - padding_h + kernel_size_h);
+                        int w_end = std::min((int)W, ow * stride_w - padding_w + kernel_size_w);
+
+                        int count = (d_end - d_start) * (h_end - h_start) * (w_end - w_start);
+                        if (count > 0) {
+                            double grad_val = g / count;
+                            for (int d_idx = d_start; d_idx < d_end; ++d_idx) {
+                                for (int h = h_start; h < h_end; ++h) {
+                                    for (int w = w_start; w < w_end; ++w) {
+                                        size_t off = input.impl->offset + n*input.impl->strides[0] + c*input.impl->strides[1] + d_idx*input.impl->strides[2] + h*input.impl->strides[3] + w*input.impl->strides[4];
+                                        double cur = read_scalar_at(grad_input.impl->storage->data.get(), off, grad_input._dtype());
+                                        write_scalar_at(grad_input.impl->storage->data.get(), off, grad_input._dtype(), cur + grad_val);
                                     }
                                 }
                             }
@@ -781,6 +653,6 @@ void GradAvgPool3d::backward(const Tensor& self) {
                 }
             }
         }
-    } 
-    accumulate_grad(input, grad_input); // <-- FIX: Use accumulate_grad
+    }
+    accumulate_grad(input, grad_input);
 }
