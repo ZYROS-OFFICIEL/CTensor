@@ -1,5 +1,6 @@
 #include "Relu.h"
 #include "ops1.h" 
+#include <omp.h>
 
 
 // LeakyRelu (fixed stride handling)
@@ -166,64 +167,88 @@ Tensor PRelu::forward(const Tensor& input) {
 void GradPRelu::backward(const Tensor& self) {
     if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
         throw std::runtime_error("GradPRelu: missing self grad");
-    if (!input.impl || !weight.impl) throw std::runtime_error("GradPRelu: missing parents");
-
-    Tensor grad_output = tensor_from_grad(self); // contiguous copy
-    Tensor grad_input  = Tensor::zeros(input.shape(), input._dtype(), false);
+    if (!input.impl)
+        throw std::runtime_error("GradPRelu: missing input tensor");
+    
+    Tensor grad_output = tensor_from_grad(self); 
+    Tensor grad_input = Tensor::zeros(input.shape(), input._dtype(), false);
     Tensor grad_weight = Tensor::zeros(weight.shape(), weight._dtype(), false);
 
-    bool per_channel = (weight.numel_() > 1);
-    size_t n = input.numel_();
-    auto ndim = input.impl->ndim;
-    auto shape =input.impl->shape;
-    auto strideI = input.impl->strides;
-    auto strideG = grad_input.impl->strides;
+    bool per_channel = (weight.numel() > 1);
+    size_t n = input.numel();
+    size_t ndim = input.impl->ndim;
+    
+    const size_t* shape = input.impl->shape;
+    const size_t* strides_in = input.impl->strides;
+    const size_t* strides_go = grad_output.impl->strides;
+    const size_t* strides_gi = grad_input.impl->strides;
+    const size_t* strides_w = weight.impl->strides;
+    const size_t* strides_gw = grad_weight.impl->strides;
 
-    #pragma omp parallel
-    {
-        Tensor local_grad_weight = Tensor::zeros(weight.shape(), weight._dtype(), false);
-        std::vector<size_t> idx_vec(ndim, 0);
-        #pragma omp for
-        for (size_t flat = 0; flat < n; ++flat) {
-            size_t rem = flat;
-            for (int d = (int)ndim - 1; d >= 0; --d) {
-                idx_vec[d] = rem % shape[d];
-                rem /= shape[d];
-            }
+    auto* in_data = input.impl->storage->data.get();
+    auto* w_data = weight.impl->storage->data.get();
+    auto* go_data = grad_output.impl->storage->data.get();
+    auto* gi_data = grad_input.impl->storage->data.get();
+    auto* gw_data = grad_weight.impl->storage->data.get();
+    DType dt = input._dtype();
 
-            // compute strided indices for input & grad_input
-            size_t in_idx = input.impl->offset;
-            size_t gin_idx = grad_input.impl->offset;
-            for (size_t d = 0; d < ndim; ++d) {
-                in_idx += idx_vec[d] * strideI[d];
-                gin_idx += idx_vec[d] * strideG[d];
-            }
+    // Parallel loop with atomic updates for weights
+    #pragma omp parallel for
+    for (size_t flat = 0; flat < n; ++flat) {
+        size_t rem = flat;
+        size_t idx_in = input.impl->offset;
+        size_t idx_go = grad_output.impl->offset;
+        size_t idx_gi = grad_input.impl->offset;
+        size_t channel = 0;
 
-            // read input value and grad_output value (grad_output is contiguous -> use flat)
-            double v = read_scalar_at(input.impl->storage->data.get(), in_idx, input._dtype());
-            double go = read_scalar_at(grad_output.impl->storage->data.get(), flat, grad_output._dtype());
-
-            // compute alpha
-            size_t channel_idx = per_channel ? idx_vec[1] : 0;
-            double alpha = read_scalar_at(weight.impl->storage->data.get(), channel_idx, weight._dtype());
-
-            // grad input
-            double gin = (v >= 0.0) ? go : go * alpha;
-            write_scalar_at(grad_input.impl->storage->data.get(), gin_idx, grad_input._dtype(), gin);
-
-            // grad alpha contribution (only when v < 0)
-            if (weight.requires_grad() && v < 0.0) {
-                double contrib = go * v;
-                // accumulate in local grad_weight raw storage (using grad_weight's strided index)
-                size_t gw_idx = local_grad_weight.impl->offset + channel_idx * local_grad_weight.impl->strides[0];
-                double cur = read_scalar_at(local_grad_weight.impl->storage->data.get(), gw_idx, local_grad_weight._dtype());
-                write_scalar_at(local_grad_weight.impl->storage->data.get(), gw_idx, local_grad_weight._dtype(), cur + contrib);
-            }
+        for (int d = (int)ndim - 1; d >= 0; --d) {
+            size_t coord = rem % shape[d];
+            rem /= shape[d];
+            idx_in += coord * strides_in[d];
+            idx_go += coord * strides_go[d];
+            idx_gi += coord * strides_gi[d];
+            if (per_channel && d == 1) channel = coord;
         }
-        #pragma omp critical
-        if (weight.requires_grad()) {
-            accumulate_grad(weight, local_grad_weight);
+
+        // Get alpha (read-only, safe)
+        size_t idx_w = weight.impl->offset + (per_channel ? channel * strides_w[0] : 0);
+        double alpha = read_scalar_at(w_data, idx_w, dt);
+
+        double v = read_scalar_at(in_data, idx_in, dt);
+        double go = read_scalar_at(go_data, idx_go, dt);
+        
+        // --- Calculate Gradients ---
+        
+        // Grad Input (Write only to unique location idx_gi per thread -> Safe)
+        double gin = (v >= 0.0) ? go : go * alpha;
+        write_scalar_at(gi_data, idx_gi, dt, gin);
+
+        // Grad Weight (Alpha)
+        // Multiple threads will try to update the SAME weight index (idx_gw)
+        // MUST USE ATOMIC
+        if (weight.requires_grad() && v < 0.0) {
+            double g_alpha = go * v;
+            size_t idx_gw = grad_weight.impl->offset + (per_channel ? channel * strides_gw[0] : 0);
+            
+            // Atomic update for float/double
+            // Note: OpenMP atomic supports float/double accumulation
+            if (dt == DType::Float32) {
+                float* ptr = (float*)gw_data + idx_gw;
+                #pragma omp atomic
+                *ptr += (float)g_alpha;
+            } else if (dt == DType::Double64) {
+                double* ptr = (double*)gw_data + idx_gw;
+                #pragma omp atomic
+                *ptr += g_alpha;
+            }
         }
     }
-    if (input.requires_grad())  accumulate_grad(input, grad_input);
+
+    // Accumulate final gradients
+    if (input.requires_grad()) {
+        accumulate_grad(input, grad_input);
+    }
+    if (weight.requires_grad()) {
+        accumulate_grad(weight, grad_weight);
+    }
 }

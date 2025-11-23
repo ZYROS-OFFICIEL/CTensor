@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <limits>
 #include <algorithm>
+#include <omp.h>
 
 // ======================================================================================
 //                                      HELPERS
