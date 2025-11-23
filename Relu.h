@@ -2,6 +2,8 @@
 #include "tensor1.h"
 #include "autograd.h"
 #include <string>
+#include <omp.h>
+
 
 Tensor LeakyRelu(const Tensor& a_, double negative_slope = 0.01);
 
