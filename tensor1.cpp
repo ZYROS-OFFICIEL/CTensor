@@ -166,9 +166,10 @@ Tensor Tensor::full(const std::vector<size_t>& shape_, double value, DType dt, b
 Tensor Tensor::rand(const std::vector<size_t>& shape_, DType dt, bool requires_grad_) {
     Tensor t(shape_, dt, requires_grad_);
     size_t n = t.numel_();
+    auto* data = t.impl->storage->data.get();
     // Simple rand, good enough for tests
     for (size_t i = 0; i < n; ++i)
-        write_scalar_at(t.impl->storage->data.get(), i, dt, static_cast<double>(std::rand()) / RAND_MAX);
+        write_scalar_at(data, i, dt, static_cast<double>(std::rand()) / RAND_MAX);
     return t;
 }
 
@@ -183,9 +184,11 @@ Tensor Tensor::from_vector(const std::vector<double>& data,const std::vector<siz
     for (auto s : shape) n *= s;
     if (data.size() != n)
         throw std::invalid_argument("from_vector: data size does not match shape");
+    auto* data = t.impl->storage->data.get();
     Tensor t(shape, dtype, requires_grad);
+    #pragma omp parallel for
     for (size_t i = 0; i < n; ++i)
-        write_scalar_at(t.impl->storage->data.get(), i, dtype, data[i]);
+        write_scalar_at(data, i, dtype, data[i]);
     return t;
 }
 
