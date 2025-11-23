@@ -65,31 +65,42 @@ void GradLeakyRelu::backward(const Tensor& self) {
     Tensor grad_input = Tensor::zeros(a.shape(), a._dtype(), false);
 
     size_t n = a.numel_();
-    std::vector<size_t> idx_vec(a.impl->ndim, 0);
-    for (size_t flat = 0; flat < n; ++flat) {
-        // multi-index
-        size_t rem = flat;
-        for (int d = (int)a.impl->ndim - 1; d >= 0; --d) {
-            idx_vec[d] = rem % a.impl->shape[d];
-            rem /= a.impl->shape[d];
+
+
+    size_t ndim = a.impl->ndim;
+    auto shape = a.impl->shape;
+    auto stridesA = a.impl->strides;
+    auto stridesG = grad_input.impl->strides;
+    size_t offsetA = a.impl->offset;
+    size_t offsetG = grad_input.impl->offset;
+    #pragma omp parallel
+    {   
+        std::vector<size_t> idx_vec(ndim, 0);
+        #pragma omp for
+        for (size_t flat = 0; flat < n; ++flat) {
+            // multi-index
+            size_t rem = flat;
+            for (int d = (int)ndim - 1; d >= 0; --d) {
+                idx_vec[d] = rem % shape[d];
+                rem /= shape[d];
+            }
+
+            // compute source/dest strided indices for 'a' and 'grad_input'
+            size_t src_idx = offsetA;
+            size_t dst_idx = offsetG;
+            for (size_t d = 0; d < ndim; ++d) {
+                src_idx += idx_vec[d] * stridesA[d];
+                dst_idx += idx_vec[d] * stridesG[d];
+            }
+
+            double v = read_scalar_at(a.impl->storage->data.get(), src_idx, a_._dtype());
+            // read grad_output by flat index because tensor_from_grad returned contiguous copy
+            double go = read_scalar_at(grad_output.impl->storage->data.get(), flat, grad_output._dtype());
+
+            double gin = (v >= 0.0) ? go : go * negative_slope;
+            write_scalar_at(grad_input.impl->storage->data.get(), dst_idx, grad_input._dtype(), gin);
         }
-
-        // compute source/dest strided indices for 'a' and 'grad_input'
-        size_t src_idx = a.impl->offset;
-        size_t dst_idx = grad_input.impl->offset;
-        for (size_t d = 0; d < a.impl->ndim; ++d) {
-            src_idx += idx_vec[d] * a.impl->strides[d];
-            dst_idx += idx_vec[d] * grad_input.impl->strides[d];
-        }
-
-        double v = read_scalar_at(a.impl->storage->data.get(), src_idx, a_._dtype());
-        // read grad_output by flat index because tensor_from_grad returned contiguous copy
-        double go = read_scalar_at(grad_output.impl->storage->data.get(), flat, grad_output._dtype());
-
-        double gin = (v >= 0.0) ? go : go * negative_slope;
-        write_scalar_at(grad_input.impl->storage->data.get(), dst_idx, grad_input._dtype(), gin);
     }
-
     // accumulate into parent's grad buffer
     accumulate_grad(a, grad_input);
 }
