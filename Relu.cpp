@@ -13,31 +13,41 @@ Tensor LeakyRelu(const Tensor& a_, double negative_slope) {
 
     if (req) result.impl->grad_fn = std::make_shared<GradLeakyRelu>(a_, negative_slope);
 
-    std::vector<size_t> idx_vec(a_.impl->ndim, 0);
+    size_t ndim = a_.impl->ndim;
+    auto shape     = a_.impl->shape;
+    auto stridesA  = a_.impl->strides;
+    auto stridesR  = result.impl->strides;
+    size_t offsetA = a_.impl->offset;
+    size_t offsetR = result.impl->offset;
 
-    for (size_t flat = 0; flat < n; ++flat) {
-        // decode multi-index for this logical position
-        size_t rem = flat;
-        for (int d = (int)a_.impl->ndim - 1; d >= 0; --d) {
-            idx_vec[d] = rem % a_.impl->shape[d];
-            rem /= a_.impl->shape[d];
+    #pragma omp parallel 
+    {
+        std::vector<size_t> idx_vec(ndim, 0);
+        #pragma omp for
+        for (size_t flat = 0; flat < n; ++flat) {
+
+            // decode multi-index for this logical position
+            size_t rem = flat;
+            for (int d = (int)ndim - 1; d >= 0; --d) {
+                idx_vec[d] = rem % shape[d];
+                rem /= shape[d];
+            }
+
+            // source strided index (a_)
+            size_t src_idx = offsetA;
+            for (size_t d = 0; d < ndim; ++d)
+                src_idx += idx_vec[d] * stridesA[d];
+
+            // dest strided index (result) — must compute with result strides/offset
+            size_t dst_idx = offsetR;
+            for (size_t d = 0; d < result.impl->ndim; ++d)
+                dst_idx += idx_vec[d] * stridesR[d];
+
+            double v = read_scalar_at(a_.impl->storage->data.get(), src_idx, a_._dtype());
+            double out = (v >= 0.0) ? v : v * negative_slope;
+            write_scalar_at(result.impl->storage->data.get(), dst_idx, result._dtype(), out);
         }
-
-        // source strided index (a_)
-        size_t src_idx = a_.impl->offset;
-        for (size_t d = 0; d < a_.impl->ndim; ++d)
-            src_idx += idx_vec[d] * a_.impl->strides[d];
-
-        // dest strided index (result) — must compute with result strides/offset
-        size_t dst_idx = result.impl->offset;
-        for (size_t d = 0; d < result.impl->ndim; ++d)
-            dst_idx += idx_vec[d] * result.impl->strides[d];
-
-        double v = read_scalar_at(a_.impl->storage->data.get(), src_idx, a_._dtype());
-        double out = (v >= 0.0) ? v : v * negative_slope;
-        write_scalar_at(result.impl->storage->data.get(), dst_idx, result._dtype(), out);
     }
-
     return result;
 }
 
@@ -56,7 +66,6 @@ void GradLeakyRelu::backward(const Tensor& self) {
 
     size_t n = a.numel_();
     std::vector<size_t> idx_vec(a.impl->ndim, 0);
-
     for (size_t flat = 0; flat < n; ++flat) {
         // multi-index
         size_t rem = flat;
@@ -110,7 +119,7 @@ Tensor PRelu::forward(const Tensor& input) {
 
     bool per_channel = (num_parameters > 1);
     std::vector<size_t> idx_vec(input.impl->ndim, 0);
-
+    #pragma omp parallel for
     for (size_t flat = 0; flat < n; ++flat) {
         size_t rem = flat;
         for (int d = (int)input.impl->ndim - 1; d >= 0; --d) {
