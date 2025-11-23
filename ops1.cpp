@@ -150,84 +150,51 @@ Tensor add_(const Tensor& a_, const Tensor& b_) {
     if (!a_.impl || !b_.impl)
         throw std::runtime_error("add_: null tensor implementation");
 
-    // --- Step 1: Virtual Broadcasting (Optimization) ---
-    // Instead of allocating new memory with pad_to_ndim (which is slow),
-    // we'd ideally handle indices virtually. 
-    // But to keep your current logic working safely, let's stick to the padding 
-    // but optimize the loop.
-    
+    // --- Step 1: pad shapes to same ndim ---
     size_t ndim_result = std::max(a_.impl->ndim, b_.impl->ndim);
-    
-    // NOTE: pad_to_ndim allocates new memory. For max performance, 
-    // you eventually want to remove this and handle broadcasting math directly 
-    // inside the loop without creating temp tensors.
     Tensor a = pad_to_ndim(a_, ndim_result);
     Tensor b = pad_to_ndim(b_, ndim_result);
 
-    // --- Step 2: Check Broadcast compatibility ---
-    // (We can skip explicit wrap if we access shapes directly below)
-    std::vector<size_t> shape_a = a.shape();
-    std::vector<size_t> shape_b = b.shape();
-    
+    // --- Step 2: wrap shape pointers into vectors ---
+    std::vector<size_t> shape_a(a.impl->shape, a.impl->shape + a.impl->ndim);
+    std::vector<size_t> shape_b(b.impl->shape, b.impl->shape + b.impl->ndim);
+
+    // --- Step 3: compute broadcasted shape ---
     if (!broadcastable(shape_a, shape_b))
         throw std::runtime_error("add_: shapes are not broadcastable");
-        
     std::vector<size_t> result_shape = broadcast_shape(shape_a, shape_b);
 
-    // --- Step 3: Create Result ---
+    // --- Step 4: create result tensor ---
     bool req = a_.requires_grad() || b_.requires_grad();
     Tensor result(result_shape, a.impl->dtype, req);
     
+    // attach grad_fn if needed (so autograd can traverse)
     if (req) {
         result.impl->grad_fn = std::make_shared<GradAdd>(a_, b_);
     }
-
-    // --- Step 4: Optimized Parallel Loop ---
-    size_t n = result.numel();
-    
-    // Capture raw pointers for speed and thread-safety
-    // Accessing shared_ptr->impl->shape repeatedly in a loop prevents some compiler optimizations
-    const size_t* res_shape_ptr = result.impl->shape;
-    const size_t* a_shape_ptr = a.impl->shape;
-    const size_t* b_shape_ptr = b.impl->shape;
-    
-    const size_t* a_strides_ptr = a.impl->strides;
-    const size_t* b_strides_ptr = b.impl->strides;
-    
-    auto* a_data = a.impl->storage->data.get();
-    auto* b_data = b.impl->storage->data.get();
-    auto* res_data = result.impl->storage->data.get();
-    
-    size_t a_offset_base = a.impl->offset;
-    size_t b_offset_base = b.impl->offset;
-    DType dt = a.impl->dtype; // Assuming types match for now
-
-    #pragma omp parallel for
+    // --- Step 5: iterate over result elements ---
+    size_t n = result.numel_();
+    std::vector<size_t> idx(ndim_result, 0);
     for (size_t flat = 0; flat < n; ++flat) {
-        // Thread-local variables (registers)
+        // convert flat index -> multi-dimensional index
         size_t rem = flat;
-        size_t idx_a = a_offset_base;
-        size_t idx_b = b_offset_base;
-
-        // Decode flat index and apply broadcasting immediately
-        // We iterate dimensions to resolve coordinates
         for (int i = (int)ndim_result - 1; i >= 0; --i) {
-            size_t dim_size = res_shape_ptr[i];
-            size_t coord = rem % dim_size;
-            rem /= dim_size;
-
-            // Broadcasting logic:
-            // If shape[i] == 1, stride is effectively 0 (we repeat the value).
-            // If shape[i] == dim_size, we use the coordinate.
-            
-            // Optimization: avoid branches if possible, but check is fine here
-            if (a_shape_ptr[i] != 1) idx_a += coord * a_strides_ptr[i];
-            if (b_shape_ptr[i] != 1) idx_b += coord * b_strides_ptr[i];
+            idx[i] = rem % result_shape[i];
+            rem /= result_shape[i];
         }
 
-        double va = read_scalar_at(a_data, idx_a, dt);
-        double vb = read_scalar_at(b_data, idx_b, dt);
-        write_scalar_at(res_data, flat, dt, va + vb);
+        // compute flat index for a and b using broadcasting
+        size_t index_a = 0, index_b = 0;
+        for (size_t i = 0; i < ndim_result; ++i) {
+            size_t idx_a = (a.impl->shape[i] == 1 ? 0 : idx[i]);
+            size_t idx_b = (b.impl->shape[i] == 1 ? 0 : idx[i]);
+            index_a += idx_a * a.impl->strides[i];
+            index_b += idx_b * b.impl->strides[i];
+        }
+
+        double va = read_scalar_at(a.impl->storage->data.get(), index_a, a.impl->dtype);
+        double vb = read_scalar_at(b.impl->storage->data.get(), index_b, b.impl->dtype);
+        write_scalar_at(result.impl->storage->data.get(), flat, result.impl->dtype, va + vb);
     }
 
     return result;
