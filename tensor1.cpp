@@ -380,7 +380,7 @@ void Tensor::backward() {
 }
 
 
-Tensor Tensor::gather(const Tensor& index, size_t dim) const {
+Tensor Tensor::gather(const Tensor& index, size_t dim) {
     const Tensor& input = *this;
     
     if (!input.impl || !index.impl)
