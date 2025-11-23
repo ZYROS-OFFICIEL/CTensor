@@ -129,30 +129,36 @@ Tensor PRelu::forward(const Tensor& input) {
     if (req) result.impl->grad_fn = std::make_shared<GradPRelu>(input, weight);
 
     bool per_channel = (num_parameters > 1);
-    std::vector<size_t> idx_vec(input.impl->ndim, 0);
-    #pragma omp parallel for
-    for (size_t flat = 0; flat < n; ++flat) {
-        size_t rem = flat;
-        for (int d = (int)input.impl->ndim - 1; d >= 0; --d) {
-            idx_vec[d] = rem % input.impl->shape[d];
-            rem /= input.impl->shape[d];
-        }
-
-        // input src index and result dst index
+    auto ndim = input.impl->ndim;
+    auto shape = input.impl->shape;
+    // input src index and result dst index
+    auto stridesI = input.impl->strides;
+    auto stridesR = result.impl->strides;
+    #pragma omp parallel 
+    {   
+        std::vector<size_t> idx_vec(ndim, 0);
+        #pragma omp for
+        for (size_t flat = 0; flat < n; ++flat) {
+            size_t rem = flat;
+            for (int d = (int)ndim - 1; d >= 0; --d) {
+                idx_vec[d] = rem % shape[d];
+                rem /= shape[d];
+            }
         size_t src_idx = input.impl->offset;
         size_t dst_idx = result.impl->offset;
-        for (size_t d = 0; d < input.impl->ndim; ++d) {
-            src_idx += idx_vec[d] * input.impl->strides[d];
-            dst_idx += idx_vec[d] * result.impl->strides[d];
+
+            for (size_t d = 0; d < ndim; ++d) {
+                src_idx += idx_vec[d] * stridesI[d];
+                dst_idx += idx_vec[d] * stridesR[d];
+            }
+
+            size_t channel_idx = per_channel ? idx_vec[1] : 0;
+            double alpha = read_scalar_at(weight.impl->storage->data.get(), channel_idx, weight._dtype());
+            double v = read_scalar_at(input.impl->storage->data.get(), src_idx, input._dtype());
+            double out = (v >= 0.0) ? v : v * alpha;
+            write_scalar_at(result.impl->storage->data.get(), dst_idx, result._dtype(), out);
         }
-
-        size_t channel_idx = per_channel ? idx_vec[1] : 0;
-        double alpha = read_scalar_at(weight.impl->storage->data.get(), channel_idx, weight._dtype());
-        double v = read_scalar_at(input.impl->storage->data.get(), src_idx, input._dtype());
-        double out = (v >= 0.0) ? v : v * alpha;
-        write_scalar_at(result.impl->storage->data.get(), dst_idx, result._dtype(), out);
     }
-
     return result;
 }
 
