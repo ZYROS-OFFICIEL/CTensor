@@ -174,45 +174,53 @@ void GradPRelu::backward(const Tensor& self) {
 
     bool per_channel = (weight.numel_() > 1);
     size_t n = input.numel_();
-    std::vector<size_t> idx_vec(input.impl->ndim, 0);
+    auto ndim = input.impl->ndim;
+    auto shape =input.impl->shape;
+    size_t strideI = input.impl->strides;
+    size_t strideG = grad_input.impl->strides;
 
-    for (size_t flat = 0; flat < n; ++flat) {
-        size_t rem = flat;
-        for (int d = (int)input.impl->ndim - 1; d >= 0; --d) {
-            idx_vec[d] = rem % input.impl->shape[d];
-            rem /= input.impl->shape[d];
-        }
+    #pragma omp parallel
+    {
 
-        // compute strided indices for input & grad_input
-        size_t in_idx = input.impl->offset;
-        size_t gin_idx = grad_input.impl->offset;
-        for (size_t d = 0; d < input.impl->ndim; ++d) {
-            in_idx += idx_vec[d] * input.impl->strides[d];
-            gin_idx += idx_vec[d] * grad_input.impl->strides[d];
-        }
+        std::vector<size_t> idx_vec(ndim, 0);
+        #pragma omp for
+        for (size_t flat = 0; flat < n; ++flat) {
+            size_t rem = flat;
+            for (int d = (int)ndim - 1; d >= 0; --d) {
+                idx_vec[d] = rem % shape[d];
+                rem /= shape[d];
+            }
 
-        // read input value and grad_output value (grad_output is contiguous -> use flat)
-        double v = read_scalar_at(input.impl->storage->data.get(), in_idx, input._dtype());
-        double go = read_scalar_at(grad_output.impl->storage->data.get(), flat, grad_output._dtype());
+            // compute strided indices for input & grad_input
+            size_t in_idx = input.impl->offset;
+            size_t gin_idx = grad_input.impl->offset;
+            for (size_t d = 0; d < ndim; ++d) {
+                in_idx += idx_vec[d] * strideI[d];
+                gin_idx += idx_vec[d] * strideG[d];
+            }
 
-        // compute alpha
-        size_t channel_idx = per_channel ? idx_vec[1] : 0;
-        double alpha = read_scalar_at(weight.impl->storage->data.get(), channel_idx, weight._dtype());
+            // read input value and grad_output value (grad_output is contiguous -> use flat)
+            double v = read_scalar_at(input.impl->storage->data.get(), in_idx, input._dtype());
+            double go = read_scalar_at(grad_output.impl->storage->data.get(), flat, grad_output._dtype());
 
-        // grad input
-        double gin = (v >= 0.0) ? go : go * alpha;
-        write_scalar_at(grad_input.impl->storage->data.get(), gin_idx, grad_input._dtype(), gin);
+            // compute alpha
+            size_t channel_idx = per_channel ? idx_vec[1] : 0;
+            double alpha = read_scalar_at(weight.impl->storage->data.get(), channel_idx, weight._dtype());
 
-        // grad alpha contribution (only when v < 0)
-        if (weight.requires_grad() && v < 0.0) {
-            double contrib = go * v;
-            // accumulate in local grad_weight raw storage (using grad_weight's strided index)
-            size_t gw_idx = grad_weight.impl->offset + channel_idx * grad_weight.impl->strides[0];
-            double cur = read_scalar_at(grad_weight.impl->storage->data.get(), gw_idx, grad_weight._dtype());
-            write_scalar_at(grad_weight.impl->storage->data.get(), gw_idx, grad_weight._dtype(), cur + contrib);
+            // grad input
+            double gin = (v >= 0.0) ? go : go * alpha;
+            write_scalar_at(grad_input.impl->storage->data.get(), gin_idx, grad_input._dtype(), gin);
+
+            // grad alpha contribution (only when v < 0)
+            if (weight.requires_grad() && v < 0.0) {
+                double contrib = go * v;
+                // accumulate in local grad_weight raw storage (using grad_weight's strided index)
+                size_t gw_idx = grad_weight.impl->offset + channel_idx * grad_weight.impl->strides[0];
+                double cur = read_scalar_at(grad_weight.impl->storage->data.get(), gw_idx, grad_weight._dtype());
+                write_scalar_at(grad_weight.impl->storage->data.get(), gw_idx, grad_weight._dtype(), cur + contrib);
+            }
         }
     }
-
     if (input.requires_grad())  accumulate_grad(input, grad_input);
     if (weight.requires_grad()) accumulate_grad(weight, grad_weight);
 }
