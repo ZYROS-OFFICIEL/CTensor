@@ -176,12 +176,12 @@ void GradPRelu::backward(const Tensor& self) {
     size_t n = input.numel_();
     auto ndim = input.impl->ndim;
     auto shape =input.impl->shape;
-    size_t strideI = input.impl->strides;
-    size_t strideG = grad_input.impl->strides;
+    auto strideI = input.impl->strides;
+    auto strideG = grad_input.impl->strides;
 
     #pragma omp parallel
     {
-
+        Tensor local_grad_weight = Tensor::zeros(weight.shape(), weight._dtype(), false);
         std::vector<size_t> idx_vec(ndim, 0);
         #pragma omp for
         for (size_t flat = 0; flat < n; ++flat) {
@@ -215,12 +215,15 @@ void GradPRelu::backward(const Tensor& self) {
             if (weight.requires_grad() && v < 0.0) {
                 double contrib = go * v;
                 // accumulate in local grad_weight raw storage (using grad_weight's strided index)
-                size_t gw_idx = grad_weight.impl->offset + channel_idx * grad_weight.impl->strides[0];
-                double cur = read_scalar_at(grad_weight.impl->storage->data.get(), gw_idx, grad_weight._dtype());
-                write_scalar_at(grad_weight.impl->storage->data.get(), gw_idx, grad_weight._dtype(), cur + contrib);
+                size_t gw_idx = local_grad_weight.impl->offset + channel_idx * local_grad_weight.impl->strides[0];
+                double cur = read_scalar_at(local_grad_weight.impl->storage->data.get(), gw_idx, local_grad_weight._dtype());
+                write_scalar_at(local_grad_weight.impl->storage->data.get(), gw_idx, local_grad_weight._dtype(), cur + contrib);
             }
+        }
+        #pragma omp critical
+        if (weight.requires_grad()) {
+            accumulate_grad(weight, local_grad_weight);
         }
     }
     if (input.requires_grad())  accumulate_grad(input, grad_input);
-    if (weight.requires_grad()) accumulate_grad(weight, grad_weight);
 }
