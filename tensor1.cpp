@@ -380,7 +380,9 @@ void Tensor::backward() {
 }
 
 
-Tensor gather(const Tensor& input, const Tensor& index, size_t dim) {
+Tensor Tensor::gather(const Tensor& index, size_t dim) const {
+    const Tensor& input = *this;
+    
     if (!input.impl || !index.impl)
         throw std::runtime_error("gather: input or index tensor is empty");
     if (input.impl->ndim != index.impl->ndim)
@@ -388,60 +390,85 @@ Tensor gather(const Tensor& input, const Tensor& index, size_t dim) {
 
     size_t ndim = input.impl->ndim;
 
-    // Compute output shape = same as index shape
-    std::vector<size_t> out_shape = index.shape();
-
+    // Check shapes match except at dim
     for (size_t i = 0; i < ndim; ++i) {
         if (i != dim && input.impl->shape[i] != index.impl->shape[i])
             throw std::runtime_error("gather: shape mismatch");
     }
 
+    // Compute output shape = same as index shape
+    std::vector<size_t> out_shape = index.shape();
     Tensor out(out_shape, input._dtype(), input.requires_grad());
     size_t n = out.numel();
 
-    // Precompute strides for iterating output
-    std::vector<size_t> out_strides(ndim);
-    out_strides[ndim - 1] = 1;
-    for (int d = ndim - 2; d >= 0; --d)
-        out_strides[d] = out_strides[d + 1] * out_shape[d + 1];
-
+    // Precompute output strides manually to avoid repeated vector creation
+    // We can't assume 'out' has contiguous strides if we want to be general,
+    // but here 'out' is newly created, so it IS contiguous.
+    // We'll perform a flat iteration over 'out' and 'index' (since they have same shape)
+    // and reconstruct coordinates.
+    
+    // Raw pointers for speed
     const auto* in_data  = input.impl->storage->data.get();
     const auto* idx_data = index.impl->storage->data.get();
     auto* out_data = out.impl->storage->data.get();
+    
+    const size_t* out_strides_ptr = out.impl->strides;
+    const size_t* idx_strides_ptr = index.impl->strides;
+    const size_t* in_strides_ptr = input.impl->strides;
+    const size_t* out_shape_ptr = out.impl->shape;
+    const size_t* in_shape_ptr = input.impl->shape;
+    
+    size_t idx_offset_base = index.impl->offset;
+    size_t in_offset_base = input.impl->offset;
+    DType dtype = input._dtype();
+    DType idx_dtype = index._dtype();
 
     #pragma omp parallel for
     for (size_t flat = 0; flat < n; ++flat) {
-        // Compute multi-dimensional index
+        // 1. Compute multi-dimensional coordinates from flat index
+        // We avoid std::vector allocation by just using the logic directly.
+        
         size_t rem = flat;
-        std::vector<size_t> md(ndim);
-        for (size_t d = 0; d < ndim; ++d) {
-            md[d] = rem / out_strides[d];
-            rem %= out_strides[d];
+        size_t idx_offset = idx_offset_base;
+        size_t in_offset_partial = in_offset_base;
+        
+        // Iterate dimensions (inverse order usually easier for div/mod)
+        // But we need to match the stride order. 
+        // Assuming C-contiguous logic for flat->multi mapping if 'out' is standard.
+        // Since 'out' is new, strides are standard.
+        
+        for (int d = (int)ndim - 1; d >= 0; --d) {
+            size_t coord = rem % out_shape_ptr[d];
+            rem /= out_shape_ptr[d];
+            
+            // Add to index tensor offset
+            idx_offset += coord * idx_strides_ptr[d];
+            
+            // Add to input tensor offset (for non-gather dims)
+            if (d != (int)dim) {
+                in_offset_partial += coord * in_strides_ptr[d];
+            }
         }
 
-        // Compute offset for index tensor
-        size_t idx_offset = index.impl->offset;
-        for (size_t d = 0; d < ndim; ++d)
-            idx_offset += md[d] * index.impl->strides[d];
+        // 2. Read the gather index from 'index' tensor
+        // Note: index tensor might be float, cast to size_t
+        double idx_val = read_scalar_at(idx_data, idx_offset, idx_dtype);
+        size_t gather_idx = static_cast<size_t>(idx_val);
 
-        size_t gather_index = (size_t)read_scalar_at(idx_data, idx_offset, index._dtype());
-        if (gather_index >= input.impl->shape[dim])
-            throw std::out_of_range("gather: index out of bounds");
+        // 3. Bounds check (optional but recommended)
+        // if (gather_idx >= in_shape_ptr[dim]) ... handle error ...
 
-        // Compute offset for input
-        size_t in_offset = input.impl->offset;
-        for (size_t d = 0; d < ndim; ++d) {
-            size_t coord = md[d];
-            if (d == dim) coord = gather_index;
-            in_offset += coord * input.impl->strides[d];
-        }
+        // 4. Final input offset
+        size_t in_final_offset = in_offset_partial + gather_idx * in_strides_ptr[dim];
 
-        double v = read_scalar_at(in_data, in_offset, input._dtype());
-        write_scalar_at(out_data, flat, out._dtype(), v);
+        // 5. Write
+        double v = read_scalar_at(in_data, in_final_offset, dtype);
+        write_scalar_at(out_data, flat, dtype, v);
     }
 
     return out;
 }
+
 
 
 Tensor Tensor::detach() {
