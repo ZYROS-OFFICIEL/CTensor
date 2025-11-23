@@ -141,7 +141,9 @@ Tensor::ConstProxy Tensor::operator[](size_t i) const {
 Tensor Tensor::ones(const std::vector<size_t>& shape_, DType dt, bool requires_grad_){
     Tensor t(shape_, dt, requires_grad_);
     size_t n = t.numel();
-    for (size_t i = 0; i < n; ++i) write_scalar_at(t.impl->storage->data.get(), i, dt, 1.0);
+    auto* data = t.impl->storage->data.get();
+    #pragma omp parallel for
+    for (size_t i = 0; i < n; ++i) write_scalar_at(data, i, dt, 1.0);
     return t;
 }
 
