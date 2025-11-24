@@ -185,11 +185,11 @@ Tensor Tensor::from_vector(const std::vector<double>& data,const std::vector<siz
     for (auto s : shape) n *= s;
     if (data.size() != n)
         throw std::invalid_argument("from_vector: data size does not match shape");
-    auto* data = t.impl->storage->data.get();
     Tensor t(shape, dtype, requires_grad);
+    auto* rdata = t.impl->storage->data.get();
     #pragma omp parallel for
     for (size_t i = 0; i < n; ++i)
-        write_scalar_at(data, i, dtype, data[i]);
+        write_scalar_at(rdata, i, dtype, data[i]);
     return t;
 }
 
