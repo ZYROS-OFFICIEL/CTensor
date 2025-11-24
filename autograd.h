@@ -9,7 +9,6 @@
 #include <cstring>
 #include <algorithm>
 #include <cmath>
-
 #include "tensor1.h"
 #include "opsmp.h"
 

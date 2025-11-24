@@ -11,7 +11,7 @@
 #include <cmath>
 #include "autograd.h"
 #include "tensor1.h"
-#include "ops1.h"
+#include "opsmp.h"
 
 // -------------------- helpers --------------------
 
