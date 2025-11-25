@@ -25,155 +25,87 @@ static std::vector<size_t> broadcast_batch_shape_from_vectors(
     const std::vector<size_t>& a,
     const std::vector<size_t>& b) ;
 
-//------------------ Tensor Operations ----------------------------------
-Tensor apply_scalar_op(const Tensor& a,double scalar,std::function<double(double, double)> forward_op,std::function<std::shared_ptr<GradFn>(const Tensor&, double)> grad_fn_ctorensor );
-Tensor add(const Tensor& a, const Tensor& b);
-Tensor add_(const Tensor& a, const Tensor& b);
-Tensor add_scalar(const Tensor& a, double scalar);
-Tensor diff_(const Tensor& a, const Tensor& b);
-Tensor sub_scalar(const Tensor& a, double scalar);
-Tensor sub_afterscalar(double scalar ,const Tensor& a );
-Tensor mult_(const Tensor& a, const Tensor& b);
-Tensor mult_scalar(const Tensor& a, double scalar);
-Tensor div_(const Tensor& a, const Tensor& b);
-Tensor div_scalar(const Tensor& a, double scalar);
-Tensor scalar_div(double scalar, const Tensor& a);
-Tensor pow_(const Tensor& a, const Tensor& b);
-Tensor pow_scalar(const Tensor& a, double scalar);
-Tensor scalar_pow(double scalar, const Tensor& a);
-Tensor matmul_(const Tensor& A, const Tensor& B);
+    //------------------ Tensor Operations (Multi-Threaded) -----------------
+// Binary Ops
+Tensor add_mp(const Tensor& a, const Tensor& b);
+Tensor diff_mp(const Tensor& a, const Tensor& b);
+Tensor mult_mp(const Tensor& a, const Tensor& b);
+Tensor div_mp(const Tensor& a, const Tensor& b);
+Tensor pow_mp(const Tensor& a, const Tensor& b);
+Tensor matmul_mp(const Tensor& A, const Tensor& B);
 
-Tensor abs_(const Tensor& A);
+// Scalar Ops
+Tensor add_scalar_mp(const Tensor& a, double scalar);
+Tensor sub_scalar_mp(const Tensor& a, double scalar);
+Tensor sub_afterscalar_mp(double scalar, const Tensor& a);
+Tensor mult_scalar_mp(const Tensor& a, double scalar);
+Tensor div_scalar_mp(const Tensor& a, double scalar);
+Tensor scalar_div_mp(double scalar, const Tensor& a);
+Tensor pow_scalar_mp(const Tensor& a, double scalar);
+Tensor scalar_pow_mp(double scalar, const Tensor& a);
 
-Tensor ln_(const Tensor& a_);
-Tensor exp_(const Tensor& a_);
-Tensor sqrt_(const Tensor& a_);
-Tensor sin_(const Tensor& a_);
-Tensor asin_(const Tensor& a_);
-Tensor sinh_(const Tensor& a_);
-Tensor cos_(const Tensor& a_);
-Tensor acos_(const Tensor& a_);
-Tensor cosh_(const Tensor& a_);
-Tensor tan_(const Tensor& a_);
-Tensor atan_(const Tensor& a_);
-Tensor tanh_(const Tensor& a_);
-Tensor sigmoid_(const Tensor& a_);
-Tensor Relu_(const Tensor& a_);
-Tensor softplus_(const Tensor& a_);
+// Unary Ops
+Tensor abs_mp(const Tensor& A);
+Tensor ln_mp(const Tensor& a);
+Tensor exp_mp(const Tensor& a);
+Tensor sqrt_mp(const Tensor& a);
+Tensor sin_mp(const Tensor& a);
+Tensor asin_mp(const Tensor& a);
+Tensor cos_mp(const Tensor& a);
+Tensor acos_mp(const Tensor& a);
+Tensor tan_mp(const Tensor& a);
+Tensor atan_mp(const Tensor& a);
+Tensor tanh_mp(const Tensor& a);
+Tensor sinh_mp(const Tensor& a);
+Tensor cosh_mp(const Tensor& a);
+Tensor sigmoid_mp(const Tensor& a);
+Tensor Relu_mp(const Tensor& a);
+Tensor softplus_mp(const Tensor& a);
 
 //------------------ Reduction Operations --------------------------------
 
-Tensor sum(const Tensor& t, int dim = -1);
-Tensor mean(const Tensor& t, int dim = -1);
-Tensor max(const Tensor& t, int dim = -1);
-Tensor min(const Tensor& t, int dim = -1);
+Tensor sum_mp(const Tensor& t, int dim = -1);
+Tensor mean_mp(const Tensor& t, int dim = -1);
+Tensor max_mp(const Tensor& t, int dim = -1); // Placeholder if you implement it
+Tensor min_mp(const Tensor& t, int dim = -1); // Placeholder
 
+//------------------ Element-wise Comparisons ----------------------------
+Tensor lt_mp(const Tensor& a, double b);
+Tensor le_mp(const Tensor& a, double b);
+Tensor gt_mp(const Tensor& a, double b);
+Tensor ge_mp(const Tensor& a, double b);
+Tensor eq_mp(const Tensor& a, double b);
+Tensor neq_mp(const Tensor& a, double b);
 
-//------------------ Element-wise Operators ----------------------------------
-Tensor lt(const Tensor& a, double b);
-Tensor le(const Tensor& a, double b);
-Tensor gt(const Tensor& a, double b);
-Tensor ge(const Tensor& a, double b);
-Tensor eq(const Tensor& a, double b);
-Tensor neq(const Tensor& a, double b);
-//Two tensors:
-Tensor lt(const Tensor& a, const Tensor& b);
-Tensor le(const Tensor& a, const Tensor& b);
-Tensor gt(const Tensor& a, const Tensor& b);
-Tensor ge(const Tensor& a, const Tensor& b);
-Tensor eq(const Tensor& a, const Tensor& b);
-Tensor ne(const Tensor& a, const Tensor& b);
+Tensor lt_mp(const Tensor& a, const Tensor& b);
+Tensor le_mp(const Tensor& a, const Tensor& b);
+Tensor gt_mp(const Tensor& a, const Tensor& b);
+Tensor ge_mp(const Tensor& a, const Tensor& b);
+Tensor eq_mp(const Tensor& a, const Tensor& b);
+Tensor ne_mp(const Tensor& a, const Tensor& b);
 
+//------------------ Utilities -------------------------------------------
+Tensor cat_mp(const std::vector<Tensor>& tensors, size_t dim);
 
-//------------------ Other Tensor Utilities -------------------------------
+//------------------ Operator Overloads (Mapping to _mp) -----------------
+// CAUTION: You cannot redefine global operators if ops1.h is also included.
+// If you want these to REPLACE ops1, you must not include ops1.h.
+// If you want them to coexist, you usually can't overload operators twice for the same types.
+// I will comment them out here. You should use explicit function calls or
+// replace ops1 entirely.
 
-static Tensor cat(const std::vector<Tensor>& tensors, size_t dim);
-
-//------------------ Operator Overloads ----------------------------------
-
+/*
 Tensor operator+(const Tensor& a, const Tensor& b);
 Tensor operator+(const Tensor& a, double scalar);
-Tensor operator+(double scalar,const Tensor& a );
+Tensor operator+(double scalar, const Tensor& a);
 Tensor operator-(const Tensor& a, const Tensor& b);
-inline Tensor operator-(const Tensor& a, double scalar) { return sub_scalar(a, scalar); }
-inline Tensor operator-(double scalar, const Tensor& a) { return sub_afterscalar(scalar, a); }
-inline Tensor operator-(const Tensor& a) { return mult_scalar(a, -1.0); }
 Tensor operator*(const Tensor& a, const Tensor& b);
-inline Tensor operator*(const Tensor& a, double scalar) { return mult_scalar(a,scalar); }
-inline Tensor operator*(double scalar,const Tensor& a ) { return mult_scalar(a,scalar); }
+Tensor operator*(const Tensor& a, double scalar);
+Tensor operator*(double scalar, const Tensor& a);
 Tensor operator/(const Tensor& a, const Tensor& b);
-inline Tensor operator/(const Tensor& a, double scalar) { return div_scalar(a, scalar); }
-inline Tensor operator/(double scalar, const Tensor& a) { return scalar_div(scalar, a); }
+Tensor operator/(const Tensor& a, double scalar);
+Tensor operator/(double scalar, const Tensor& a);
 Tensor operator^(const Tensor& a, const Tensor& b);
-inline Tensor operator^(const Tensor& a, double scalar) { return pow_scalar(a, scalar); }
-inline Tensor operator^(double scalar, const Tensor& a) { return scalar_pow(scalar, a); }
-
-
-// Scalar comparisons
-inline Tensor operator<(const Tensor& a, double b) { return lt(a, b); }
-inline Tensor operator<=(const Tensor& a, double b) { return le(a, b); }
-inline Tensor operator>(const Tensor& a, double b) { return gt(a, b); }
-inline Tensor operator>=(const Tensor& a, double b) { return ge(a, b); }
-inline Tensor operator==(const Tensor& a, double b) { return eq(a, b); }
-inline Tensor operator!=(const Tensor& a, double b) { return neq(a, b); }
-
-// Two tensor comparisons
-inline Tensor operator<(const Tensor& a, const Tensor& b) { return lt(a, b); }
-inline Tensor operator<=(const Tensor& a, const Tensor& b) { return le(a, b); }
-inline Tensor operator>(const Tensor& a, const Tensor& b) { return gt(a, b); }
-inline Tensor operator>=(const Tensor& a, const Tensor& b) { return ge(a, b); }
-inline Tensor operator==(const Tensor& a, const Tensor& b) { return eq(a, b); }
-inline Tensor operator!=(const Tensor& a, const Tensor& b) { return ne(a, b); }
-
-
-// --- Compound assignment operators ---
-
-// Addition
-inline Tensor& operator+=(Tensor& a, const Tensor& b) {
-    a = add_(a, b);
-    return a;
-}
-inline Tensor& operator+=(Tensor& a, double scalar) {
-    a = add_scalar(a, scalar);
-    return a;
-}
-
-// Subtraction
-inline Tensor& operator-=(Tensor& a, const Tensor& b) {
-    a = diff_(a, b);
-    return a;
-}
-inline Tensor& operator-=(Tensor& a, double scalar) {
-    a = sub_scalar(a, scalar);
-    return a;
-}
-
-// Multiplication
-inline Tensor& operator*=(Tensor& a, const Tensor& b) {
-    a = mult_(a, b);
-    return a;
-}
-inline Tensor& operator*=(Tensor& a, double scalar) {
-    a = mult_scalar(a, scalar);
-    return a;
-}
-
-// Division
-inline Tensor& operator/=(Tensor& a, const Tensor& b) {
-    a = div_(a, b);
-    return a;
-}
-inline Tensor& operator/=(Tensor& a, double scalar) {
-    a = div_scalar(a, scalar);
-    return a;
-}
-
-// Power
-inline Tensor& operator^=(Tensor& a, const Tensor& b) {
-    a = pow_(a, b);
-    return a;
-}
-inline Tensor& operator^=(Tensor& a, double scalar) {
-    a = pow_scalar(a, scalar);
-    return a;
-}
+Tensor operator^(const Tensor& a, double scalar);
+Tensor operator^(double scalar, const Tensor& a);
+*/
