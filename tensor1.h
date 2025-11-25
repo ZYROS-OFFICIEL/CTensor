@@ -301,7 +301,7 @@ inline void print_t(const Tensor& t) {
     
 }
 // Helper to print a tensor (works for any shape)
-inline void print_tensor(const Tensor& t, const std::string& name="Tensor") {
+inline void print_(const Tensor& t, const std::string& name="Tensor") {
     std::cout << name << " shape: [";
     for (size_t i = 0; i < t.impl->ndim; ++i) {
         std::cout << t.impl->shape[i];
@@ -317,7 +317,7 @@ inline void print_tensor(const Tensor& t, const std::string& name="Tensor") {
     std::cout << "\n\n";
 }
 
-static void print_(const Tensor& t, std::vector<size_t>& idx, size_t dim) {
+static void print_recursive_braces(const Tensor& t, std::vector<size_t>& idx, size_t dim) {
     std::cout << "{";
     size_t dim_size = t.impl->shape[dim];
     for (size_t i = 0; i < dim_size; ++i) {
