@@ -87,25 +87,88 @@ Tensor ne_mp(const Tensor& a, const Tensor& b);
 //------------------ Utilities -------------------------------------------
 Tensor cat_mp(const std::vector<Tensor>& tensors, size_t dim);
 
-//------------------ Operator Overloads (Mapping to _mp) -----------------
-// CAUTION: You cannot redefine global operators if ops1.h is also included.
-// If you want these to REPLACE ops1, you must not include ops1.h.
-// If you want them to coexist, you usually can't overload operators twice for the same types.
-// I will comment them out here. You should use explicit function calls or
-// replace ops1 entirely.
+//------------------ Operator Overloads ----------------------------------
 
-/*
+// These overloads now map to the _mp versions.
+// Ensure you are NOT including ops1.h at the same time as this file 
+// in the same compilation unit to avoid ambiguous overloads.
+
 Tensor operator+(const Tensor& a, const Tensor& b);
 Tensor operator+(const Tensor& a, double scalar);
 Tensor operator+(double scalar, const Tensor& a);
 Tensor operator-(const Tensor& a, const Tensor& b);
+inline Tensor operator-(const Tensor& a, double scalar) { return sub_scalar_mp(a, scalar); }
+inline Tensor operator-(double scalar, const Tensor& a) { return sub_afterscalar_mp(scalar, a); }
+inline Tensor operator-(const Tensor& a) { return mult_scalar_mp(a, -1.0); }
 Tensor operator*(const Tensor& a, const Tensor& b);
-Tensor operator*(const Tensor& a, double scalar);
-Tensor operator*(double scalar, const Tensor& a);
+inline Tensor operator*(const Tensor& a, double scalar) { return mult_scalar_mp(a, scalar); }
+inline Tensor operator*(double scalar, const Tensor& a) { return mult_scalar_mp(a, scalar); }
 Tensor operator/(const Tensor& a, const Tensor& b);
-Tensor operator/(const Tensor& a, double scalar);
-Tensor operator/(double scalar, const Tensor& a);
+inline Tensor operator/(const Tensor& a, double scalar) { return div_scalar_mp(a, scalar); }
+inline Tensor operator/(double scalar, const Tensor& a) { return scalar_div_mp(scalar, a); }
 Tensor operator^(const Tensor& a, const Tensor& b);
-Tensor operator^(const Tensor& a, double scalar);
-Tensor operator^(double scalar, const Tensor& a);
-*/
+inline Tensor operator^(const Tensor& a, double scalar) { return pow_scalar_mp(a, scalar); }
+inline Tensor operator^(double scalar, const Tensor& a) { return scalar_pow_mp(scalar, a); }
+
+// Scalar comparisons
+inline Tensor operator<(const Tensor& a, double b) { return lt_mp(a, b); }
+inline Tensor operator<=(const Tensor& a, double b) { return le_mp(a, b); }
+inline Tensor operator>(const Tensor& a, double b) { return gt_mp(a, b); }
+inline Tensor operator>=(const Tensor& a, double b) { return ge_mp(a, b); }
+inline Tensor operator==(const Tensor& a, double b) { return eq_mp(a, b); }
+inline Tensor operator!=(const Tensor& a, double b) { return neq_mp(a, b); }
+
+// Two tensor comparisons
+inline Tensor operator<(const Tensor& a, const Tensor& b) { return lt_mp(a, b); }
+inline Tensor operator<=(const Tensor& a, const Tensor& b) { return le_mp(a, b); }
+inline Tensor operator>(const Tensor& a, const Tensor& b) { return gt_mp(a, b); }
+inline Tensor operator>=(const Tensor& a, const Tensor& b) { return ge_mp(a, b); }
+inline Tensor operator==(const Tensor& a, const Tensor& b) { return eq_mp(a, b); }
+inline Tensor operator!=(const Tensor& a, const Tensor& b) { return ne_mp(a, b); }
+
+// --- Compound assignment operators ---
+
+inline Tensor& operator+=(Tensor& a, const Tensor& b) {
+    a = add_mp(a, b);
+    return a;
+}
+inline Tensor& operator+=(Tensor& a, double scalar) {
+    a = add_scalar_mp(a, scalar);
+    return a;
+}
+
+inline Tensor& operator-=(Tensor& a, const Tensor& b) {
+    a = diff_mp(a, b);
+    return a;
+}
+inline Tensor& operator-=(Tensor& a, double scalar) {
+    a = sub_scalar_mp(a, scalar);
+    return a;
+}
+
+inline Tensor& operator*=(Tensor& a, const Tensor& b) {
+    a = mult_mp(a, b);
+    return a;
+}
+inline Tensor& operator*=(Tensor& a, double scalar) {
+    a = mult_scalar_mp(a, scalar);
+    return a;
+}
+
+inline Tensor& operator/=(Tensor& a, const Tensor& b) {
+    a = div_mp(a, b);
+    return a;
+}
+inline Tensor& operator/=(Tensor& a, double scalar) {
+    a = div_scalar_mp(a, scalar);
+    return a;
+}
+
+inline Tensor& operator^=(Tensor& a, const Tensor& b) {
+    a = pow_mp(a, b);
+    return a;
+}
+inline Tensor& operator^=(Tensor& a, double scalar) {
+    a = pow_scalar_mp(a, scalar);
+    return a;
+}
