@@ -90,7 +90,7 @@ Tensor ne(const Tensor& a, const Tensor& b);
 static Tensor cat(const std::vector<Tensor>& tensors, size_t dim);
 
 //------------------ Operator Overloads ----------------------------------
-
+/*
 Tensor operator+(const Tensor& a, const Tensor& b);
 Tensor operator+(const Tensor& a, double scalar);
 Tensor operator+(double scalar,const Tensor& a );
@@ -177,3 +177,4 @@ inline Tensor& operator^=(Tensor& a, double scalar) {
     a = pow_scalar(a, scalar);
     return a;
 }
+*/
