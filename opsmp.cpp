@@ -336,14 +336,13 @@ Tensor softplus_mp(const Tensor& a) {
 
 // --- Reductions ---
 
-Tensor sum_mp(const Tensor& t, int dim) {
-    if (!t.impl) throw std::runtime_error("sum_mp: null input");
+template<typename ReduceFunc, typename InitFunc>
+Tensor reduction_op_impl(const Tensor& t, int dim, ReduceFunc reducer, InitFunc get_init, std::shared_ptr<GradFn> grad_fn) {
+    if (!t.impl) throw std::runtime_error("reduction: null input");
     
     int ndim = (int)t.impl->ndim;
     if (dim < 0) dim += ndim;
-    if (dim < 0 || dim >= ndim) {
-        // Error logic
-    }
+    if (dim < 0 || dim >= ndim) { /* err */ }
 
     std::vector<size_t> out_shape;
     for (int i = 0; i < ndim; ++i) {
@@ -352,8 +351,8 @@ Tensor sum_mp(const Tensor& t, int dim) {
     if (out_shape.empty()) out_shape.push_back(1);
 
     Tensor out(out_shape, t._dtype(), t.requires_grad());
-    if (t.requires_grad()) {
-        out.impl->grad_fn = std::make_shared<GradSum>(t, dim); 
+    if (t.requires_grad() && grad_fn) {
+        out.impl->grad_fn = grad_fn; 
     }
 
     size_t out_n = out.numel();
@@ -372,16 +371,38 @@ Tensor sum_mp(const Tensor& t, int dim) {
             in_base_offset += coord * t.impl->strides[in_d];
         }
         
-        double total = 0.0;
+        double acc = get_init();
         size_t stride_reduce = t.impl->strides[dim];
         
         for (size_t k = 0; k < reduce_size; ++k) {
             size_t final_idx = in_base_offset + k * stride_reduce;
-            total += read_scalar_at(t.impl->storage->data.get(), final_idx, t._dtype());
+            double val = read_scalar_at(t.impl->storage->data.get(), final_idx, t._dtype());
+            acc = reducer(acc, val);
         }
-        write_scalar_at(out.impl->storage->data.get(), i, out._dtype(), total);
+        write_scalar_at(out.impl->storage->data.get(), i, out._dtype(), acc);
     }
     return out;
+}
+
+Tensor sum_mp(const Tensor& t, int dim) {
+    return reduction_op_impl(t, dim, 
+        [](double acc, double val){ return acc + val; }, 
+        []{ return 0.0; }, 
+        t.requires_grad() ? std::make_shared<GradSum>(t, dim) : nullptr);
+}
+
+Tensor max_mp(const Tensor& t, int dim) {
+    return reduction_op_impl(t, dim, 
+        [](double acc, double val){ return std::max(acc, val); }, 
+        []{ return -std::numeric_limits<double>::infinity(); }, 
+        nullptr); // No GradMax yet
+}
+
+Tensor min_mp(const Tensor& t, int dim) {
+    return reduction_op_impl(t, dim, 
+        [](double acc, double val){ return std::min(acc, val); }, 
+        []{ return std::numeric_limits<double>::infinity(); }, 
+        nullptr); // No GradMin yet
 }
 
 Tensor mean_mp(const Tensor& t, int dim) {
@@ -389,7 +410,6 @@ Tensor mean_mp(const Tensor& t, int dim) {
     double count = (double)t.impl->shape[dim < 0 ? dim + t.impl->ndim : dim];
     return mult_scalar_mp(s, 1.0 / count);
 }
-
 // --- Comparisons ---
 
 Tensor lt_mp(const Tensor& a, double b) { return unary_op_impl(a, [b](double x){ return x < b ? 1.0 : 0.0; }); }
@@ -429,4 +449,76 @@ Tensor cat_mp(const std::vector<Tensor>& tensors, size_t dim) {
         current_offset_dim += t.impl->shape[dim];
     }
     return out;
+}
+
+// --- Compound assignment operators ---
+
+Tensor& operator+=(Tensor& a, const Tensor& b) {
+    a = add_mp(a, b);
+    return a;
+}
+Tensor& operator+=(Tensor& a, double scalar) {
+    a = add_scalar_mp(a, scalar);
+    return a;
+}
+
+Tensor& operator-=(Tensor& a, const Tensor& b) {
+    a = diff_mp(a, b);
+    return a;
+}
+Tensor& operator-=(Tensor& a, double scalar) {
+    a = sub_scalar_mp(a, scalar);
+    return a;
+}
+
+Tensor& operator*=(Tensor& a, const Tensor& b) {
+    a = mult_mp(a, b);
+    return a;
+}
+Tensor& operator*=(Tensor& a, double scalar) {
+    a = mult_scalar_mp(a, scalar);
+    return a;
+}
+
+Tensor& operator/=(Tensor& a, const Tensor& b) {
+    a = div_mp(a, b);
+    return a;
+}
+Tensor& operator/=(Tensor& a, double scalar) {
+    a = div_scalar_mp(a, scalar);
+    return a;
+}
+
+Tensor& operator^=(Tensor& a, const Tensor& b) {
+    a = pow_mp(a, b);
+    return a;
+}
+Tensor& operator^=(Tensor& a, double scalar) {
+    a = pow_scalar_mp(a, scalar);
+    return a;
+}
+
+Tensor operator+(const Tensor& a, const Tensor& b) {
+    return add_mp(a, b);
+}
+
+Tensor operator-(const Tensor& a, const Tensor& b) {
+    return diff_mp(a, b);
+}
+
+Tensor operator*(const Tensor& a, const Tensor& b) {
+    return mult_mp(a, b);
+}
+
+Tensor operator/(const Tensor& a, const Tensor& b) {
+    return div_mp(a, b);
+}
+
+Tensor operator^(const Tensor& a, const Tensor& b) {
+    return pow_mp(a, b);
+}
+
+// scalar on the left
+Tensor operator+(double s, const Tensor& a) {
+    return add_scalar_mp(a, s);
 }
