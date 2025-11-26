@@ -8,7 +8,7 @@
 #include "autograd.h"
 #include "conv.h"
 #include "pooling.h"
-#include "linear.h"
+#include "layer.h"
 #include "Relu.h"
 #include "dropout.h"
 #include "loss.h"       // Ensure this exists and has CrossEntropy
@@ -19,7 +19,7 @@
 class ConvNet : public Module {
 public:
     Conv2d conv1;
-    Relu relu1;
+    LeakyRelu relu1;
     MaxPool2d pool1;
     
     Conv2d conv2;
@@ -178,7 +178,7 @@ int main() {
                 // If it expects probabilities, add Softmax first.
                 // Assuming standard PyTorch-like CrossEntropyLoss (Logits -> Loss)
                 
-                Tensor loss = cross_entropy(output, batch_lbls, "mean"); 
+                Tensor loss = Loss::CrossEntropy(output, batch_lbls, "mean"); 
                 
                 // d. Backward
                 backward(loss);
