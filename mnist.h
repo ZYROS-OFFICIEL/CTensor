@@ -19,3 +19,7 @@ inline uint32_t read_uint32(std::ifstream& is) {
            ((val >> 24) & 0x000000FF);
 }
 
+struct MNISTData {
+    Tensor images; // [N, 1, 28, 28] normalized to 0-1
+    Tensor labels; // [N] (indices 0-9)
+};
