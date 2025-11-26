@@ -1,186 +1,195 @@
 #include "Relu.h"
-#include "ops1.h" 
+#include "opsmp.h" 
+#include <vector>
 #include <omp.h>
+#include <stdexcept>
 
+// ===========================================================================
+//                               STANDARD ReLU (Class)
+// ===========================================================================
 
-// LeakyRelu (fixed stride handling)
-Tensor LeakyRelu(const Tensor& a_, double negative_slope) {
-    if (!a_.impl) throw std::runtime_error("LeakyRelu: null tensor implementation");
-
-    size_t n = a_.numel_();
-    bool req = a_.requires_grad();
-
-    Tensor result(a_.shape(), a_._dtype(), req);
-
-    if (req) result.impl->grad_fn = std::make_shared<GradLeakyRelu>(a_, negative_slope);
-
-    size_t ndim = a_.impl->ndim;
-    auto shape     = a_.impl->shape;
-    auto stridesA  = a_.impl->strides;
-    auto stridesR  = result.impl->strides;
-    size_t offsetA = a_.impl->offset;
-    size_t offsetR = result.impl->offset;
-
-    #pragma omp parallel 
-    {
-        std::vector<size_t> idx_vec(ndim, 0);
-        #pragma omp for
-        for (size_t flat = 0; flat < n; ++flat) {
-
-            // decode multi-index for this logical position
-            size_t rem = flat;
-            for (int d = (int)ndim - 1; d >= 0; --d) {
-                idx_vec[d] = rem % shape[d];
-                rem /= shape[d];
-            }
-
-            // source strided index (a_)
-            size_t src_idx = offsetA;
-            for (size_t d = 0; d < ndim; ++d)
-                src_idx += idx_vec[d] * stridesA[d];
-
-            // dest strided index (result) — must compute with result strides/offset
-            size_t dst_idx = offsetR;
-            for (size_t d = 0; d < result.impl->ndim; ++d)
-                dst_idx += idx_vec[d] * stridesR[d];
-
-            double v = read_scalar_at(a_.impl->storage->data.get(), src_idx, a_._dtype());
-            double out = (v >= 0.0) ? v : v * negative_slope;
-            write_scalar_at(result.impl->storage->data.get(), dst_idx, result._dtype(), out);
-        }
-    }
-    return result;
+Tensor Relu::forward(const Tensor& input) {
+    // Simply delegate to the optimized functional implementation
+    return Relu_mp(input);
 }
 
-// GradLeakyRelu::backward (fixed stride handling & grad_output reading)
-void GradLeakyRelu::backward(const Tensor& self) {
-    if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
-        throw std::runtime_error("GradLeakyRelu: missing self grad");
-    if (!a.impl) return;
-    if (!a.requires_grad()) return;
+// ===========================================================================
+//                               LEAKY RELU (Op)
+// ===========================================================================
 
-    // grad_output is contiguous copy (tensor_from_grad)
-    Tensor grad_output = tensor_from_grad(self);
+Tensor LeakyRelu(const Tensor& input, double negative_slope) {
+    if (!input.impl) throw std::runtime_error("LeakyRelu: null input");
 
-    // grad_input as zeros with same shape as a (no grad tracking)
-    Tensor grad_input = Tensor::zeros(a.shape(), a._dtype(), false);
-
-    size_t n = a.numel_();
-
-
-    size_t ndim = a.impl->ndim;
-    auto shape = a.impl->shape;
-    auto stridesA = a.impl->strides;
-    auto stridesG = grad_input.impl->strides;
-    size_t offsetA = a.impl->offset;
-    size_t offsetG = grad_input.impl->offset;
-    #pragma omp parallel
-    {   
-        std::vector<size_t> idx_vec(ndim, 0);
-        #pragma omp for
-        for (size_t flat = 0; flat < n; ++flat) {
-            // multi-index
-            size_t rem = flat;
-            for (int d = (int)ndim - 1; d >= 0; --d) {
-                idx_vec[d] = rem % shape[d];
-                rem /= shape[d];
-            }
-
-            // compute source/dest strided indices for 'a' and 'grad_input'
-            size_t src_idx = offsetA;
-            size_t dst_idx = offsetG;
-            for (size_t d = 0; d < ndim; ++d) {
-                src_idx += idx_vec[d] * stridesA[d];
-                dst_idx += idx_vec[d] * stridesG[d];
-            }
-
-            double v = read_scalar_at(a.impl->storage->data.get(), src_idx, a_._dtype());
-            // read grad_output by flat index because tensor_from_grad returned contiguous copy
-            double go = read_scalar_at(grad_output.impl->storage->data.get(), flat, grad_output._dtype());
-
-            double gin = (v >= 0.0) ? go : go * negative_slope;
-            write_scalar_at(grad_input.impl->storage->data.get(), dst_idx, grad_input._dtype(), gin);
-        }
-    }
-    // accumulate into parent's grad buffer
-    accumulate_grad(a, grad_input);
-}
-
-// PReLU constructor (your version with Tensor::full)
-PRelu::PRelu(int num_params, double init, DType dtype)
-    : num_parameters(num_params)
-{
-    if (num_parameters == 1) {
-        weight = Tensor::full({1}, init, dtype, true);
-    } else {
-        weight = Tensor::full({(size_t)num_parameters}, init, dtype, true);
-    }
-}
-
-// PRelu forward (fixed stride handling & channel indexing)
-Tensor PRelu::forward(const Tensor& input) {
-    if (!input.impl) throw std::runtime_error("PRelu: null input tensor");
-    if (num_parameters > 1 && num_parameters != (int)input.impl->shape[1])
-        throw std::runtime_error("PRelu: num_parameters must be 1 or equal to input channels");
-
-    size_t n = input.numel_();
-    bool req = input.requires_grad() || weight.requires_grad();
+    size_t n = input.numel();
+    bool req = input.requires_grad();
 
     Tensor result(input.shape(), input._dtype(), req);
-    if (req) result.impl->grad_fn = std::make_shared<GradPRelu>(input, weight);
 
-    bool per_channel = (num_parameters > 1);
-    auto ndim = input.impl->ndim;
-    auto shape = input.impl->shape;
-    // input src index and result dst index
-    auto stridesI = input.impl->strides;
-    auto stridesR = result.impl->strides;
-    #pragma omp parallel 
-    {   
-        std::vector<size_t> idx_vec(ndim, 0);
-        #pragma omp for
-        for (size_t flat = 0; flat < n; ++flat) {
-            size_t rem = flat;
-            for (int d = (int)ndim - 1; d >= 0; --d) {
-                idx_vec[d] = rem % shape[d];
-                rem /= shape[d];
-            }
-        size_t src_idx = input.impl->offset;
-        size_t dst_idx = result.impl->offset;
-
-            for (size_t d = 0; d < ndim; ++d) {
-                src_idx += idx_vec[d] * stridesI[d];
-                dst_idx += idx_vec[d] * stridesR[d];
-            }
-
-            size_t channel_idx = per_channel ? idx_vec[1] : 0;
-            double alpha = read_scalar_at(weight.impl->storage->data.get(), channel_idx, weight._dtype());
-            double v = read_scalar_at(input.impl->storage->data.get(), src_idx, input._dtype());
-            double out = (v >= 0.0) ? v : v * alpha;
-            write_scalar_at(result.impl->storage->data.get(), dst_idx, result._dtype(), out);
-        }
+    // Attach GradFn
+    if (req) {
+        result.impl->grad_fn = std::make_shared<GradLeakyRelu>(input, negative_slope);
     }
+
+    // Pointers for fast access
+    size_t ndim = input.impl->ndim;
+    const size_t* shape = input.impl->shape;
+    const size_t* strides_in = input.impl->strides;
+    const size_t* strides_out = result.impl->strides; // Contiguous
+    
+    auto* in_data = input.impl->storage->data.get();
+    auto* out_data = result.impl->storage->data.get();
+    DType dt = input._dtype();
+    size_t off_in = input.impl->offset;
+
+    // Parallel Loop
+    #pragma omp parallel for
+    for (size_t flat = 0; flat < n; ++flat) {
+        // Decode index
+        size_t rem = flat;
+        size_t idx_in = off_in;
+        
+        for (int d = (int)ndim - 1; d >= 0; --d) {
+            size_t coord = rem % shape[d];
+            rem /= shape[d];
+            idx_in += coord * strides_in[d];
+        }
+
+        double v = read_scalar_at(in_data, idx_in, dt);
+        double val = (v >= 0.0) ? v : v * negative_slope;
+        write_scalar_at(out_data, flat, dt, val); // out is contiguous
+    }
+
     return result;
 }
 
-// GradPRelu::backward (fixed stride handling for grad_output reading and accumulations)
+void GradLeakyRelu::backward(const Tensor& self) {
+    if (!self.impl->storage->grad) throw std::runtime_error("GradLeakyRelu: missing self grad");
+    
+    Tensor grad_output = tensor_from_grad(self); // Stride-aware copy
+    Tensor grad_input = Tensor::zeros(input.shape(), input._dtype(), false);
+    
+    size_t n = input.numel();
+    size_t ndim = input.impl->ndim;
+    const size_t* shape = input.impl->shape;
+    const size_t* strides_in = input.impl->strides;
+    const size_t* strides_gi = grad_input.impl->strides;
+    // grad_output is contiguous from tensor_from_grad
+    
+    auto* in_data = input.impl->storage->data.get();
+    auto* go_data = grad_output.impl->storage->data.get();
+    auto* gi_data = grad_input.impl->storage->data.get();
+    DType dt = input._dtype();
+    size_t off_in = input.impl->offset;
+    size_t off_gi = grad_input.impl->offset;
+
+    #pragma omp parallel for
+    for (size_t flat = 0; flat < n; ++flat) {
+        size_t rem = flat;
+        size_t idx_in = off_in;
+        size_t idx_gi = off_gi;
+
+        for (int d = (int)ndim - 1; d >= 0; --d) {
+            size_t coord = rem % shape[d];
+            rem /= shape[d];
+            idx_in += coord * strides_in[d];
+            idx_gi += coord * strides_gi[d];
+        }
+
+        double v = read_scalar_at(in_data, idx_in, dt);
+        double go = read_scalar_at(go_data, flat, dt); // grad_output is flat/contiguous
+        
+        double gin = (v >= 0.0) ? go : go * negative_slope;
+        write_scalar_at(gi_data, idx_gi, dt, gin);
+    }
+
+    accumulate_grad(input, grad_input);
+}
+
+
+// ===========================================================================
+//                               PReLU (Class)
+// ===========================================================================
+
+PRelu::PRelu(int num_params, double init) : num_parameters(num_params) {
+    // Weight shape: [1] or [C]
+    if (num_parameters == 1) {
+        weight = Tensor::full({1}, init, DType::Float32, true);
+    } else {
+        weight = Tensor::full({(size_t)num_parameters}, init, DType::Float32, true);
+    }
+}
+
+Tensor PRelu::forward(const Tensor& input) {
+    if (!input.impl) throw std::runtime_error("PRelu: null input");
+    
+    // Input validation for per-channel
+    if (num_parameters > 1) {
+        if (input.impl->ndim < 2 || (int)input.impl->shape[1] != num_parameters) {
+            throw std::runtime_error("PRelu: input channels dim 1 must match num_parameters");
+        }
+    }
+
+    size_t n = input.numel();
+    bool req = input.requires_grad() || weight.requires_grad();
+    Tensor result(input.shape(), input._dtype(), req);
+
+    if (req) {
+        result.impl->grad_fn = std::make_shared<GradPRelu>(input, weight);
+    }
+
+    // Pointers
+    size_t ndim = input.impl->ndim;
+    const size_t* shape = input.impl->shape;
+    const size_t* strides_in = input.impl->strides;
+    const size_t* strides_w = weight.impl->strides;
+    
+    auto* in_data = input.impl->storage->data.get();
+    auto* w_data = weight.impl->storage->data.get();
+    auto* out_data = result.impl->storage->data.get();
+    
+    DType dt = input._dtype();
+    size_t off_in = input.impl->offset;
+    size_t off_w = weight.impl->offset;
+    bool per_channel = (num_parameters > 1);
+
+    #pragma omp parallel for
+    for (size_t flat = 0; flat < n; ++flat) {
+        size_t rem = flat;
+        size_t idx_in = off_in;
+        size_t channel_idx = 0;
+
+        for (int d = (int)ndim - 1; d >= 0; --d) {
+            size_t coord = rem % shape[d];
+            rem /= shape[d];
+            idx_in += coord * strides_in[d];
+            if (per_channel && d == 1) channel_idx = coord;
+        }
+
+        // Get weight (alpha)
+        size_t idx_w = off_w; 
+        if (per_channel) idx_w += channel_idx * strides_w[0];
+        
+        double alpha = read_scalar_at(w_data, idx_w, dt);
+        double v = read_scalar_at(in_data, idx_in, dt);
+        
+        double val = (v >= 0.0) ? v : v * alpha;
+        write_scalar_at(out_data, flat, dt, val);
+    }
+
+    return result;
+}
+
 void GradPRelu::backward(const Tensor& self) {
-    if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
-        throw std::runtime_error("GradPRelu: missing self grad");
-    if (!input.impl)
-        throw std::runtime_error("GradPRelu: missing input tensor");
+    if (!self.impl->storage->grad) throw std::runtime_error("GradPRelu: missing self grad");
     
     Tensor grad_output = tensor_from_grad(self); 
     Tensor grad_input = Tensor::zeros(input.shape(), input._dtype(), false);
     Tensor grad_weight = Tensor::zeros(weight.shape(), weight._dtype(), false);
 
-    bool per_channel = (weight.numel() > 1);
     size_t n = input.numel();
     size_t ndim = input.impl->ndim;
-    
     const size_t* shape = input.impl->shape;
     const size_t* strides_in = input.impl->strides;
-    const size_t* strides_go = grad_output.impl->strides;
     const size_t* strides_gi = grad_input.impl->strides;
     const size_t* strides_w = weight.impl->strides;
     const size_t* strides_gw = grad_weight.impl->strides;
@@ -189,49 +198,50 @@ void GradPRelu::backward(const Tensor& self) {
     auto* w_data = weight.impl->storage->data.get();
     auto* go_data = grad_output.impl->storage->data.get();
     auto* gi_data = grad_input.impl->storage->data.get();
-    auto* gw_data = grad_weight.impl->storage->data.get();
+    auto* gw_data = grad_weight.impl->storage->data.get(); // Assuming contiguous accumulation buffer usually
+    
     DType dt = input._dtype();
+    size_t off_in = input.impl->offset;
+    size_t off_gi = grad_input.impl->offset;
+    size_t off_w = weight.impl->offset;
+    size_t off_gw = grad_weight.impl->offset;
+    bool per_channel = (weight.numel() > 1);
 
-    // Parallel loop with atomic updates for weights
     #pragma omp parallel for
     for (size_t flat = 0; flat < n; ++flat) {
         size_t rem = flat;
-        size_t idx_in = input.impl->offset;
-        size_t idx_go = grad_output.impl->offset;
-        size_t idx_gi = grad_input.impl->offset;
+        size_t idx_in = off_in;
+        size_t idx_gi = off_gi;
         size_t channel = 0;
 
         for (int d = (int)ndim - 1; d >= 0; --d) {
             size_t coord = rem % shape[d];
             rem /= shape[d];
             idx_in += coord * strides_in[d];
-            idx_go += coord * strides_go[d];
             idx_gi += coord * strides_gi[d];
             if (per_channel && d == 1) channel = coord;
         }
 
-        // Get alpha (read-only, safe)
-        size_t idx_w = weight.impl->offset + (per_channel ? channel * strides_w[0] : 0);
+        // Get alpha
+        size_t idx_w = off_w;
+        if (per_channel) idx_w += channel * strides_w[0];
         double alpha = read_scalar_at(w_data, idx_w, dt);
 
         double v = read_scalar_at(in_data, idx_in, dt);
-        double go = read_scalar_at(go_data, idx_go, dt);
-        
-        // --- Calculate Gradients ---
-        
-        // Grad Input (Write only to unique location idx_gi per thread -> Safe)
+        double go = read_scalar_at(go_data, flat, dt);
+
+        // 1. Grad Input
         double gin = (v >= 0.0) ? go : go * alpha;
         write_scalar_at(gi_data, idx_gi, dt, gin);
 
-        // Grad Weight (Alpha)
-        // Multiple threads will try to update the SAME weight index (idx_gw)
-        // MUST USE ATOMIC
+        // 2. Grad Weight (Accumulate using ATOMIC)
         if (weight.requires_grad() && v < 0.0) {
             double g_alpha = go * v;
-            size_t idx_gw = grad_weight.impl->offset + (per_channel ? channel * strides_gw[0] : 0);
             
-            // Atomic update for float/double
-            // Note: OpenMP atomic supports float/double accumulation
+            size_t idx_gw = off_gw;
+            if (per_channel) idx_gw += channel * strides_gw[0];
+
+            // Atomic update based on type
             if (dt == DType::Float32) {
                 float* ptr = (float*)gw_data + idx_gw;
                 #pragma omp atomic
@@ -244,11 +254,6 @@ void GradPRelu::backward(const Tensor& self) {
         }
     }
 
-    // Accumulate final gradients
-    if (input.requires_grad()) {
-        accumulate_grad(input, grad_input);
-    }
-    if (weight.requires_grad()) {
-        accumulate_grad(weight, grad_weight);
-    }
+    if (input.requires_grad()) accumulate_grad(input, grad_input);
+    if (weight.requires_grad()) accumulate_grad(weight, grad_weight);
 }
