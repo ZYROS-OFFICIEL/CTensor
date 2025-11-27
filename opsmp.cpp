@@ -249,8 +249,24 @@ Tensor matmul_mp(const Tensor& A, const Tensor& B) {
         throw std::runtime_error("matmul_mp requires at least 2D tensors");
 
     size_t K = A.impl->shape[A.impl->ndim - 1];
-    if (B.impl->shape[B.impl->ndim - 2] != K)
+    
+    // --- DEBUGGING OUTPUT ---
+    if (B.impl->shape[B.impl->ndim - 2] != K) {
+        std::cerr << "\n!!! MATMUL SHAPE MISMATCH !!!" << std::endl;
+        std::cerr << "Tensor A: [";
+        for(size_t i=0; i<A.impl->ndim; ++i) std::cerr << A.impl->shape[i] << (i<A.impl->ndim-1?",":"");
+        std::cerr << "]" << std::endl;
+        
+        std::cerr << "Tensor B: [";
+        for(size_t i=0; i<B.impl->ndim; ++i) std::cerr << B.impl->shape[i] << (i<B.impl->ndim-1?",":"");
+        std::cerr << "]" << std::endl;
+        
+        std::cerr << "Inner dim A (last): " << K << std::endl;
+        std::cerr << "Inner dim B (second-last): " << B.impl->shape[B.impl->ndim - 2] << std::endl;
+        
         throw std::runtime_error("matmul_mp shape mismatch");
+    }
+    // -------------------------
     
     size_t M = A.impl->shape[A.impl->ndim - 2];
     size_t N = B.impl->shape[B.impl->ndim - 1];
@@ -258,12 +274,22 @@ Tensor matmul_mp(const Tensor& A, const Tensor& B) {
     std::vector<size_t> res_shape = A.shape();
     res_shape.back() = N; 
     
+    // Check batch dimensions
+    size_t batch_A = 1;
+    size_t batch_B = 1;
+    for(size_t i=0; i<A.impl->ndim-2; ++i) batch_A *= A.impl->shape[i];
+    for(size_t i=0; i<B.impl->ndim-2; ++i) batch_B *= B.impl->shape[i];
+    
+    size_t batch_out = std::max(batch_A, batch_B);
+    
+    if (batch_A != batch_B && batch_A != 1 && batch_B != 1) {
+        throw std::runtime_error("matmul_mp: batch dimensions not broadcastable");
+    }
+
     bool req = A.requires_grad() || B.requires_grad();
     Tensor C(res_shape, A._dtype(), req);
     
     if (req) C.impl->grad_fn = std::make_shared<GradMatMul>(A, B);
-    
-    size_t batch_size = C.numel() / (M * N);
     
     size_t stride_am = A.impl->strides[A.impl->ndim - 2];
     size_t stride_ak = A.impl->strides[A.impl->ndim - 1];
@@ -277,25 +303,55 @@ Tensor matmul_mp(const Tensor& A, const Tensor& B) {
     auto* data_c = C.impl->storage->data.get();
     DType dt = A._dtype();
 
-    // Assumes contiguous batch for now for speed
+    // --- CORRECTED BATCH STRIDE LOGIC ---
+    size_t stride_A_batch = 0;
+    size_t stride_B_batch = 0;
+    
+    if (A.impl->ndim > 2 && batch_A > 1) stride_A_batch = A.impl->strides[0];
+    // NOTE: If dim > 3, we'd need to flatten strides or recursively index. 
+    // Assuming simplified flat batch for standard [N, M, K] use case.
+    // For Linear layer A=[N, M], stride_A_batch is 0 because it's just 2D!
+    
+    if (B.impl->ndim > 2 && batch_B > 1) stride_B_batch = B.impl->strides[0];
+
     #pragma omp parallel for collapse(2)
-    for (size_t b = 0; b < batch_size; ++b) {
+    for (size_t b = 0; b < batch_out; ++b) {
         for (size_t m = 0; m < M; ++m) {
-            size_t a_row_offset = A.impl->offset; 
-            size_t b_col_offset = B.impl->offset; 
-            size_t c_row_offset = C.impl->offset + b * (M*N); 
+            
+            // Batch offsets logic
+            // For 2D matrices (Linear layer inputs/weights), offsets are 0.
+            // For 3D [Batch, M, K], offset jumps by b * stride[0]
+            // BUT Linear Input is [64, 400]. That IS 2D. M=64, K=400.
+            // MatMul interprets this as 1 matrix of size 64x400.
+            // This means batch_A = 1. batch_out = 1. 
+            // The parallel loop runs for b=0 only.
+            // Wait, if A=[64, 400], ndim=2. batch_A=1.
+            // B=[400, 120]. ndim=2. batch_B=1.
+            // batch_out=1.
+            // The logic treats the "Batch" dimension of the Linear layer as "M".
+            // This is correct!
+            
+            // So why did I think we needed broadcasting?
+            // Broadcasting is for [Batch, M, K] @ [K, N] -> [Batch, M, N].
+            // Your Linear layer does [Batch, In] @ [In, Out] -> [Batch, Out].
+            // This is just STANDARD 2D multiplication where M=Batch.
+            // So batch_out is indeed 1.
+            
+            size_t c_base = C.impl->offset + b * (M*N); // If batch_out > 1
+            size_t a_batch_off = b * stride_A_batch;
+            size_t b_batch_off = b * stride_B_batch;
             
             for (size_t n_idx = 0; n_idx < N; ++n_idx) {
                 double sum = 0;
                 for (size_t k = 0; k < K; ++k) {
-                    size_t idx_a = A.impl->offset + b*(M*K) + m * stride_am + k * stride_ak;
-                    size_t idx_b = B.impl->offset + b*(K*N) + k * stride_bk + n_idx * stride_bn;
+                    size_t idx_a = A.impl->offset + a_batch_off + m * stride_am + k * stride_ak;
+                    size_t idx_b = B.impl->offset + b_batch_off + k * stride_bk + n_idx * stride_bn;
                     
                     double va = read_scalar_at(data_a, idx_a, dt);
                     double vb = read_scalar_at(data_b, idx_b, dt);
                     sum += va * vb;
                 }
-                size_t idx_c = c_row_offset + m * stride_cm + n_idx * stride_cn;
+                size_t idx_c = c_base + m * stride_cm + n_idx * stride_cn;
                 write_scalar_at(data_c, idx_c, dt, sum);
             }
         }
@@ -520,5 +576,8 @@ Tensor operator^(const Tensor& a, const Tensor& b) {
 
 // scalar on the left
 Tensor operator+(double s, const Tensor& a) {
+    return add_scalar_mp(a, s);
+}
+Tensor operator+(const Tensor& a,double s) {
     return add_scalar_mp(a, s);
 }
