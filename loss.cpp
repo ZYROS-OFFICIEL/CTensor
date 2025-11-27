@@ -1,5 +1,5 @@
 #include "loss.h"
-#include "ops1.h"
+#include "opsmp.h"
 #include <cmath>
 #include <string>
 Tensor Loss::MSE(const Tensor& pred_, const Tensor& target_) {
@@ -13,10 +13,10 @@ Tensor Loss::MSE(const Tensor& pred_, const Tensor& target_) {
     Tensor result({1}, pred_.impl->dtype, req);
 
     // Compute (pred - target)^2
-    Tensor temp = pow_scalar(pred_ - target_, 2);
+    Tensor temp = pow_scalar_mp(pred_ - target_, 2);
 
     // Sum all elements
-    Tensor summed = sum(temp, -1);
+    Tensor summed = sum_mp(temp, -1);
 
     // Divide by number of elements to get MSE
     double mse_value = read_scalar_at(summed.impl->storage->data.get(), 0, summed._dtype()) 
@@ -41,10 +41,10 @@ Tensor Loss::MAE(const Tensor& pred, const Tensor& target,std::string reduction)
     Tensor result({1}, pred.impl->dtype, req);
 
     // Compute |pred - target|
-    Tensor temp = abs_(pred - target);
+    Tensor temp = abs_mp(pred - target);
 
     // Sum all elements
-    Tensor summed = sum(temp, -1);
+    Tensor summed = sum_mp(temp, -1);
 
     double mae_value = read_scalar_at(summed.impl->storage->data.get(), 0, summed._dtype());
 
@@ -74,14 +74,14 @@ Tensor Loss::HuberLoss(const Tensor& pred, const Tensor& target,std::string redu
     
     // Compute Huber Loss
     Tensor diff = pred - target;
-    Tensor abs_diff = abs_(diff);
+    Tensor abs_diff = abs_mp(diff);
     Tensor linear = delta * (abs_diff - 0.5 * delta);
     Tensor quadratic = 0.5 * diff * diff;
 
     Tensor huber_loss = (abs_diff <= delta) * quadratic + (abs_diff > delta) * linear;
     
     // Sum all elements
-    Tensor summed = sum(huber_loss, -1);
+    Tensor summed = sum_mp(huber_loss, -1);
     double huber_value = read_scalar_at(summed.impl->storage->data.get(), 0, summed._dtype());
     if(reduction == "mean") {
         huber_value /= static_cast<double>(pred.numel_());
@@ -107,20 +107,20 @@ Tensor Loss::CrossEntropy(const Tensor& pred_, const Tensor& target_,std::string
 
     // --- Softmax manually (numerically stable) ---
     // step 1: subtract max to avoid overflow
-    Tensor max_vals = max(pred_, -1);       // keepdims=True
+    Tensor max_vals = max_mp(pred_, -1);       // keepdims=True
     Tensor shifted = pred_ - max_vals;
 
     // step 2: exponentiate and normalize
-    Tensor exp_shifted = exp_(shifted);
-    Tensor sum_exp = sum(exp_shifted, -1);
+    Tensor exp_shifted = exp_mp(shifted);
+    Tensor sum_exp = sum_mp(exp_shifted, -1);
     Tensor probs = exp_shifted / sum_exp;         // softmax result
 
     // --- Cross Entropy ---
-    Tensor ce = -sum(target_ * ln_(probs), -1);  // element-wise * then sum
+    Tensor ce = -sum_mp(target_ * ln_mp(probs), -1);  // element-wise * then sum
 
     // --- Mean across batch if needed ---
     if(reduction == "mean")
-        result = mean(ce);
+        result = mean_mp(ce);
 
     // --- Optional backward ---
     if (req)
@@ -141,10 +141,10 @@ Tensor Loss::LogCosh(const Tensor& pred, const Tensor& target,std::string reduct
 
     // Compute Log-Cosh Loss
     Tensor diff = pred - target;
-    Tensor log_cosh_loss = ln_(cosh_(diff));
+    Tensor log_cosh_loss = ln_mp(cosh_mp(diff));
 
     // Sum all elements
-    Tensor summed = sum(log_cosh_loss, -1);
+    Tensor summed = sum_mp(log_cosh_loss, -1);
     double log_cosh_value = read_scalar_at(summed.impl->storage->data.get(), 0, summed._dtype());
 
     if(reduction == "mean") {
@@ -168,8 +168,8 @@ Tensor Loss::BCE(const Tensor& pred, const Tensor& target,std::string reduction)
 
     if (pred.impl->ndim != target.impl->ndim)
         throw std::runtime_error("Loss::BCE: dimension mismatch");
-    Tensor t_max = max(pred); // returns shape [1]
-    Tensor t_min = min(pred); // returns shape [1]
+    Tensor t_max = max_mp(pred); // returns shape [1]
+    Tensor t_min = min_mp(pred); // returns shape [1]
     
     // read scalar value from the underlying storage
     double max_val = read_scalar_at(t_max.impl->storage->data.get(), 0, t_max._dtype());
@@ -182,13 +182,13 @@ Tensor Loss::BCE(const Tensor& pred, const Tensor& target,std::string reduction)
     Tensor result({1}, pred.impl->dtype, req);
 
     // Compute BCE Loss
-    Tensor log_pred = ln_(pred + 1e-12);               // to avoid log(0)
-    Tensor log_one_minus_pred = ln_(1 - pred + 1e-12); // to avoid log(0)
+    Tensor log_pred = ln_mp(pred + 1e-12);               // to avoid log(0)
+    Tensor log_one_minus_pred = ln_mp(1 - pred + 1e-12); // to avoid log(0)
 
     Tensor bce_loss = - (target * log_pred + (1 - target) * log_one_minus_pred);
 
     // Sum all elements
-    Tensor summed = sum(bce_loss, -1);
+    Tensor summed = sum_mp(bce_loss, -1);
     double bce_value = read_scalar_at(summed.impl->storage->data.get(), 0, summed._dtype());
 
     if(reduction == "mean") {
@@ -216,11 +216,11 @@ Tensor Loss::KLDiv(const Tensor& pred, const Tensor& target,std::string reductio
     Tensor result({1}, pred.impl->dtype, req);
 
     // Compute KL Divergence Loss
-    Tensor log_pred = ln_(pred + 1e-12); // to avoid log(0)
-    Tensor kl_loss = target * (log_pred - ln_(target + 1e-12));
+    Tensor log_pred = ln_mp(pred + 1e-12); // to avoid log(0)
+    Tensor kl_loss = target * (log_pred - ln_mp(target + 1e-12));
 
     // Sum all elements
-    Tensor summed = sum(kl_loss, -1);
+    Tensor summed = sum_mp(kl_loss, -1);
     double kl_value = read_scalar_at(summed.impl->storage->data.get(), 0, summed._dtype());
 
     if(reduction == "mean") {
@@ -247,13 +247,13 @@ Tensor Loss::NLLLoss(const Tensor& pred, const Tensor& target,std::string reduct
     bool req = pred.requires_grad();
     Tensor result({1}, pred.impl->dtype, req);
 
-    Tensor picked = gather(pred, target, 1);  // selects pred[i, target[i]]
+    Tensor picked = pred.gather(target, 1);  // selects pred[i, target[i]]
 
     // 3️⃣ Compute the NLL loss per sample
-    Tensor nll_loss = - ln_(picked + 1e-12);  // shape: [batch_size, 1]
+    Tensor nll_loss = - ln_mp(picked + 1e-12);  // shape: [batch_size, 1]
 
     // Sum all elements
-    Tensor summed = sum(nll_loss, -1);
+    Tensor summed = sum_mp(nll_loss, -1);
     double nll_value = read_scalar_at(summed.impl->storage->data.get(), 0, summed._dtype());
 
     if(reduction == "mean") {
@@ -284,10 +284,10 @@ Tensor HingeLoss(const Tensor& pred, const Tensor& target,std::string reduction)
     // Compute Hinge Loss
     Tensor one = Tensor::full(pred.shape(), 1.0, pred._dtype(), false);
     Tensor margin = one - target * pred;
-    Tensor hinge_loss = Relu_(margin);
+    Tensor hinge_loss = Relu_mp(margin);
 
     // Sum all elements
-    Tensor summed = sum(hinge_loss);
+    Tensor summed = sum_mp(hinge_loss);
     double hinge_value = read_scalar_at(summed.impl->storage->data.get(), 0, summed._dtype());
 
     if(reduction == "mean") {
@@ -318,10 +318,10 @@ Tensor MarginRankingLoss(const Tensor& input1, const Tensor& input2, const Tenso
     // Compute Margin Ranking Loss
     Tensor diff = input1 - input2;
     Tensor margin_tensor = margin - target * diff;
-    Tensor loss = Relu_(margin_tensor);
+    Tensor loss = Relu_mp(margin_tensor);
 
     // Sum all elements
-    Tensor summed = sum(loss);
+    Tensor summed = sum_mp(loss);
     double loss_value = read_scalar_at(summed.impl->storage->data.get(), 0, summed._dtype());
 
     if(reduction == "mean") {
@@ -427,10 +427,10 @@ void GradCrossEntropy::backward(const Tensor& self) {
     if (!pred.requires_grad()) return;
 
     // Compute softmax manually
-    Tensor max_vals = max(pred, -1);
+    Tensor max_vals = max_mp(pred, -1);
     Tensor shifted = pred - max_vals;
-    Tensor exp_shifted = exp_(shifted);
-    Tensor sum_exp = sum(exp_shifted, -1);
+    Tensor exp_shifted = exp_mp(shifted);
+    Tensor sum_exp = sum_mp(exp_shifted, -1);
     Tensor probs = exp_shifted / sum_exp;  // softmax(pred)
 
     // Gradient: softmax(pred) - target
