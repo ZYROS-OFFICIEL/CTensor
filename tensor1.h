@@ -175,7 +175,7 @@ struct Tensor {
     static Tensor from_image(const std::string& path, DType dt = DType::Float32);
     void save_image(const std::string& path) const;
 
-    Tensor gather(const Tensor& index, size_t dim=1);
+    Tensor gather(const Tensor& index, size_t dim=1) const;
     // autograd hook (pointer to grad function) - can be set by ops
     std::shared_ptr<GradFn> grad_fn;
 
