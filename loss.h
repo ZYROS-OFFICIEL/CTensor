@@ -5,7 +5,7 @@
 #include "autograd.h"
 #include <immintrin.h>
 #include <cstring>
-#include "ops1.h"
+#include "opsmp.h"
 #include <string>
 #pragma once
 #include "tensor1.h"
