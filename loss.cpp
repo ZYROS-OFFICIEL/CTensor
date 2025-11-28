@@ -1,6 +1,7 @@
 #include "loss.h"
 #include "opsmp.h"
 #include <cmath>
+#include <cstdint>
 #include <string>
 Tensor Loss::MSE(const Tensor& pred_, const Tensor& target_) {
     if (!pred_.impl || !target_.impl)
@@ -420,28 +421,55 @@ void GradHuberLoss::backward(const Tensor& self) {
     accumulate_grad(pred, grad_input);
 }
 
+// --- CROSS ENTROPY BACKWARD (UPDATED FOR INDICES) ---
 void GradCrossEntropy::backward(const Tensor& self) {
-    if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
-        throw std::runtime_error("CrossEntropy: missing self grad");
+    if (!self.impl->storage->grad) throw std::runtime_error("GradCrossEntropy: missing self grad");
     if (!pred.requires_grad()) return;
 
-    // Compute softmax manually
-    Tensor max_vals = max_mp(pred, -1);
+    // 1. Re-compute Softmax (can be optimized if cached, but safer to recompute)
+    Tensor max_vals = max_mp(pred, 1).reshape({pred.shape()[0], 1});
     Tensor shifted = pred - max_vals;
-    Tensor exp_shifted = exp_mp(shifted);
-    Tensor sum_exp = sum_mp(exp_shifted, -1);
-    Tensor probs = exp_shifted / sum_exp;  // softmax(pred)
+    Tensor sum_exp = sum_mp(exp_mp(shifted), 1).reshape({pred.shape()[0], 1});
+    Tensor probs = exp_mp(shifted) / sum_exp; 
 
-    // Gradient: softmax(pred) - target
-    Tensor grad_input = probs - target;
+    // 2. Initialize Gradient with 'probs'
+    // Deriv is (probs - 1) at target index, (probs - 0) elsewhere.
+    Tensor grad_input = probs; 
+
+    // 3. Subtract 1.0 at target indices
+    size_t batch_size = pred.shape()[0];
+    size_t num_classes = pred.shape()[1];
+    
+    // We assume target is Int32 [Batch, 1]
+    int32_t* t_ptr = (int32_t*)target.impl->storage->data.get();
+    float* g_ptr = (float*)grad_input.impl->storage->data.get(); // assuming float gradient
+
+    #pragma omp parallel for
+    for (size_t b = 0; b < batch_size; ++b) {
+        int label = t_ptr[b];
+        if (label >= 0 && label < (int)num_classes) {
+            size_t idx = b * num_classes + label;
+            g_ptr[idx] -= 1.0f; 
+        }
+    }
+
+    // 4. Handle Reduction and Incoming Gradient
+    // Get scalar gradient from loss (usually 1.0)
+    double grad_out = read_scalar_at(self.impl->storage->grad.get(), 0, self._dtype());
 
     if (reduction == "mean") {
-    grad_input = grad_input / static_cast<double>(pred.shape()[0]);
+        grad_out /= static_cast<double>(batch_size);
+    }
+
+    // Apply scaling
+    if (grad_out != 1.0) {
+        size_t n = grad_input.numel();
+        #pragma omp parallel for
+        for (size_t i = 0; i < n; ++i) g_ptr[i] *= (float)grad_out;
     }
 
     accumulate_grad(pred, grad_input);
 }
-
 void GradBCE::backward(const Tensor& self) {
     if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
         throw std::runtime_error("GradBCE: missing self grad");
@@ -526,37 +554,40 @@ void GradKLDiv::backward(const Tensor& self) {
 
     accumulate_grad(pred, grad_input);
 }
-
+// --- NLL LOSS BACKWARD (UPDATED FOR INDICES) ---
 void GradNLLLoss::backward(const Tensor& self) {
-    if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
-        throw std::runtime_error("GradNLLLoss: missing self grad");
+    if (!self.impl->storage->grad) throw std::runtime_error("GradNLLLoss: missing self grad");
     if (!pred.requires_grad()) return;
 
-    Tensor grad_input = tensor_from_grad(self);
-    size_t n = pred.numel_();
+    Tensor grad_input = Tensor::zeros(pred.shape(), pred._dtype(), false);
+    
+    size_t batch_size = pred.shape()[0];
+    size_t num_classes = pred.shape()[1];
+    int32_t* t_ptr = (int32_t*)target.impl->storage->data.get();
+    float* g_ptr = (float*)grad_input.impl->storage->data.get();
 
-    auto* gdata = grad_input.impl->storage->data.get();
-    auto* pdata = pred.impl->storage->data.get();
-    auto* tdata = target.impl->storage->data.get();
-
-    for (size_t i = 0; i < n; ++i) {
-        double p = read_scalar_at(pdata, i, pred._dtype());
-        double t = read_scalar_at(tdata, i, target._dtype());
-        double grad_val = 0.0;
-        if (static_cast<size_t>(t) == i % pred.shape()[1]) { // assuming target contains class indices
-            grad_val = -1.0 / (p + 1e-12); // derivative of NLLLoss
+    #pragma omp parallel for
+    for (size_t b = 0; b < batch_size; ++b) {
+        int label = t_ptr[b];
+        if (label >= 0 && label < (int)num_classes) {
+            // Gradient of NLL w.r.t input (LogProb) is -1 at target index
+            size_t idx = b * num_classes + label;
+            g_ptr[idx] = -1.0f;
         }
-        write_scalar_at(gdata, i, grad_input._dtype(), grad_val);
     }
 
-    // 🔹 If reduction is "mean", scale gradient
-    if (reduction == "mean") {
-        grad_input = grad_input / static_cast<double>(n);
+    double grad_out = read_scalar_at(self.impl->storage->grad.get(), 0, self._dtype());
+    if (reduction == "mean") grad_out /= static_cast<double>(batch_size);
+
+    if (grad_out != 1.0) {
+        size_t n = grad_input.numel();
+        #pragma omp parallel for
+        for (size_t i = 0; i < n; ++i) g_ptr[i] *= (float)grad_out;
     }
-    // 🔹 If reduction == "sum", leave as-is (no scaling)
 
     accumulate_grad(pred, grad_input);
 }
+
 void GradHingeLoss::backward(const Tensor& self) {
     if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
         throw std::runtime_error("GradHingeLoss: missing self grad");
