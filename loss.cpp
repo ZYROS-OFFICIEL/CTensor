@@ -237,36 +237,28 @@ Tensor Loss::KLDiv(const Tensor& pred, const Tensor& target,std::string reductio
     return result;
 }
 
-Tensor Loss::NLLLoss(const Tensor& pred, const Tensor& target,std::string reduction){
-    if (!pred.impl || !target.impl)
-        throw std::runtime_error("Loss::NLLLoss: null tensor implementation");
-
-    if (pred.impl->ndim != target.impl->ndim)
-        throw std::runtime_error("Loss::NLLLoss: dimension mismatch");
+// --- NLL LOSS (UPDATED FOR INDICES) ---
+Tensor Loss::NLLLoss(const Tensor& pred, const Tensor& target, std::string reduction){
+    if (!pred.impl || !target.impl) throw std::runtime_error("Loss::NLLLoss: null tensor");
+    
+    // Assumes pred is ALREADY Log-Probabilities [Batch, Classes]
+    // Target is Indices [Batch, 1]
 
     bool req = pred.requires_grad();
     Tensor result({1}, pred.impl->dtype, req);
 
-    Tensor picked = pred.gather(target, 1);  // selects pred[i, target[i]]
+    // Gather specific indices
+    Tensor picked = pred.gather(target, 1);  
+    Tensor loss = picked * -1.0; // NLL is negative log likelihood
 
-    // 3️⃣ Compute the NLL loss per sample
-    Tensor nll_loss = - ln_mp(picked + 1e-12);  // shape: [batch_size, 1]
+    Tensor reduced;
+    if(reduction == "mean") reduced = mean_mp(loss);
+    else reduced = sum_mp(loss);
 
-    // Sum all elements
-    Tensor summed = sum_mp(nll_loss, -1);
-    double nll_value = read_scalar_at(summed.impl->storage->data.get(), 0, summed._dtype());
+    double val = read_scalar_at(reduced.impl->storage->data.get(), 0, reduced._dtype());
+    write_scalar_at(result.impl->storage->data.get(), 0, result._dtype(), val);
 
-    if(reduction == "mean") {
-        nll_value /= static_cast<double>(pred.numel_());
-    }
-
-    write_scalar_at(result.impl->storage->data.get(), 0, result._dtype(), nll_value);
-
-    // Attach backward function if needed
-    if (req) {
-        result.impl->grad_fn = std::make_shared<GradNLLLoss>(pred, target, reduction);
-    }
-
+    if (req) result.impl->grad_fn = std::make_shared<GradNLLLoss>(pred, target, reduction);
     return result;
 }
 
