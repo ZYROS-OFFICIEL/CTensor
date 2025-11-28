@@ -210,9 +210,6 @@ int main() {
                 
                 // Backward
                 backward(loss);
-                for (auto p : model.parameters()) {
-                    std::cout << p->read_scalar(0) << " "; // first weight of each param
-                }
 
                 
                 // Update
