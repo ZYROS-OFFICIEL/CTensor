@@ -2,7 +2,9 @@
 #include <vector>
 #include <chrono>
 #include <iomanip>
-
+#include <cstring> // for memcpy
+#include <ctime>   // for time
+#include <cstdint>
 #include "tensor1.h"
 #include "opsmp.h"
 #include "autograd.h"
@@ -11,49 +13,11 @@
 #include "layer.h"
 #include "Relu.h"
 #include "dropout.h"
-#include "loss.h"
+#include "loss.h"        // <--- Now uses your updated library loss
 #include "train_utils.h"
 #include "mnist.h"
 
-// --- SAFE LOSS FUNCTION IMPLEMENTATION ---
-// Implements LogSoftmax + NLLLoss with explicit reshaping to prevent broadcast errors
-Tensor cross_entropy_loss(const Tensor& logits, const Tensor& targets) {
-    // logits: [Batch, Classes]
-    // targets: [Batch, 1] (indices)
-    
-    size_t B = logits.shape()[0];
-    size_t C = logits.shape()[1];
-
-    // 1. LogSoftmax Stability Trick: x - max(x)
-    // We don't have max(dim) exposed in opsmp header nicely yet for some versions, 
-    // so we skip the shift for simplicity (might be slightly unstable for huge values but fine for MNIST).
-    // If you have max_mp(t, dim), use it:
-    Tensor max_vals = max_mp(logits, 1).reshape({B, 1});
-    Tensor shifted = logits - max_vals; 
-
-    // 2. Compute Exp
-    Tensor exp_vals = exp_mp(shifted);
-
-    // 3. Sum Exp (keepdims=True manually)
-    Tensor sum_exp = sum_mp(exp_vals, 1); // Returns [Batch]
-    sum_exp = sum_exp.reshape({B, 1});    // Force [Batch, 1] for broadcasting <--- THE FIX
-
-    // 4. Log(Sum(Exp))
-    Tensor log_sum_exp = ln_mp(sum_exp);
-
-    // 5. LogSoftmax = logits - log_sum_exp
-    Tensor log_probs = shifted - log_sum_exp; // [B, 10] - [B, 1] -> OK!
-
-    // 6. NLL Loss (Pick correct class probability)
-    // targets must be [B, 1]
-    Tensor picked = log_probs.gather(targets, 1); // [B, 1]
-    
-    // 7. Mean and Negate
-    Tensor loss = mean_mp(picked) * -1.0;
-    
-    return loss;
-}
-
+// --- Model Definition ---
 class ConvNet : public Module {
 public:
     Conv2d conv1;
@@ -74,11 +38,11 @@ public:
         // LeNet-5 style architecture
         : conv1(1, 6, 5, 5, 1, 1, 2, 2),
           relu1(),
-          pool1(2, 2, 2, 2),  // Fixed Stride=2
+          pool1(2, 2, 2, 2),
           
           conv2(6, 16, 5, 5),
           relu2(),
-          pool2(2, 2, 2, 2),  // Fixed Stride=2
+          pool2(2, 2, 2, 2),
           
           flat(),
           
@@ -99,7 +63,7 @@ public:
         
         out = flat(out);
         
-        // Safety Reshape
+        // Safety Reshape for Linear Layer
         if (out.impl->ndim != 2) {
              size_t batch_size = out.impl->shape[0];
              size_t features = out.numel() / batch_size;
@@ -125,44 +89,34 @@ public:
 
 int main() {
     try {
-        Tensor test_logits = Tensor::from_vector(
-            {
-                2.0, 1.0, 0.1, 0.5,
-                0.1, 0.2, 3.0, 0.3,
-                1.0, 2.0, 0.1, 0.4,
-                0.5, 0.3, 0.2, 4.0
-            },
-            {4,4}
-        );
-        Tensor test_targets = Tensor::from_vector(
-            {0, 2, 1, 3},
-            {4,1},
-            DType::Int32
-        );
-
-        Tensor L = cross_entropy_loss(test_logits, test_targets);
-        std::cout << "Test loss = " << L.read_scalar(0) << std::endl;
-
         std::cout << "Loading MNIST data..." << std::endl;
         MNISTData train_data = load_mnist("train-images.idx3-ubyte", "train-labels.idx1-ubyte");
         
         ConvNet model;
-        // Default rand() gives [0, 1]. We need [-0.1, 0.1] for convergence.
+
+        // --- IMPORTANT: Weight Re-Initialization & Gradient Enable ---
+        std::cout << "Initializing weights..." << std::endl;
         std::srand(std::time(nullptr));
+        
         for (auto* p : model.parameters()) {
             if (!p->impl) continue;
+
+            // 1. CRITICAL: Enable gradients manually 
+            // (in case the constructor defaulted to false)
+            p->requires_grad_(true); 
+
+            // 2. Initialize with small random values [-0.1, 0.1]
             size_t n = p->numel();
-            // access raw data assuming float (since model weights are float)
             float* ptr = (float*)p->impl->storage->data.get();
             
-            // He/Xavier-like initialization (simple version)
-            // Random values between -0.1 and 0.1
             for (size_t i = 0; i < n; ++i) {
-                float r = static_cast<float>(std::rand()) / RAND_MAX; // 0 to 1
-                ptr[i] = (r - 0.5f) * 0.2f; // shift to -0.5..0.5, then scale to -0.1..0.1
+                float r = static_cast<float>(std::rand()) / RAND_MAX; 
+                ptr[i] = (r - 0.5f) * 0.2f; 
             }
         }
-        Optimizer optim(model.parameters(), 1e-2); 
+        // -------------------------------------------------------------
+
+        Optimizer optim(model.parameters(), 0.01); // Learning Rate 0.01
         
         int BATCH_SIZE = 64;
         int EPOCHS = 5;
@@ -179,47 +133,42 @@ int main() {
             for (int b = 0; b < num_batches; ++b) {
                 size_t start_idx = b * BATCH_SIZE;
                 
-                // --- CORRECTED ---
-                // Batch Images
+                // --- BATCH PREPARATION ---
+                
+                // 1. Images: Use Float32
                 std::vector<size_t> batch_shape_img = { (size_t)BATCH_SIZE, 1, 28, 28 };
-
-                // 1. Change DType to Float32
                 Tensor batch_imgs(batch_shape_img, DType::Float32, false); 
 
-                // 2. Cast to float* (assuming Float32 is 4 bytes)
                 float* src_ptr = (float*)train_data.images.impl->storage->data.get() + start_idx * 28*28;
                 float* dst_ptr = (float*)batch_imgs.impl->storage->data.get();
-
-                // 3. Copy using sizeof(float)
                 std::memcpy(dst_ptr, src_ptr, BATCH_SIZE * 28 * 28 * sizeof(float));
                 
-                // Batch Labels (Reshaped to [B, 1] for Gather)
+                // 2. Labels: Use Int32 (Indices)
                 std::vector<size_t> batch_shape_lbl = { (size_t)BATCH_SIZE, 1 }; 
                 Tensor batch_lbls(batch_shape_lbl, DType::Int32, false);
+                
                 int32_t* src_lbl = (int32_t*)train_data.labels.impl->storage->data.get() + start_idx;
                 int32_t* dst_lbl = (int32_t*)batch_lbls.impl->storage->data.get();
                 std::memcpy(dst_lbl, src_lbl, BATCH_SIZE * sizeof(int32_t));
 
+                // --- TRAINING STEP ---
                 optim.zero_grad();
                 
-                // Forward
                 Tensor output = model.forward(batch_imgs);
                 
-                // Loss (Using safe local implementation)
-                Tensor loss = cross_entropy_loss(output, batch_lbls);
+                // USE LIBRARY LOSS (Now works with indices!)
+                Tensor loss = Loss::CrossEntropy(output, batch_lbls);
                 
-                // Backward
                 backward(loss);
-
-                
-                // Update
                 optim.step();
                 
-                epoch_loss += loss.read_scalar(0);
+                // Logging
+                double current_loss = loss.read_scalar(0);
+                epoch_loss += current_loss;
                 
-                if (b % 50 == 0) {
+                if (b % 100 == 0) {
                     std::cout << "Batch " << b << "/" << num_batches 
-                              << " Loss: " << loss.read_scalar(0) << std::endl;
+                              << " Loss: " << current_loss << std::endl;
                 }
             }
             auto end_time = std::chrono::high_resolution_clock::now();
