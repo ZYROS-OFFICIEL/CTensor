@@ -12,11 +12,12 @@ class Linear : public Module {
 public:
     int in_features;
     int out_features;
+    DType dtype;
     Tensor weight; // Shape: [out_features, in_features]
     Tensor bias;   // Shape: [out_features]
 
     // Constructor
-    Linear(int in_feat, int out_feat, bool bias = true);
+    Linear(int in_feat, int out_feat, bool bias = true, DType dt = DType::Float32);
 
     // Implement parameters() so the Optimizer can train this layer
     std::vector<Tensor*> parameters() override {
