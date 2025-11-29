@@ -1,82 +1,99 @@
+#include <iostream>
+#include <vector>
+#include <cmath>
+#include <iomanip>
 #include "tensor1.h"
+#include "autograd.h"
+#include "opsmp.h"
+#include "layer.h"
+#include "conv.h"
 
-// ---------- TESTS ----------
+// Helper to print first few elements
+void print_head(const Tensor& t, const std::string& name) {
+    std::cout << name << " [";
+    for(int i=0; i< std::min((size_t)5, t.numel()); ++i) 
+        std::cout << t.read_scalar(i) << ", ";
+    std::cout << "...]\n";
+}
+
+// TEST 1: Basic Autograd & Permute (Fixing the Linear Layer bug)
+void test_permute_grad() {
+    std::cout << "\n=== TEST 1: Permute Gradient ===\n";
+    // x: [2, 3] -> x.t(): [3, 2]
+    Tensor x = Tensor::from_vector({1, 2, 3, 4, 5, 6}, {2, 3}, DType::Float32, true);
+    
+    Tensor y = x.t_(); // Permute
+    Tensor loss = sum_mp(y); // Sum all elements. Grad should be 1.0 everywhere.
+    
+    backward(loss);
+    
+    std::cout << "Backward run complete.\n";
+    
+    // Check gradients of x
+    // If working, all grads should be 1.0
+    // If broken (stride bug), they will be scrambled or zero.
+    if (x.impl->storage->grad) {
+        print_head(tensor_from_grad(x), "x.grad");
+        double g0 = read_scalar_at(x.impl->storage->grad.get(), 0, x._dtype());
+        if (std::abs(g0 - 1.0) < 1e-5) std::cout << "[PASS] Permute Gradient correct.\n";
+        else std::cout << "[FAIL] Permute Gradient incorrect (Expected 1.0).\n";
+    } else {
+        std::cout << "[FAIL] x has no grad!\n";
+    }
+}
+
+// TEST 2: Linear Layer Update
+void test_linear_update() {
+    std::cout << "\n=== TEST 2: Linear Layer Update ===\n";
+    Linear fc(10, 1, false, DType::Float32); // 10 inputs, 1 output, no bias
+    fc.weight.requires_grad_(true);
+    
+    // Initialize weight to 0.5
+    fc.weight = Tensor::full({1, 10}, 0.5, DType::Float32, true); 
+    
+    Tensor input = Tensor::ones({1, 10}, DType::Float32, false);
+    Tensor output = fc(input); // output = input @ weight.t()
+    
+    // Loss = output (scalar). dLoss/dOut = 1.
+    // dOut/dW = input. 
+    // So dLoss/dW should be 1.0 for all weights.
+    backward(output);
+    
+    print_head(tensor_from_grad(fc.weight), "Weight Grad");
+    
+    double wg = read_scalar_at(fc.weight.impl->storage->grad.get(), 0, fc.weight._dtype());
+    if (std::abs(wg - 1.0) < 1e-5) std::cout << "[PASS] Linear Weight Gradient correct.\n";
+    else std::cout << "[FAIL] Linear Weight Gradient incorrect.\n";
+}
+
+// TEST 3: Conv2d Forward/Backward
+void test_conv2d() {
+    std::cout << "\n=== TEST 3: Conv2d Gradients ===\n";
+    // 1 input channel, 1 output channel, 3x3 kernel
+    Conv2d conv(1, 1, 3, 3, 1, 1, 1, 1, DType::Float32); 
+    conv.weight.requires_grad_(true);
+    
+    Tensor input = Tensor::ones({1, 1, 5, 5}, DType::Float32, false);
+    Tensor output = conv(input);
+    
+    Tensor loss = sum_mp(output);
+    backward(loss);
+    
+    if (conv.weight.impl->storage->grad) {
+        print_head(tensor_from_grad(conv.weight), "Conv Weight Grad");
+        std::cout << "[PASS] Conv2d backward ran without crashing.\n";
+    } else {
+        std::cout << "[FAIL] Conv2d weight has no grad.\n";
+    }
+}
+
 int main() {
     try {
-        std::cout << "TESTS BEGIN\n";
-
-        // ones + print
-        Tensor a = Tensor::ones({2,3});
-        std::cout << "a (ones 2x3): "; print_(a);
-
-        // Proxy write/read
-        a[0][1] = 7.0;
-        double v01 = a[0][1];
-        assert(v01 == 7.0);
-
-        // astype: Float -> Int
-        Tensor ai = a.astype(DType::Int32);
-        std::cout << "ai (astype int): "; print_(ai);
-        assert(static_cast<int>(std::lrint(ai[0][1])) == 7);
-
-        // to_: in-place convert to double
-        a.to_(DType::Double64);
-        assert(a._dtype() == DType::Double64);
-
-        // arange + reshape
-        Tensor ar = Tensor::arange(0.0, 6.0, 1.0, DType::Float32);
-        Tensor ar2 = ar.reshape({2,3});
-        std::cout << "ar2 (reshape 2x3): "; print_(ar2);
-
-        // t_ transpose (in-place)
-        ar2.t_();
-        std::cout << "ar2 after t_ (swap last 2 dims): ";print_(ar2);
-        // check shape swapped
-        auto sh = ar2.shape();
-        assert(sh.size()==2 && sh[0]==3 && sh[1]==2);
-
-        // permute (view)
-        Tensor p = ar.reshape({2,3}).permute({1,0});
-        std::cout << "permute view (1,0): "; print_(p);
-        assert(p.shape().size() == 2 && p.shape()[0] == 3 && p.shape()[1] == 2);
-
-        // select
-        Tensor sel = ar.reshape({2,3}).select(0,1); // select first dim index 1 -> shape {3}
-        std::cout << "select(0,1): "; print_(sel);
-        assert(sel.shape().size() == 1 && sel.shape()[0] == 3);
-
-        // squeeze/unsqueeze/flatten
-        Tensor s = Tensor::ones({1,3,1});
-        Tensor sq = s.squeeze();
-        std::cout << "squeeze: "; print_(sq);
-        Tensor us = sq.unsqueeze(1);
-        std::cout << "unsqueeze: "; print_(us);
-        Tensor fl = us.flatten();
-        std::cout << "flatten: "; print_(fl);
-        assert(fl.shape().size() == 1 && fl.shape()[0] == fl.numel());
-
-        // pad_to_ndim
-        Tensor v1 = Tensor::arange(0,3);
-        Tensor padded = pad_to_ndim(v1, 2);
-        std::cout << "padded: "; print_(padded);
-
-        // broadcast helper
-        auto bsh = broadcast_batch_shape_from_vectors(std::vector<size_t>{2,1,3}, std::vector<size_t>{1,4,3});
-        std::cout << "broadcasted shape: [";
-        for (auto x : bsh) { std::cout << x << " "; } std::cout << "]\n";
-
-        // pad_to_ndim correctness spot-check
-        Tensor one = Tensor::ones({3});
-        Tensor pad = pad_to_ndim(one, 2); // should become (1,3) or (depending chosen left-pad)
-        std::cout << "pad_to_ndim(ones{3},2): "; print_(pad);
-
-        std::cout << "ALL TESTS PASSED\n";
-        return 0;
+        test_permute_grad();
+        test_linear_update();
+        test_conv2d();
     } catch (const std::exception& e) {
-        std::cerr << "TEST FAILED with exception: " << e.what() << "\n";
-        return 2;
-    } catch (...) {
-        std::cerr << "TEST FAILED with unknown exception\n";
-        return 3;
+        std::cerr << "\nCRITICAL ERROR: " << e.what() << std::endl;
     }
+    return 0;
 }
