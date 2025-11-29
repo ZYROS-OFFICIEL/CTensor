@@ -329,6 +329,52 @@ struct GradScalarPow : GradFn {
     }
 };
 
+struct GradPermute : GradFn {
+    Tensor t;
+    std::vector<size_t> forward_dims; // The permutation used in forward
+    std::vector<size_t> reverse_dims; // The inverse permutation for backward
+
+    GradPermute(const Tensor& t_, std::vector<size_t> dims_) 
+        : t(t_), forward_dims(dims_) { 
+        parents = {t};
+        
+        // Calculate inverse permutation to restore original shape
+        reverse_dims.resize(dims_.size());
+        for (size_t i = 0; i < dims_.size(); ++i) {
+            reverse_dims[dims_[i]] = i;
+        }
+    }
+
+    void backward(const Tensor& self) override;
+};
+struct GradReshape : GradFn {
+    Tensor t;
+    std::vector<size_t> old_shape;
+    GradReshape(const Tensor& t_, std::vector<size_t> old_) : t(t_), old_shape(old_) { 
+        parents = {t}; 
+    }
+
+    void backward(const Tensor& self) override {
+        if (!self.impl->storage->grad) throw std::runtime_error("GradReshape: missing self grad");
+        if (!t.requires_grad()) return;
+        
+        // 1. Get gradient of output
+        Tensor grad_output = tensor_from_grad(self);
+        
+        // 2. Reshape it back to input shape
+        // We use the raw reshape logic (creating a new view) to avoid recursion loop
+        // if we called t.reshape() inside backward.
+        Tensor grad_input = grad_output; // Shallow copy
+        grad_input.impl = std::make_shared<Tensorimpl>(*grad_output.impl); // Metadata copy
+        
+        // Manually restore old shape/strides to grad_input
+        // (Simplified: relies on storage being same size)
+        // A safer way using your existing API:
+        grad_input = grad_output.reshape(old_shape);
+
+        accumulate_grad(t, grad_input);
+    }
+};
 // ------------------ topo sort helper ------------------
 static void topo_sort_from(const Tensor& root, std::vector<Tensor>& topo);
 
