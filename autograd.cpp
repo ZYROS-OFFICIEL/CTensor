@@ -14,17 +14,22 @@
 #include "opsmp.h" // Use Multi-Threaded Ops by default!
 
 // -------------------- helpers --------------------
-
-// ensure grad buffer exists on tensor; if zero=true fill with zeros
-inline void ensure_grad_buffer(Tensor &t, bool zero) {
+inline void ensure_grad_buffer(Tensor &t, bool zero_existing) {
     if (!t.impl) throw std::runtime_error("ensure_grad_buffer: tensor undefined");
+    
+    // Case 1: No buffer exists yet. Allocate and ALWAYS zero it.
     if (!t.impl->storage->grad) {
         size_t nbytes = t.numel() * t.dtype_bytes();
         void* gptr = std::malloc(nbytes);
         if (!gptr && nbytes) throw std::bad_alloc();
-        if (zero) std::memset(gptr, 0, nbytes);
+        
+        // CRITICAL FIX: Always memset 0 for new allocations
+        std::memset(gptr, 0, nbytes);
+        
         t.impl->storage->grad = std::shared_ptr<void>(gptr, std::free);
-    } else if (zero) {
+    } 
+    // Case 2: Buffer exists. Only zero if requested.
+    else if (zero_existing) {
         size_t nbytes = t.numel() * t.dtype_bytes();
         std::memset(t.impl->storage->grad.get(), 0, nbytes);
     }
@@ -583,6 +588,19 @@ void GradMean::backward(const Tensor& self) {
     accumulate_grad(t, grad_input);
 }
 
+void GradPermute::backward(const Tensor& self) {
+    if (!self.impl->storage->grad) throw std::runtime_error("GradPermute: missing self grad");
+    if (!t.requires_grad()) return;
+
+    // 1. Get gradient of the permuted output
+    Tensor grad_output = tensor_from_grad(self);
+    
+    // 2. Permute it back to the original orientation
+    // We use the reverse permutation we calculated in constructor
+    Tensor grad_input = grad_output.permute(reverse_dims);
+
+    accumulate_grad(t, grad_input);
+}
 
 // ------------------ backward ------------------
 void backward(Tensor& loss) {
