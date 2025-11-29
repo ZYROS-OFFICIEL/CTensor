@@ -1,4 +1,5 @@
 #include "tensor1.h"
+#include "autograd.h"
 #include "data.h"
 #include <cstdlib>
 #include <ctime>
@@ -279,6 +280,9 @@ Tensor Tensor::permute(const std::vector<size_t>& dims) const {
         new_strides,
         impl->dtype,
         impl->requires_grad);
+    if (impl->requires_grad) {
+        out.impl->grad_fn = std::make_shared<GradPermute>(*this, dims);
+    }
     return out;
 }
 
@@ -309,7 +313,13 @@ Tensor Tensor::reshape(const std::vector<size_t>& new_shape) const {
     }
     Tensor out;
     out.impl = std::make_shared<Tensorimpl>(impl->storage, impl->offset, new_shape, nst, impl->dtype, impl->requires_grad);
+    if (impl->requires_grad) {
+        // Save old shape for backward
+        std::vector<size_t> old_shape_vec(impl->shape, impl->shape + impl->ndim);
+        out.impl->grad_fn = std::make_shared<GradReshape>(*this, old_shape_vec);
+    }
     return out;
+
 }
 
 Tensor Tensor::select(size_t dim, size_t index) const {
