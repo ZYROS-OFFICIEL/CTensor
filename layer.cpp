@@ -6,14 +6,14 @@
 
 // --- Linear Layer Implementation ---
 
-Linear::Linear(int in_feat, int out_feat, bool with_bias)
-    : in_features(in_feat), out_features(out_feat) 
+Linear::Linear(int in_feat, int out_feat, bool with_bias, DType dt)
+    : in_features(in_feat), out_features(out_feat) ,dtype(dt)
 {
     // Weight: [out_features, in_features]
-    weight = Tensor::rand({(size_t)out_features, (size_t)in_features}, DType::Float32, true);
+    weight = Tensor::rand({(size_t)out_features, (size_t)in_features}, dtype, true);
     
     if (with_bias) {
-        bias = Tensor::zeros({(size_t)out_features}, DType::Float32, true);
+        bias = Tensor::zeros({(size_t)out_features}, dtype, true);
     } else {
         bias = Tensor(); 
     }
