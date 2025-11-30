@@ -14,7 +14,7 @@
 #include "opsmp.h" // Use Multi-Threaded Ops by default!
 
 // -------------------- helpers --------------------
-inline void ensure_grad_buffer(Tensor &t, bool zero_existing) {
+void ensure_grad_buffer(Tensor &t, bool zero_existing) {
     if (!t.impl) throw std::runtime_error("ensure_grad_buffer: tensor undefined");
     
     // Case 1: No buffer exists yet. Allocate and ALWAYS zero it.
