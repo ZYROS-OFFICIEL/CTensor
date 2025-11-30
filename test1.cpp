@@ -41,6 +41,79 @@ void test_permute_grad() {
         std::cout << "[FAIL] x has no grad!\n";
     }
 }
+void test_ensure_grad_buffer() {
+    Tensor A = Tensor::ones({3,3}, DType::Float32, true);
+    ensure_grad_buffer(A, true);
+
+    std::cout << "\n=== TEST ensure_grad_buffer ===\n";
+    print_(tensor_from_grad(A)); // MUST be all zeros
+}
+void test_accumulate_grad_scalar() {
+    std::cout << "\n=== TEST accumulate_grad (scalar) ===\n";
+
+    Tensor A = Tensor::zeros({1}, DType::Float32, true);
+    Tensor g = Tensor::full({1}, 5.0, DType::Float32, false);
+
+    accumulate_grad(A, g);
+
+    print_(tensor_from_grad(A));   // MUST be [5]
+}
+void test_accumulate_grad_broadcast() {
+    std::cout << "\n=== TEST accumulate_grad broadcast ===\n";
+
+    Tensor A = Tensor::zeros({3}, DType::Float32, true);
+    Tensor g = Tensor::full({1}, 2.0, DType::Float32, false);
+
+    accumulate_grad(A, g);
+
+    print_(tensor_from_grad(A)); // MUST be [2,2,2]
+}
+void test_tensor_from_grad() {
+    std::cout << "\n=== TEST tensor_from_grad ===\n";
+
+    Tensor A = Tensor::zeros({2,3}, DType::Float32, true);
+    ensure_grad_buffer(A, false);
+
+    float* p = (float*)A.impl->storage->grad.get();
+    for (int i=0;i<6;i++) p[i] = float(i+1);
+
+    Tensor G = tensor_from_grad(A);
+    print_(G);   // MUST print 1 2 3 4 5 6
+}
+void test_add_backward() {
+    std::cout << "\n=== TEST add backward ===\n";
+
+    Tensor A = Tensor::ones({3}, DType::Float32, true);
+    Tensor B = Tensor::full({3}, 2.0, DType::Float32, true);
+
+    Tensor Y = add_mp(A, B); // Y = A + B
+    backward(Y);
+
+    std::cout << "grad A: "; print_(tensor_from_grad(A));
+    std::cout << "grad B: "; print_(tensor_from_grad(B));
+
+    // Expected:
+    // grad A = [1,1,1]
+    // grad B = [1,1,1]
+}
+
+
+void test_matmul_grad() {
+    std::cout << "\n=== TEST: MATMUL backward ===\n";
+
+    Tensor A = Tensor::ones({1,10}, DType::Float32, true);
+    Tensor B = Tensor::ones({10,1}, DType::Float32, true);
+    Tensor Y = add_mp(A, B);  // scalar
+    backward(Y);
+    
+    std::cout << "Grad Y: ";
+    print_(tensor_from_grad(Y));
+    std::cout << "Grad B: ";
+    print_(tensor_from_grad(B));
+
+    std::cout << "Grad A: ";
+    print_(tensor_from_grad(A));
+}
 
 // TEST 2: Linear Layer Update
 void test_linear_update() {
@@ -49,7 +122,9 @@ void test_linear_update() {
     fc.weight.requires_grad_(true);
     
     // Initialize weight to 0.5
-    fc.weight = Tensor::full({1, 10}, 0.5, DType::Float32, true); 
+    float* ptr = (float*)fc.weight.impl->storage->data.get();
+    for (size_t i = 0; i < 10; ++i) ptr[i] = 0.5f;
+
     
     Tensor input = Tensor::ones({1, 10}, DType::Float32, false);
     Tensor output = fc(input); // output = input @ weight.t()
@@ -89,6 +164,12 @@ void test_conv2d() {
 
 int main() {
     try {
+        test_ensure_grad_buffer();
+        test_accumulate_grad_scalar();
+        test_accumulate_grad_broadcast();
+        test_tensor_from_grad();
+        test_add_backward();
+        test_matmul_grad();
         test_permute_grad();
         test_linear_update();
         test_conv2d();
