@@ -254,32 +254,45 @@ Tensor& Tensor::t_() {
     std::swap(impl->strides[impl->ndim - 2], impl->strides[impl->ndim - 1]);
     return *this;
 }
-
 Tensor Tensor::permute(const std::vector<size_t>& dims) const {
     if (!impl)
         throw std::runtime_error("permute: tensor has no implementation");
     if (dims.size() != impl->ndim)
         throw std::invalid_argument("permute: dims size must match ndim.");
+
     std::vector<bool> seen(impl->ndim, false);
     for (auto d : dims) {
         if (d >= impl->ndim || seen[d])
             throw std::invalid_argument("permute: invalid or duplicate dim.");
         seen[d] = true;
     }
+
     std::vector<size_t> new_shape(impl->ndim);
     std::vector<size_t> new_strides(impl->ndim);
     for (size_t i = 0; i < impl->ndim; ++i) {
         new_shape[i] = impl->shape[dims[i]];
         new_strides[i] = impl->strides[dims[i]];
     }
+
+    // --- THE MAGIC FIX ---
+    // Create a NEW Storage wrapper.
+    // 1. Share the DATA (so it remains a lightweight view).
+    // 2. Reset the GRAD (so accumulation into 'out' doesn't touch 'this').
+    auto new_storage = std::make_shared<Storage>();
+    new_storage->data = impl->storage->data; // Shared ownership of data
+    new_storage->grad = nullptr;             // Independent gradient buffer
+    new_storage->size = impl->storage->size;
+    // ---------------------
+
     Tensor out;
     out.impl = std::make_shared<Tensorimpl>(
-        impl->storage,
+        new_storage, // Use the new "Shadow" storage
         impl->offset,
         new_shape,
         new_strides,
         impl->dtype,
         impl->requires_grad);
+
     if (impl->requires_grad) {
         out.impl->grad_fn = std::make_shared<GradPermute>(*this, dims);
     }
