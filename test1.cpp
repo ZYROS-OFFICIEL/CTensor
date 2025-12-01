@@ -115,11 +115,11 @@ void test_matmul_grad() {
     // grad B = [1,1,1]
 }
 void test_matmul_with_permute() {
-    std::cout << "\n=== TEST: add with permute ===\n";
+    std::cout << "\n=== TEST: matmul with permute ===\n";
 
-    Tensor A = Tensor::ones({1,10}, DType::Float32, true);   // contiguous
-    Tensor B = Tensor::ones({10,1}, DType::Float32, true);   // contiguous
-    Tensor Y1 = add_mp(A, B); // expected scalar 10
+    Tensor A = Tensor::from_vector({1,2,3,4,5,6,7,8,9,10},{1,10}, DType::Float32, true);   
+    Tensor B = Tensor::full({10,1},2, DType::Float32, true);   
+    Tensor Y1 = matmul_mp(A, B); // expected scalar 10
     
     std::cout << "Y1 (A @ B): "; print_(Y1);
     backward(Y1);
@@ -128,9 +128,13 @@ void test_matmul_with_permute() {
     print_(tensor_from_grad(B), "Grad B after Y1");
     Tensor BT = B.permute({1,0});   // likely non-contiguous view [1,10]
     Tensor AT = A.permute({1,0});   // [10,1] view
-
+    //There is a bug in matmul_grad when handling non-contiguous tensors
+    // CHOUF wash permute gard li fiha lmochkil !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     Tensor Y2 = matmul_mp(AT, BT);   // expected scalar 10 also
     std::cout << "Y2 (AT @ BT): "; print_(Y2);
+    backward(Y2);
+    print_(tensor_from_grad(AT), "Grad AT after Y2");
+    print_(tensor_from_grad(BT), "Grad BT after Y2");
 }
 
 // TEST 2: Linear Layer Update
