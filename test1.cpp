@@ -83,8 +83,8 @@ void test_tensor_from_grad() {
 void test_add_backward() {
     std::cout << "\n=== TEST add backward ===\n";
 
-    Tensor A = Tensor::ones({3}, DType::Float32, true);
-    Tensor B = Tensor::full({3}, 2.0, DType::Float32, true);
+    Tensor A = Tensor::ones({1,10}, DType::Float32, true);
+    Tensor B = Tensor::full({10,1}, 2.0, DType::Float32, true);
 
     Tensor Y = add_mp(A, B); // Y = A + B
     backward(Y);
@@ -97,22 +97,40 @@ void test_add_backward() {
     // grad B = [1,1,1]
 }
 
-
-void test_matmul_grad() {
-    std::cout << "\n=== TEST: MATMUL backward ===\n";
+//it's an add test 
+void test_matmul_grad() {    
+    std::cout << "\n=== TEST matmul backward ===\n";
 
     Tensor A = Tensor::ones({1,10}, DType::Float32, true);
     Tensor B = Tensor::ones({10,1}, DType::Float32, true);
-    Tensor Y = add_mp(A, B);  // scalar
-    backward(Y);
-    
-    std::cout << "Grad Y: ";
-    print_(tensor_from_grad(Y));
-    std::cout << "Grad B: ";
-    print_(tensor_from_grad(B));
 
-    std::cout << "Grad A: ";
-    print_(tensor_from_grad(A));
+    Tensor Y = matmul_mp(A, B); 
+    backward(Y);
+
+    std::cout << "grad A: "; print_(tensor_from_grad(A));
+    std::cout << "grad B: "; print_(tensor_from_grad(B));
+
+    // Expected:
+    // grad A = [1,1,1]
+    // grad B = [1,1,1]
+}
+void test_matmul_with_permute() {
+    std::cout << "\n=== TEST: add with permute ===\n";
+
+    Tensor A = Tensor::ones({1,10}, DType::Float32, true);   // contiguous
+    Tensor B = Tensor::ones({10,1}, DType::Float32, true);   // contiguous
+    Tensor Y1 = add_mp(A, B); // expected scalar 10
+    
+    std::cout << "Y1 (A @ B): "; print_(Y1);
+    backward(Y1);
+    print_(tensor_from_grad(Y1), "Grad Y1");
+    print_(tensor_from_grad(A), "Grad A after Y1");
+    print_(tensor_from_grad(B), "Grad B after Y1");
+    Tensor BT = B.permute({1,0});   // likely non-contiguous view [1,10]
+    Tensor AT = A.permute({1,0});   // [10,1] view
+
+    Tensor Y2 = matmul_mp(AT, BT);   // expected scalar 10 also
+    std::cout << "Y2 (AT @ BT): "; print_(Y2);
 }
 
 // TEST 2: Linear Layer Update
@@ -164,12 +182,13 @@ void test_conv2d() {
 
 int main() {
     try {
+        test_matmul_with_permute();
+        test_matmul_grad();
         test_ensure_grad_buffer();
         test_accumulate_grad_scalar();
         test_accumulate_grad_broadcast();
         test_tensor_from_grad();
         test_add_backward();
-        test_matmul_grad();
         test_permute_grad();
         test_linear_update();
         test_conv2d();
