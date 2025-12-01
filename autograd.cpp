@@ -258,7 +258,14 @@ void GradMatMul::backward(const Tensor& self) {
         throw std::runtime_error("GradMatMul: missing self grad");
 
     Tensor grad_y = tensor_from_grad(self); 
-
+    auto ensure_float = [&](Tensor t) -> Tensor {
+        if (t._dtype() != grad_y._dtype()) {
+             // If you don't have .astype(), you might need to implement a cast helper
+             // or simply ensure your test inputs are floats.
+             return t.astype(grad_y._dtype()); 
+        }
+        return t;
+    };
     auto transpose_last_two = [](const Tensor &t) -> Tensor {
         if (t.impl->ndim < 2) return t.clone();
         std::vector<size_t> perm(t.impl->ndim);
@@ -269,11 +276,13 @@ void GradMatMul::backward(const Tensor& self) {
 
     if (a.requires_grad()) {
         Tensor bt = transpose_last_two(b);
+        bt = ensure_float(bt);
         Tensor grad_a = matmul_mp(grad_y, bt); // Explicit call to MP
         accumulate_grad(a, grad_a);
     }
     if (b.requires_grad()) {
         Tensor at = transpose_last_two(a);
+        at = ensure_float(at);
         Tensor grad_b = matmul_mp(at, grad_y); // Explicit call to MP
         accumulate_grad(b, grad_b);
     }
