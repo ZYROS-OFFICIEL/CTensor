@@ -124,46 +124,50 @@ inline void accumulate_grad(Tensor& target, const Tensor& grad_src) {
     if (!target.impl) throw std::runtime_error("accumulate_grad: target undefined");
     if (!grad_src.impl) throw std::runtime_error("accumulate_grad: grad_src undefined");
 
+
+    // From here on use g_src (data-backed) instead of grad_src
     size_t nd_t = target.impl->ndim;
     size_t nd_g = grad_src.impl->ndim;
 
+    // Compute axes of g_src to reduce to match 'target' (broadcasting)
     std::vector<int> axes_to_reduce;
     size_t max_ndim = std::max(nd_t, nd_g);
     for (size_t i = 0; i < max_ndim; ++i) {
         size_t td = dim_in_padded(target, max_ndim, i);
-        size_t gd = dim_in_padded(grad_src, max_ndim, i);
+        size_t gd = dim_in_padded(grad_src,   max_ndim, i);
         if (td == 1 && gd > 1) {
+            // axis index in g_src coordinates
             axes_to_reduce.push_back((int)(i - (max_ndim - nd_g)));
         }
     }
 
+    // If we need to reduce, create reduced (keepdims) version
     Tensor g_aligned = grad_src;
     if (!axes_to_reduce.empty()) {
         g_aligned = reduce_sum_axes_keepdims(grad_src, axes_to_reduce);
     }
-    
-    ensure_grad_buffer(target, false); // Do not zero existing grad!
+
+    // Ensure target has a grad buffer (do not zero existing grads)
+    ensure_grad_buffer(target, false);
 
     size_t N = target.numel();
     if (N == 0) return;
 
-    bool g_has_gradbuf = (g_aligned.impl->storage->grad != nullptr);
-    void* g_data_ptr = g_has_gradbuf ? g_aligned.impl->storage->grad.get() : g_aligned.impl->storage->data.get();
-    void* t_grad_ptr = target.impl->storage->grad.get();
+    // We'll always read from g_aligned.data (not g_aligned.grad)
+    void* g_data_ptr = g_aligned.impl->storage->data.get();
+    void* t_grad_ptr  = target.impl->storage->grad.get();
 
-    // Pointers for OMP
-    const size_t* t_shape = target.impl->shape;
+    // Local references for speed
+    const size_t* t_shape   = target.impl->shape;
     const size_t* t_strides = target.impl->strides;
     const size_t* g_strides = g_aligned.impl->strides;
-    const size_t* g_shape = g_aligned.impl->shape;
-    
+    const size_t* g_shape   = g_aligned.impl->shape;
     size_t t_offset = target.impl->offset;
     size_t g_offset = g_aligned.impl->offset;
     size_t t_ndim = target.impl->ndim;
     size_t g_ndim = g_aligned.impl->ndim;
     DType dt_g = g_aligned._dtype();
     DType dt_t = target._dtype();
-
     size_t pad = (t_ndim > g_ndim) ? (t_ndim - g_ndim) : 0;
 
     #pragma omp parallel for
@@ -172,7 +176,7 @@ inline void accumulate_grad(Tensor& target, const Tensor& grad_src) {
         size_t target_strided_idx = t_offset;
         size_t g_aligned_strided_idx = g_offset;
 
-        // Decode index and compute offsets simultaneously
+        // Decode multi-index and compute offsets
         for (int d = (int)t_ndim - 1; d >= 0; --d) {
             size_t sz = t_shape[d];
             size_t coord = rem % sz;
@@ -180,11 +184,9 @@ inline void accumulate_grad(Tensor& target, const Tensor& grad_src) {
 
             target_strided_idx += coord * t_strides[d];
 
-            // Calculate corresponding g_aligned index (handling broadcast)
+            // map to g_aligned index (taking broadcast into account)
             if (d >= (int)pad) {
                 size_t g_dim_idx = d - pad;
-                // Broadcast check: if g_shape is 1, stride logic works naturally if we rely on logic
-                // But explicit check for 1 is safer for views with 0 stride.
                 if (g_shape[g_dim_idx] > 1) {
                     g_aligned_strided_idx += coord * g_strides[g_dim_idx];
                 }
@@ -192,7 +194,7 @@ inline void accumulate_grad(Tensor& target, const Tensor& grad_src) {
         }
 
         double addv = read_scalar_at(g_data_ptr, g_aligned_strided_idx, dt_g);
-        double cur = read_scalar_at(t_grad_ptr, target_strided_idx, dt_t);
+        double cur  = read_scalar_at(t_grad_ptr, target_strided_idx, dt_t);
         write_scalar_at(t_grad_ptr, target_strided_idx, dt_t, cur + addv);
     }
 }
