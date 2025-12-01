@@ -7,6 +7,7 @@
 #include "opsmp.h"
 #include "layer.h"
 #include "conv.h"
+#include "train_utils.h"
 
 // Helper to print first few elements
 void print_head(const Tensor& t, const std::string& name) {
@@ -139,28 +140,60 @@ void test_matmul_with_permute() {
 
 // TEST 2: Linear Layer Update
 void test_linear_update() {
-    std::cout << "\n=== TEST 2: Linear Layer Update ===\n";
+    std::cout << "\n=== TEST 2: Linear Layer Update with Optimizer ===\n";
+    
+    // 1. Setup Layer
     Linear fc(10, 1, false, DType::Float32); // 10 inputs, 1 output, no bias
     fc.weight.requires_grad_(true);
     
-    // Initialize weight to 0.5
+    // 2. Initialize weights to known value (0.5)
     float* ptr = (float*)fc.weight.impl->storage->data.get();
     for (size_t i = 0; i < 10; ++i) ptr[i] = 0.5f;
 
-    
+    // 3. Setup Optimizer
+    // We pass the weight tensor to the optimizer. 
+    // If your Linear class has a .parameters() method, you can use that: Optimizer optim(fc.parameters(), 0.1);
+    double lr = 0.1;
+    std::vector<Tensor*> params = { &fc.weight };
+    Optimizer optim(params, lr);
+
+    // 4. Forward Pass
     Tensor input = Tensor::ones({1, 10}, DType::Float32, false);
-    Tensor output = fc(input); // output = input @ weight.t()
+    Tensor output = fc(input); 
     
-    // Loss = output (scalar). dLoss/dOut = 1.
-    // dOut/dW = input. 
-    // So dLoss/dW should be 1.0 for all weights.
+    // 5. Backward Pass
+    // Output is scalar sum of (input * weight). 
+    // Input is 1.0, so d(Output)/d(Weight) = 1.0
     backward(output);
     
-    print_head(tensor_from_grad(fc.weight), "Weight Grad");
+    print_head(tensor_from_grad(fc.weight), "Weight Grad (Before Step)");
     
+    // Verify Gradient is correct (1.0)
     double wg = read_scalar_at(fc.weight.impl->storage->grad.get(), 0, fc.weight._dtype());
-    if (std::abs(wg - 1.0) < 1e-5) std::cout << "[PASS] Linear Weight Gradient correct.\n";
-    else std::cout << "[FAIL] Linear Weight Gradient incorrect.\n";
+    if (std::abs(wg - 1.0) > 1e-5) {
+        std::cout << "[FAIL] Gradient calculation failed. Expected 1.0, got " << wg << "\n";
+        return;
+    }
+
+    // 6. Optimizer Step
+    std::cout << "Performing Optimizer Step (SGD, lr=" << lr << ")...\n";
+    optim.step(); 
+
+    // 7. Verify Weight Update
+    // New Weight = Old Weight - (lr * Grad)
+    // New Weight = 0.5 - (0.1 * 1.0) = 0.4
+    double w_new = read_scalar_at(fc.weight.impl->storage->data.get(), 0, fc.weight._dtype());
+    
+    std::cout << "New Weight Value: " << w_new << "\n";
+
+    if (std::abs(w_new - 0.4) < 1e-5) {
+        std::cout << "[PASS] Optimizer updated weights correctly.\n";
+    } else {
+        std::cout << "[FAIL] Optimizer update incorrect. Expected 0.4, got " << w_new << "\n";
+    }
+
+    // 8. Zero Grads (Cleanup)
+    optim.zero_grad();
 }
 
 // TEST 3: Conv2d Forward/Backward
