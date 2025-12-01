@@ -80,8 +80,6 @@ int main() {
         size_t num_train = train_data.images.shape()[0];
         size_t num_batches = num_train / BATCH_SIZE;
 
-        std::cout << "Starting training MLP..." << std::endl;
-
         for (int epoch = 0; epoch < EPOCHS; ++epoch) {
             double epoch_loss = 0.0;
             auto start_time = std::chrono::high_resolution_clock::now();
@@ -108,9 +106,14 @@ int main() {
                 
                 backward(loss); // <--- If this crashes, bug is in Reshape/Linear
                 optim.step();
-                
+
+                if (std::isnan(loss.read_scalar(0))) {
+                    std::cout << "NaN detected at batch " << b << std::endl;
+                    break;
+                }
+
                 epoch_loss += loss.read_scalar(0);
-                if (b % 100 == 0) std::cout << "Batch " << b << " Loss: " << loss.read_scalar(0) << std::endl;
+                if (b % 20 == 0) std::cout << "Batch " << b << " Loss: " << loss.read_scalar(0) << std::endl;
             }
             auto end_time = std::chrono::high_resolution_clock::now();
             std::cout << "Epoch " << epoch << " Time: " << std::chrono::duration<double>(end_time - start_time).count() << "s" << std::endl;
