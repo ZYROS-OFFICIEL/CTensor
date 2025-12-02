@@ -101,19 +101,19 @@ void test_add_backward() {
 //it's an add test 
 void test_matmul_grad() {    
     std::cout << "\n=== TEST matmul backward ===\n";
+    Tensor A = Tensor::full({1,3}, 2.0f, DType::Float32, true);
+    Tensor B = Tensor::full({3,1}, 3.0f, DType::Float32, true);
 
-    Tensor A = Tensor::ones({1,10}, DType::Float32, true);
-    Tensor B = Tensor::ones({10,1}, DType::Float32, true);
+    Tensor Y = matmul_mp(A, B); // should be scalar 18
+    std::cout << "Y = " << Y.read_scalar(0) << "\n";
 
-    Tensor Y = matmul_mp(A, B); 
     backward(Y);
 
-    std::cout << "grad A: "; print_(tensor_from_grad(A));
-    std::cout << "grad B: "; print_(tensor_from_grad(B));
+    std::cout << "grad A: ";
+    print_(tensor_from_grad(A)); // expect [3,3,3]
 
-    // Expected:
-    // grad A = [1,1,1]
-    // grad B = [1,1,1]
+    std::cout << "grad B: ";
+    print_(tensor_from_grad(B)); // expect [2,2,2]
 }
 void test_matmul_with_permute() {
     std::cout << "\n=== TEST: matmul with permute ===\n";
