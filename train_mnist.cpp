@@ -73,7 +73,7 @@ int main() {
             }
         }
 
-        Optimizer optim(model.parameters(), 1e-5);
+        Optimizer optim(model.parameters(), 1e-2);
         
         int BATCH_SIZE = 64;
         int EPOCHS = 2;
