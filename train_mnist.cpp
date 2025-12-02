@@ -73,13 +73,24 @@ int main() {
             }
         }
 
-        Optimizer optim(model.parameters(), 1e-2);
+        Optimizer optim(model.parameters(), 1e-3);
         
         int BATCH_SIZE = 64;
         int EPOCHS = 2;
         size_t num_train = train_data.images.shape()[0];
         size_t num_batches = num_train / BATCH_SIZE;
 
+        Tensor logits = Tensor::full({1,10}, 1.0f, DType::Float32, true);
+        Tensor lbl = Tensor::full({1,1}, 3, DType::Int32, false);
+
+        Tensor x = Tensor::ones({1,784}, DType::Float32, true);
+        Tensor y = model.fc1(x);
+        backward(y);
+        std::cout << "10 fist values of model.fc1.weight: ";
+        for (size_t i = 0; i < 10; ++i) {
+            std::cout << model.fc1.weight.read_scalar(i) << " ";
+        }
+        std::cout << "\n\n";
         for (int epoch = 0; epoch < EPOCHS; ++epoch) {
             double epoch_loss = 0.0;
             auto start_time = std::chrono::high_resolution_clock::now();
