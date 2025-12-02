@@ -115,7 +115,7 @@ void test_matmul_grad() {
     std::cout << "grad B: ";
     print_(tensor_from_grad(B)); // expect [2,2,2]
 }
-void test_matmul_with_permute() {
+void C() {
     std::cout << "\n=== TEST: matmul with permute ===\n";
 
     Tensor A = Tensor::from_vector({1,2,3,4,5,6,7,8,9,10},{1,10}, DType::Float32, true);   
@@ -129,8 +129,11 @@ void test_matmul_with_permute() {
     print_(tensor_from_grad(B), "Grad B after Y1");
     Tensor BT = B.permute({1,0});   // likely non-contiguous view [1,10]
     Tensor AT = A.permute({1,0});   // [10,1] view
+
+    ensure_grad_buffer(AT, true);
+    ensure_grad_buffer(BT, true);
     //There is a bug in matmul_grad when handling non-contiguous tensors
-    // CHOUF wash permute gard li fiha lmochkil !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // CHOUF wash permute grad li fiha lmochkil !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     Tensor Y2 = matmul_mp(AT, BT);   // expected scalar 10 also
     std::cout << "Y2 (AT @ BT): "; print_(Y2);
     backward(Y2);
