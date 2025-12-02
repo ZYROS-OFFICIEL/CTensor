@@ -58,8 +58,11 @@ struct GradAdd : GradFn {
     GradAdd(const Tensor& a_, const Tensor& b_) : a(a_), b(b_) { parents = {a, b}; }
     void backward(const Tensor& self) override {
         if (!self.impl->storage->grad) throw std::runtime_error("GradAdd: missing self grad");
-        if (a.requires_grad()) accumulate_grad(a, self);
-        if (b.requires_grad()) accumulate_grad(b, self);
+
+        Tensor grad_self = tensor_from_grad(self); 
+
+        if (a.requires_grad()) accumulate_grad(a, grad_self);
+        if (b.requires_grad()) accumulate_grad(b, grad_self);
     }
 };
 
