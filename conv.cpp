@@ -77,11 +77,18 @@ Tensor Conv2d::forward(const Tensor& input) {
     // 2. Im2Col
     size_t num_patches = batch * out_h * out_w;
     Tensor input_patches = Tensor::zeros({kernel_patch_size, num_patches}, input._dtype(), false);
+    // --- RAW POINTER OPTIMIZATION START ---
+    const float* in_ptr = (const float*)input.impl->storage->data.get();
+    float* patch_ptr = (float*)input_patches.impl->storage->data.get();
     
-    // Optimized Loop
+    size_t s0 = input.impl->strides[0]; 
+    size_t s1 = input.impl->strides[1]; 
+    size_t s2 = input.impl->strides[2]; 
+    size_t s3 = input.impl->strides[3]; 
+    size_t patch_stride = num_patches; // Stride for row-major matrix
+
     #pragma omp parallel for
     for (size_t i = 0; i < num_patches; ++i) {
-        // Decode index i -> (b, oh, ow)
         size_t temp = i;
         size_t ow = temp % out_w; temp /= out_w;
         size_t oh = temp % out_h; temp /= out_h;
@@ -94,16 +101,19 @@ Tensor Conv2d::forward(const Tensor& input) {
                     int ih = (int)oh * stride_h + kh - padding_h;
                     int iw = (int)ow * stride_w + kw - padding_w;
                     
+                    float val = 0.0f;
                     if (ih >= 0 && ih < (int)height && iw >= 0 && iw < (int)width) {
-                        // Direct access optimization possible here
-                        input_patches[patch_row][i] = input[b][ic][(size_t)ih][(size_t)iw];
+                        size_t offset = b * s0 + ic * s1 + ih * s2 + iw * s3;
+                        val = in_ptr[offset];
                     }
+                    
+                    // Direct Write: Bypasses operator[] checks/allocations
+                    patch_ptr[patch_row * patch_stride + i] = val;
                     patch_row++;
                 }
             }
         }
     }
-
     // 3. MatMul
     Tensor output_flat = matmul_mp(w_flat, input_patches);
 
@@ -258,9 +268,10 @@ void GradConv2d::backward(const Tensor& self) {
 
     Tensor grad_output = tensor_from_grad(self);
     
-    // 1. Flatten Gradient: [out_c, num_patches]
-    Tensor grad_output_reshaped = grad_output.permute({1, 0, 2, 3});
-    Tensor grad_output_flat = grad_output_reshaped.reshape({out_c, num_patches});
+    // FIX 1: Ensure Contiguous Memory before Reshape
+    Tensor grad_output_permuted = grad_output.permute({1, 0, 2, 3});
+    Tensor grad_output_contig = add_scalar_mp(grad_output_permuted, 0.0); 
+    Tensor grad_output_flat = grad_output_contig.reshape({out_c, num_patches});
 
     // 2. Bias Grad
     if (bias.requires_grad()) {
@@ -268,26 +279,40 @@ void GradConv2d::backward(const Tensor& self) {
         accumulate_grad(bias, grad_bias.reshape(bias.shape()));
     }
 
-    // Re-create patches if needed
+    // 3. Weight and Input Gradients
     if (weight.requires_grad() || input.requires_grad()) {
-        // We need input_patches. Re-compute (im2col)
         Tensor input_patches = Tensor::zeros({kernel_patch_size, num_patches}, input._dtype(), false);
         
+        // FIX 2: Use Raw Pointers (No operator[] inside OMP)
+        const float* in_ptr = (const float*)input.impl->storage->data.get();
+        float* patch_ptr = (float*)input_patches.impl->storage->data.get();
+        
+        size_t s0 = input.impl->strides[0];
+        size_t s1 = input.impl->strides[1];
+        size_t s2 = input.impl->strides[2];
+        size_t s3 = input.impl->strides[3];
+        size_t patch_stride = num_patches;
+
         #pragma omp parallel for
         for (size_t i = 0; i < num_patches; ++i) {
             size_t temp = i;
             size_t ow = temp % out_w; temp /= out_w;
             size_t oh = temp % out_h; temp /= out_h;
             size_t b  = temp;
+            
             size_t patch_row = 0;
             for (size_t ic = 0; ic < in_c; ++ic) {
                 for (int kh = 0; kh < k_h; ++kh) {
                     for (int kw = 0; kw < k_w; ++kw) {
                         int ih = (int)oh * stride_h + kh - padding_h;
                         int iw = (int)ow * stride_w + kw - padding_w;
+                        
+                        float val = 0.0f;
                         if (ih >= 0 && ih < (int)height && iw >= 0 && iw < (int)width) {
-                            input_patches[patch_row][i] = input[b][ic][(size_t)ih][(size_t)iw];
+                            size_t offset = b * s0 + ic * s1 + ih * s2 + iw * s3;
+                            val = in_ptr[offset];
                         }
+                        patch_ptr[patch_row * patch_stride + i] = val;
                         patch_row++;
                     }
                 }
@@ -305,21 +330,19 @@ void GradConv2d::backward(const Tensor& self) {
             Tensor w_flat_T = w_flat.t_();
             Tensor grad_input_patches = matmul_mp(w_flat_T, grad_output_flat);
             
-            // Col2Im
+            // FIX 3: Atomic Adds for Col2Im (Safe Parallel Write)
             Tensor grad_input = Tensor::zeros(input.shape(), input._dtype(), false);
-            
-            // Need atomic adds for col2im parallelization
-            // Using serial for safety or atomic pointers.
-            // Let's try serial outer, or atomic inner. Atomic float add is standard.
-            
             auto* gi_data = grad_input.impl->storage->data.get();
-            
+            float* g_patches_ptr = (float*)grad_input_patches.impl->storage->data.get();
+            size_t gp_stride = num_patches; // Row-major stride
+
             #pragma omp parallel for
             for (size_t i = 0; i < num_patches; ++i) {
                 size_t temp = i;
                 size_t ow = temp % out_w; temp /= out_w;
                 size_t oh = temp % out_h; temp /= out_h;
                 size_t b  = temp;
+                
                 size_t patch_row = 0;
                 for (size_t ic = 0; ic < in_c; ++ic) {
                     for (int kh = 0; kh < k_h; ++kh) {
@@ -328,8 +351,8 @@ void GradConv2d::backward(const Tensor& self) {
                             int iw = (int)ow * stride_w + kw - padding_w;
                             
                             if (ih >= 0 && ih < (int)height && iw >= 0 && iw < (int)width) {
-                                double val = grad_input_patches[patch_row][i];
-                                // Atomic add to input gradient
+                                float val = g_patches_ptr[patch_row * gp_stride + i];
+                                
                                 size_t idx = grad_input.impl->offset + 
                                     b*grad_input.impl->strides[0] + 
                                     ic*grad_input.impl->strides[1] + 
@@ -338,7 +361,7 @@ void GradConv2d::backward(const Tensor& self) {
                                 
                                 float* ptr = (float*)gi_data + idx;
                                 #pragma omp atomic
-                                *ptr += (float)val;
+                                *ptr += val;
                             }
                             patch_row++;
                         }
@@ -374,6 +397,7 @@ void GradConv3d::backward(const Tensor& self) {
     Tensor grad_output = tensor_from_grad(self);
     
     Tensor grad_output_reshaped = grad_output.permute({1, 0, 2, 3, 4});
+    Tensor grad_output_reshaped_con = add_scalar_mp(grad_output_reshaped,0.0); // ensure contiguous
     Tensor grad_output_flat = grad_output_reshaped.reshape({out_c, num_patches});
 
     if (bias.requires_grad()) {
