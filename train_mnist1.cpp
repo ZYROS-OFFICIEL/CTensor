@@ -16,6 +16,7 @@
 #include "loss.h"
 #include "train_utils.h"
 #include "mnist.h"
+#include "check.h"
 
 // --- Model Definition ---
 class ConvNet : public Module {
@@ -88,36 +89,49 @@ public:
     }
 };
 
-int main() {
+int main(int argc, char** argv) {
     try {
         std::cout << "Loading MNIST data..." << std::endl;
         MNISTData train_data = load_mnist("train-images.idx3-ubyte", "train-labels.idx1-ubyte");
         
         ConvNet model;
-
-        std::cout << "Initializing weights..." << std::endl;
-        std::srand(std::time(nullptr));
+        // Check if we should load weights
+        std::string checkpoint_path = "mnist_cnn.bin";
         
-        // --- 1. Initialization Fixed to match train_mnist.cpp (0.1f scale) ---
-        for (auto* p : model.parameters()) {
-            if (!p->impl) continue;
-
-            p->requires_grad_(true); 
-
-            size_t n = p->numel();
-            float* ptr = (float*)p->impl->storage->data.get();
-            
-            for (size_t i = 0; i < n; ++i) {
-                float r = static_cast<float>(std::rand()) / RAND_MAX; 
-                // Using 0.1f range like train_mnist.cpp for stability
-                ptr[i] = (r - 0.5f) * 0.1f; 
+        // Simple arg parsing to resume training
+        if (argc > 1 && std::string(argv[1]) == "--resume") {
+            try {
+                std::cout << "Loading checkpoint from " << checkpoint_path << "...\n";
+                std::vector<Tensor*> params = model.parameters();
+                checkpoints::load_weights(params, checkpoint_path);
+            } catch (const std::exception& e) {
+                std::cout << "Could not load checkpoint: " << e.what() << ". Starting from scratch.\n";
+                // If fail, re-init rand
+                std::srand(std::time(nullptr));
+                for (auto* p : model.parameters()) {
+                    if (!p->impl) continue;
+                    p->requires_grad_(true); 
+                    size_t n = p->numel();
+                    float* ptr = (float*)p->impl->storage->data.get();
+                    for (size_t i = 0; i < n; ++i) ptr[i] = (static_cast<float>(std::rand()) / RAND_MAX - 0.5f) * 0.1f;
+                }
+            }
+        } else {
+            // Init from scratch
+            std::cout << "Initializing weights..." << std::endl;
+            std::srand(std::time(nullptr));
+            for (auto* p : model.parameters()) {
+                if (!p->impl) continue;
+                p->requires_grad_(true); 
+                size_t n = p->numel();
+                float* ptr = (float*)p->impl->storage->data.get();
+                for (size_t i = 0; i < n; ++i) ptr[i] = (static_cast<float>(std::rand()) / RAND_MAX - 0.5f) * 0.1f;
             }
         }
-
         Optimizer optim(model.parameters(), 0.01);
         
         int BATCH_SIZE = 64;
-        int EPOCHS = 5;
+        int EPOCHS = 10;
         size_t num_train = train_data.images.shape()[0];
         size_t num_batches = num_train / BATCH_SIZE;
 
@@ -186,8 +200,11 @@ int main() {
                 }
             }
             auto end_time = std::chrono::high_resolution_clock::now();
-            std::cout << "Epoch " << epoch << " Done. Avg Loss: " << epoch_loss / num_batches
+            std::cout << "Epoch " << epoch+1 << " Done. Avg Loss: " << epoch_loss / num_batches
                       << " Time: " << std::chrono::duration<double>(end_time - start_time).count() << "s" << std::endl;
+                      
+            // --- SAVE CHECKPOINT ---
+            checkpoints::save_weights(model.parameters(), checkpoint_path);
         }
 
     } catch (const std::exception& e) {
