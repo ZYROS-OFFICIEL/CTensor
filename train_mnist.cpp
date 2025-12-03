@@ -36,9 +36,9 @@ public:
     Tensor forward(const Tensor& x) {
         Tensor out = flat(x); // Reshapes [B, 1, 28, 28] -> [B, 784]
         out = fc1(out);
-        out = Relu_mp(out);
+        out = relu1(out);
         out = fc2(out);
-        out = Relu_mp(out);
+        out = relu2(out);
         out = fc3(out);
         return out; 
     }
@@ -73,7 +73,7 @@ int main() {
             }
         }
 
-        Optimizer optim(model.parameters(), 1e-3);
+        Optimizer optim(model.parameters(), 0.01);
         
         int BATCH_SIZE = 64;
         int EPOCHS = 2;
