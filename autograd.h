@@ -353,6 +353,7 @@ struct GradPermute : GradFn {
 struct GradReshape : GradFn {
     Tensor t;
     std::vector<size_t> old_shape;
+    
     GradReshape(const Tensor& t_, std::vector<size_t> old_) : t(t_), old_shape(old_) { 
         parents = {t}; 
     }
@@ -361,19 +362,50 @@ struct GradReshape : GradFn {
         if (!self.impl->storage->grad) throw std::runtime_error("GradReshape: missing self grad");
         if (!t.requires_grad()) return;
         
-        // 1. Get gradient of output
+        // 1. Get gradient of output (which is the reshaped version)
         Tensor grad_output = tensor_from_grad(self);
         
-        // 2. Reshape it back to input shape
-        // We use the raw reshape logic (creating a new view) to avoid recursion loop
-        // if we called t.reshape() inside backward.
-        Tensor grad_input = grad_output; // Shallow copy
-        grad_input.impl = std::make_shared<Tensorimpl>(*grad_output.impl); // Metadata copy
+        // FIX: Verify number of elements matches
+        size_t n_out = grad_output.numel();
+        size_t n_in = 1;
+        for (auto s : old_shape) n_in *= s;
         
-        // Manually restore old shape/strides to grad_input
-        // (Simplified: relies on storage being same size)
-        // A safer way using your existing API:
-        grad_input = grad_output.reshape(old_shape);
+        if (n_out != n_in) {
+            // This happens if reshape logic was wrong. 
+            // Silent corruption check.
+            std::cerr << "CRITICAL ERROR: GradReshape size mismatch. Out=" << n_out << " In=" << n_in << "\n";
+            return; 
+        }
+
+        // 2. Reshape it back to input shape
+        // We CANNOT just call .reshape() on grad_output if it's a non-contiguous view 
+        // derived from a complex chain.
+        // We force a contiguous copy first to be safe.
+        // Using opsmp::add_scalar_mp(..., 0.0) is the standard way we are using to copy.
+        // BUT to break the cycle, let's manually create the tensor.
+        
+        Tensor grad_input;
+        
+        // Option A: If we trust .reshape() handles strides (it usually doesn't for arbitrary views):
+        // grad_input = grad_output.reshape(old_shape);
+        
+        // Option B (Safer): Create new tensor with target shape, copy data.
+        grad_input = Tensor::zeros(old_shape, grad_output._dtype(), false);
+        
+        // Copy data from grad_output to grad_input
+        // Since they have same numel, we can flatten copy IF grad_output is contiguous.
+        // If grad_output is NOT contiguous, we need a strided copy.
+        // Fortunately, accumulate_grad handles this!
+        
+        // So actually, we just need to view grad_output as the old shape.
+        // If reshaping fails, it's because strides are incompatible.
+        
+        // ROBUST FIX:
+        // 1. Force contiguous (deep copy)
+        Tensor grad_output_contig = add_scalar_mp(grad_output, 0.0);
+        
+        // 2. Now safe to reshape metadata
+        grad_input = grad_output_contig.reshape(old_shape);
 
         accumulate_grad(t, grad_input);
     }
