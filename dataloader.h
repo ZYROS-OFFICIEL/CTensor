@@ -37,5 +37,84 @@ public:
             std::shuffle(indices.begin(), indices.end(), g);
         }
     }
+    
+    // Returns a pair {Images, Labels}
+    std::pair<Tensor, Tensor> next() {
+        if (current_idx >= indices.size()) {
+            return {Tensor(), Tensor()}; // End of epoch
+        }
 
+        size_t end_idx = std::min(current_idx + batch_size, indices.size());
+        size_t actual_batch_size = end_idx - current_idx;
+
+        // Allocate Tensors with TARGET DType
+        std::vector<size_t> img_shape = { actual_batch_size, 1, 28, 28 };
+        std::vector<size_t> lbl_shape = { actual_batch_size, 1 };
+        
+        Tensor batch_imgs(img_shape, img_dtype, false);
+        Tensor batch_lbls(lbl_shape, lbl_dtype, false);
+
+        // Source Data (From MNIST Loader - usually Float32/Int32)
+        // We use void* and dtype_bytes to be generic if needed, 
+        // but we know MNISTData struct has Tensors.
+        
+        const void* src_img_data = data.images.impl->storage->data.get();
+        const void* src_lbl_data = data.labels.impl->storage->data.get();
+        DType src_img_dt = data.images._dtype();
+        DType src_lbl_dt = data.labels._dtype();
+
+        void* dst_img_data = batch_imgs.impl->storage->data.get();
+        void* dst_lbl_data = batch_lbls.impl->storage->data.get();
+
+        size_t pixels_per_img = 28 * 28;
+
+        // Optimization: If types match, use fast memcpy
+        bool fast_img = (src_img_dt == img_dtype);
+        bool fast_lbl = (src_lbl_dt == lbl_dtype);
+        
+        size_t src_img_size = dtype_size(src_img_dt);
+        size_t img_bytes_per_sample = pixels_per_img * src_img_size;
+        size_t src_lbl_size = dtype_size(src_lbl_dt);
+
+        #pragma omp parallel for
+        for (size_t i = 0; i < actual_batch_size; ++i) {
+            size_t original_idx = indices[current_idx + i];
+            
+            // --- IMAGE COPY ---
+            if (fast_img) {
+                // Direct memcpy
+                std::memcpy(
+                    (char*)dst_img_data + i * img_bytes_per_sample,
+                    (char*)src_img_data + original_idx * img_bytes_per_sample,
+                    img_bytes_per_sample
+                );
+            } else {
+                // Type Conversion Loop (Slow but supports quantization/casting)
+                size_t src_offset = original_idx * pixels_per_img;
+                size_t dst_offset = i * pixels_per_img;
+                for (size_t p = 0; p < pixels_per_img; ++p) {
+                    double val = read_scalar_at(src_img_data, src_offset + p, src_img_dt);
+                    write_scalar_at(dst_img_data, dst_offset + p, img_dtype, val);
+                }
+            }
+
+            // --- LABEL COPY ---
+            if (fast_lbl) {
+                std::memcpy(
+                    (char*)dst_lbl_data + i * src_lbl_size,
+                    (char*)src_lbl_data + original_idx * src_lbl_size,
+                    src_lbl_size
+                );
+            } else {
+                double val = read_scalar_at(src_lbl_data, original_idx, src_lbl_dt);
+                write_scalar_at(dst_lbl_data, i, lbl_dtype, val);
+            }
+        }
+
+        current_idx += actual_batch_size;
+        return {batch_imgs, batch_lbls};
+    }
+    
+    size_t size() const { return indices.size(); }
+    size_t num_batches() const { return (indices.size() + batch_size - 1) / batch_size; }
 };
