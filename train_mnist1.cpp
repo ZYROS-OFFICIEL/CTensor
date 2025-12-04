@@ -17,6 +17,7 @@
 #include "train_utils.h"
 #include "mnist.h"
 #include "check.h"
+#include "dataloader.h"
 
 // --- Model Definition ---
 class ConvNet : public Module {
