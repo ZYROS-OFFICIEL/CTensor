@@ -29,5 +29,13 @@ public:
         for (size_t i = 0; i < n; ++i) indices[i] = i;
         reset();
     }
+    void reset() {
+        current_idx = 0;
+        if (shuffle) {
+            std::random_device rd;
+            std::mt19937 g(rd());
+            std::shuffle(indices.begin(), indices.end(), g);
+        }
+    }
 
 };
