@@ -93,7 +93,7 @@ int main(int argc, char** argv) {
     try {
         std::cout << "Loading MNIST data..." << std::endl;
         MNISTData train_data = load_mnist("train-images.idx3-ubyte", "train-labels.idx1-ubyte");
-        
+        DataLoader loader(train_data, 64, true, DType::Float32, DType::Int32);
         ConvNet model;
         // Check if we should load weights
         std::string checkpoint_path = "mnist_cnn.bin";
@@ -135,23 +135,6 @@ int main(int argc, char** argv) {
         size_t num_train = train_data.images.shape()[0];
         size_t num_batches = num_train / BATCH_SIZE;
 
-        // --- 2. Added Sanity Check (from train_mnist.cpp) ---
-        std::cout << "Running pre-training sanity check..." << std::endl;
-        // Create a dummy input of correct shape [1, 1, 28, 28] for CNN
-        Tensor x = Tensor::ones({1, 1, 28, 28}, DType::Float32, true);
-        Tensor y = model.forward(x);
-        
-        // Just verify backward works without crashing
-        Tensor dummy_grad = y.clone();
-        backward(dummy_grad); 
-        
-        std::cout << "10 first values of model.fc1.weight: ";
-        for (size_t i = 0; i < 10; ++i) {
-            std::cout << model.fc1.weight.read_scalar(i) << " ";
-        }
-        std::cout << "\n\n";
-        // ----------------------------------------------------
-
         std::cout << "Starting training on " << num_train << " images." << std::endl;
 
         for (int epoch = 0; epoch < EPOCHS; ++epoch) {
@@ -162,20 +145,6 @@ int main(int argc, char** argv) {
             for (int b = 0; b < num_batches; ++b) {
                 size_t start_idx = b * BATCH_SIZE;
                 
-                // --- BATCH PREPARATION ---
-                std::vector<size_t> batch_shape_img = { (size_t)BATCH_SIZE, 1, 28, 28 };
-                Tensor batch_imgs(batch_shape_img, DType::Float32, false); 
-
-                float* src_ptr = (float*)train_data.images.impl->storage->data.get() + start_idx * 28*28;
-                float* dst_ptr = (float*)batch_imgs.impl->storage->data.get();
-                std::memcpy(dst_ptr, src_ptr, BATCH_SIZE * 28 * 28 * sizeof(float));
-                
-                std::vector<size_t> batch_shape_lbl = { (size_t)BATCH_SIZE, 1 }; 
-                Tensor batch_lbls(batch_shape_lbl, DType::Int32, false);
-                
-                int32_t* src_lbl = (int32_t*)train_data.labels.impl->storage->data.get() + start_idx;
-                int32_t* dst_lbl = (int32_t*)batch_lbls.impl->storage->data.get();
-                std::memcpy(dst_lbl, src_lbl, BATCH_SIZE * sizeof(int32_t));
 
                 // --- TRAINING STEP ---
                 optim.zero_grad();
