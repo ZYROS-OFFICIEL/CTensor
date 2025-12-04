@@ -131,51 +131,24 @@ int main(int argc, char** argv) {
         }
         Optimizer optim(model.parameters(), 0.01);
         
-        int BATCH_SIZE = 64;
-        int EPOCHS = 10;
-        size_t num_train = train_data.images.shape()[0];
-        size_t num_batches = num_train / BATCH_SIZE;
-
-        std::cout << "Starting training on " << num_train << " images." << std::endl;
+        int EPOCHS = 5;
 
         for (int epoch = 0; epoch < EPOCHS; ++epoch) {
-            model.train();
-            double epoch_loss = 0.0;
-            auto start_time = std::chrono::high_resolution_clock::now();
-
-            for (int b = 0; b < num_batches; ++b) {
-                size_t start_idx = b * BATCH_SIZE;
-                
-
-                // --- TRAINING STEP ---
-                optim.zero_grad();
-                
-                Tensor output = model.forward(batch_imgs);
-                Tensor loss = Loss::CrossEntropy(output, batch_lbls);
-                
-                backward(loss);
-                optim.step();
-                
-                // --- 3. Added NaN Protection (from train_mnist.cpp) ---
-                if (std::isnan(loss.read_scalar(0))) {
-                    std::cout << "NaN detected at batch " << b << std::endl;
-                    break;
-                }
-
-                epoch_loss += loss.read_scalar(0);
-                
-                // --- 4. More Frequent Logging (Every 20 batches) ---
-                if (b % 20 == 0) {
-                    std::cout << "Batch " << b << " Loss: " << loss.read_scalar(0) << std::endl;
-                }
-            }
-            auto end_time = std::chrono::high_resolution_clock::now();
-            std::cout << "Epoch " << epoch+1 << " Done. Avg Loss: " << epoch_loss / num_batches
-                      << " Time: " << std::chrono::duration<double>(end_time - start_time).count() << "s" << std::endl;
-                      
+            // --- TRAINING LOOP ---
+            model.train(); // Set to training mode (if applicable)
+            train_epoch(model, loader, optim, epoch);
             // --- SAVE CHECKPOINT ---
             checkpoints::save_weights(model.parameters(), checkpoint_path);
         }
+        // Finished all epochs
+        std::cout << "Training complete. Final model saved to " << checkpoint_path << std::endl;
+        std::cout << "Evaluating on test set..." << std::endl;
+        // Load test data
+        MNISTData test_data = load_mnist("t10k-images.idx3-ubyte", "t10k-labels.idx1-ubyte");
+        DataLoader test_loader(test_data, 100, false, DType::Float32, DType::Int32);
+        model.eval(); // Set to eval mode
+        double test_accuracy = evaluate(model, test_loader);
+        std::cout << "Test Accuracy: " << std::fixed << std::setprecision(2) << test_accuracy << "%\n";
 
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;
