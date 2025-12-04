@@ -1,7 +1,7 @@
 #pragma once
 #include "module.h"
 #include <vector>
-
+#include "dataloader.h" 
 // --- Generalized Training/Eval Utilities ---
 
 // If you wrap your layers in the Module class (above), you can use this:
@@ -73,3 +73,53 @@ public:
         }
     }
 };
+
+// --- Generic Training Function ---
+// Template allows it to accept any Model class that has a forward() method
+template <typename ModelType>
+void train_epoch(ModelType& model, DataLoader& loader, Optimizer& optim, int epoch, size_t log_interval = 100) {
+    // model.train(); // Uncomment if you implement train/eval modes in Module
+    
+    double total_loss = 0.0;
+    int batch_idx = 0;
+    size_t processed = 0;
+    
+    loader.reset(); // Shuffle for new epoch
+
+    while(true) {
+        auto [data, target] = loader.next();
+        if (!data.impl) break; // End of epoch
+
+        optim.zero_grad();
+        
+        // Forward
+        Tensor output = model.forward(data);
+        
+        // Loss (Assuming CrossEntropy for classification)
+        Tensor loss = Loss::CrossEntropy(output, target);
+        
+        // Backward
+        backward(loss);
+        optim.step();
+
+        // Stats
+        double l = loss.read_scalar(0);
+        if (std::isnan(l)) {
+            std::cerr << "\nERROR: NaN Loss detected at epoch " << epoch << " batch " << batch_idx << "!\n";
+            break;
+        }
+        
+        total_loss += l;
+        processed += data.shape()[0];
+
+        if (batch_idx % log_interval == 0) {
+            std::cout << "Train Epoch: " << epoch << " [" 
+                      << std::setw(5) << processed << "/" << loader.size() << "]"
+                      << " Loss: " << std::fixed << std::setprecision(6) << l << "\r" << std::flush;
+        }
+        batch_idx++;
+    }
+    
+    double avg_loss = (batch_idx > 0) ? (total_loss / batch_idx) : 0.0;
+    std::cout << "\nTrain Epoch: " << epoch << " Finished. Avg Loss: " << avg_loss << std::endl;
+}
