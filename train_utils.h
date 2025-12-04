@@ -123,3 +123,67 @@ void train_epoch(ModelType& model, DataLoader& loader, Optimizer& optim, int epo
     double avg_loss = (batch_idx > 0) ? (total_loss / batch_idx) : 0.0;
     std::cout << "\nTrain Epoch: " << epoch << " Finished. Avg Loss: " << avg_loss << std::endl;
 }
+
+// --- Generic Evaluation Function ---
+template <typename ModelType>
+double evaluate(ModelType& model, DataLoader& loader) {
+    // model.eval(); // Uncomment if implemented
+    
+    double total_loss = 0.0;
+    int correct = 0;
+    size_t total_samples = 0;
+    int batch_count = 0;
+    
+    loader.reset(); // No shuffle usually needed for test, but resets cursor
+
+    while(true) {
+        auto [data, target] = loader.next();
+        if (!data.impl) break;
+
+        Tensor output = model.forward(data);
+        Tensor loss = Loss::CrossEntropy(output, target); // Sum reduction? Check your Loss impl.
+        
+        // If loss is mean-reduced inside CrossEntropy:
+        total_loss += loss.read_scalar(0);
+        
+        // --- Calculate Accuracy (Argmax) ---
+        // Assuming output is [Batch, Classes] (Float32)
+        // Assuming target is [Batch, 1] (Int32)
+        
+        const float* out_ptr = (const float*)output.impl->storage->data.get();
+        const int32_t* tgt_ptr = (const int32_t*)target.impl->storage->data.get();
+        
+        size_t batch = data.shape()[0];
+        size_t classes = output.shape()[1];
+        
+        for (size_t b = 0; b < batch; ++b) {
+            float max_val = -1e9;
+            int pred = -1;
+            for (size_t c = 0; c < classes; ++c) {
+                float val = out_ptr[b * classes + c];
+                if (val > max_val) {
+                    max_val = val;
+                    pred = (int)c;
+                }
+            }
+            
+            if (pred == tgt_ptr[b]) {
+                correct++;
+            }
+        }
+        
+        total_samples += batch;
+        batch_count++;
+        
+        // Simple progress spinner
+        if (batch_count % 50 == 0) std::cout << "." << std::flush;
+    }
+    
+    double avg_loss = (batch_count > 0) ? total_loss / batch_count : 0.0;
+    double accuracy = (total_samples > 0) ? (100.0 * correct / total_samples) : 0.0;
+
+    std::cout << "\nTest Set: Avg Loss: " << avg_loss << ", Accuracy: " << correct << "/" << total_samples 
+              << " (" << std::fixed << std::setprecision(2) << accuracy << "%)\n";
+              
+    return accuracy;
+}
