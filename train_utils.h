@@ -77,6 +77,71 @@ public:
     }
 };
 
+// --- Adam Optimizer ---
+class Adam : public Optimizer {
+    // State for m (momentum) and v (velocity)
+    struct State {
+        std::vector<float> m;
+        std::vector<float> v;
+    };
+    std::unordered_map<void*, State> states;
+    
+    double beta1, beta2, eps;
+    int t; // timestep
+
+public:
+    Adam(const std::vector<Tensor*>& p, double learning_rate = 0.001, 
+         double b1 = 0.9, double b2 = 0.999, double epsilon = 1e-8) 
+        : Optimizer(p, learning_rate), beta1(b1), beta2(b2), eps(epsilon), t(0) {}
+
+    void step() override {
+        t++;
+        for (auto* p : params) {
+            if (!p->impl->storage->grad) continue;
+            
+            size_t n = p->numel();
+            void* key = p->impl->storage->data.get();
+
+            // Initialize state if missing
+            if (states.find(key) == states.end()) {
+                states[key] = { std::vector<float>(n, 0.0f), std::vector<float>(n, 0.0f) };
+            }
+            
+            State& s = states[key];
+            
+            // Only implementing fast path for Float32
+            if (p->_dtype() == DType::Float32) {
+                float* theta = (float*)p->impl->storage->data.get();
+                float* grad  = (float*)p->impl->storage->grad.get();
+                float* m = s.m.data();
+                float* v = s.v.data();
+                
+                // Correction factors
+                double bias_correction1 = 1.0 - std::pow(beta1, t);
+                double bias_correction2 = 1.0 - std::pow(beta2, t);
+                
+                // PyTorch-style expansion for efficiency:
+                // lr_t = lr * sqrt(1 - beta2^t) / (1 - beta1^t)
+                float lr_t = (float)(lr * std::sqrt(bias_correction2) / bias_correction1);
+
+                #pragma omp parallel for
+                for (size_t i = 0; i < n; ++i) {
+                    float g = grad[i];
+                    
+                    // Update biased first moment estimate
+                    m[i] = (float)beta1 * m[i] + (1.0f - (float)beta1) * g;
+                    
+                    // Update biased second raw moment estimate
+                    v[i] = (float)beta2 * v[i] + (1.0f - (float)beta2) * g * g;
+                    
+                    // Update parameters
+                    theta[i] -= lr_t * m[i] / (std::sqrt(v[i]) + (float)eps);
+                }
+            }
+        }
+    }
+};
+
 
 // --- Generic Training Function ---
 // Template allows it to accept any Model class that has a forward() method
