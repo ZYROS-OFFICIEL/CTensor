@@ -45,6 +45,39 @@ public:
     }
 };
 
+// --- SGD Optimizer ---
+class SGD : public Optimizer {
+public:
+    SGD(const std::vector<Tensor*>& p, double learning_rate) : Optimizer(p, learning_rate) {}
+
+    void step() override {
+        for (auto* p : params) {
+            if (!p->impl->storage->grad) continue;
+            
+            // Fast path for Float32
+            if (p->_dtype() == DType::Float32) {
+                float* p_ptr = (float*)p->impl->storage->data.get();
+                float* g_ptr = (float*)p->impl->storage->grad.get();
+                size_t n = p->numel();
+                
+                #pragma omp parallel for
+                for (size_t i = 0; i < n; ++i) {
+                    p_ptr[i] -= (float)lr * g_ptr[i];
+                }
+            } else {
+                // Fallback
+                size_t n = p->numel();
+                for (size_t i = 0; i < n; ++i) {
+                    double p_val = read_scalar_at(p->impl->storage->data.get(), i, p->impl->dtype);
+                    double g_val = read_scalar_at(p->impl->storage->grad.get(), i, p->impl->dtype);
+                    write_scalar_at(p->impl->storage->data.get(), i, p->impl->dtype, p_val - lr * g_val);
+                }
+            }
+        }
+    }
+};
+
+
 // --- Generic Training Function ---
 // Template allows it to accept any Model class that has a forward() method
 template <typename ModelType>
