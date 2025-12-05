@@ -143,6 +143,26 @@ public:
 };
 
 
+// --- Learning Rate Scheduler ---
+class StepLR {
+    Optimizer& optim;
+    int step_size;
+    double gamma;
+    int last_epoch;
+
+public:
+    StepLR(Optimizer& opt, int step, double g = 0.1) 
+        : optim(opt), step_size(step), gamma(g), last_epoch(-1) {}
+
+    void step() {
+        last_epoch++;
+        if (last_epoch > 0 && last_epoch % step_size == 0) {
+            optim.lr *= gamma;
+            std::cout << "--- Scheduler: LR set to " << optim.lr << " ---\n";
+        }
+    }
+};
+
 // --- Generic Training Function ---
 // Template allows it to accept any Model class that has a forward() method
 template <typename ModelType>
