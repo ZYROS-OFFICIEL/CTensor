@@ -250,6 +250,22 @@ public:
     }
 };
 
+
+
+// --- NAdam Optimizer ---
+// Nesterov-accelerated Adaptive Moment Estimation
+class NAdam : public Optimizer {
+    struct State {
+        std::vector<float> m;
+        std::vector<float> v;
+    };
+    std::unordered_map<void*, State> states;
+    
+    double beta1, beta2, eps, momentum_decay;
+    int t; 
+};
+
+
 class RMSprop : public Optimizer {
     struct State {
         std::vector<float> v; // square average
