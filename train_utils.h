@@ -320,6 +320,19 @@ public:
 };
 
 
+// --- RAdam Optimizer ---
+// Rectified Adam
+class RAdam : public Optimizer {
+    struct State {
+        std::vector<float> m;
+        std::vector<float> v;
+    };
+    std::unordered_map<void*, State> states;
+    
+    double beta1, beta2, eps;
+    int t; 
+};
+
 class RMSprop : public Optimizer {
     struct State {
         std::vector<float> v; // square average
