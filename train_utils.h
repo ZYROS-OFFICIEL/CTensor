@@ -141,7 +141,13 @@ public:
         }
     }
 };
-
+class RMSprop : public Optimizer {
+    struct State {
+        std::vector<float> v; // square average
+    };
+    std::unordered_map<void*, State> states;
+    double alpha, eps;
+public:
 
 // --- Learning Rate Scheduler ---
 class StepLR {
