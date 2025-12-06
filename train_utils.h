@@ -210,6 +210,44 @@ class Adamax : public Optimizer {
     
     double beta1, beta2, eps;
     int t; 
+    
+public:
+    Adamax(const std::vector<Tensor*>& p, double learning_rate = 0.002, 
+           double b1 = 0.9, double b2 = 0.999, double epsilon = 1e-8) 
+        : Optimizer(p, learning_rate), beta1(b1), beta2(b2), eps(epsilon), t(0) {}
+
+    void step() override {
+        t++;
+        for (auto* p : params) {
+            if (!p->impl->storage->grad) continue;
+            
+            size_t n = p->numel();
+            void* key = p->impl->storage->data.get();
+
+            if (states.find(key) == states.end()) {
+                states[key] = { std::vector<float>(n, 0.0f), std::vector<float>(n, 0.0f) };
+            }
+            State& s = states[key];
+            
+            if (p->_dtype() == DType::Float32) {
+                float* theta = (float*)p->impl->storage->data.get();
+                float* grad  = (float*)p->impl->storage->grad.get();
+                float* m = s.m.data();
+                float* u = s.u.data();
+                
+                double bias_correction1 = 1.0 - std::pow(beta1, t);
+                float step_size = (float)(lr / bias_correction1);
+
+                #pragma omp parallel for
+                for (size_t i = 0; i < n; ++i) {
+                    float g = grad[i];
+                    m[i] = (float)beta1 * m[i] + (1.0f - (float)beta1) * g;
+                    u[i] = std::max((float)beta2 * u[i], std::abs(g)); // infinity norm
+                    theta[i] -= step_size * m[i] / (u[i] + (float)eps);
+                }
+            }
+        }
+    }
 };
 
 class RMSprop : public Optimizer {
