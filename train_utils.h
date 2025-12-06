@@ -198,6 +198,20 @@ public:
     }
 };
 
+
+// --- Adamax Optimizer ---
+// Adam based on infinity norm
+class Adamax : public Optimizer {
+    struct State {
+        std::vector<float> m;
+        std::vector<float> u; // exp_avg_sq using max
+    };
+    std::unordered_map<void*, State> states;
+    
+    double beta1, beta2, eps;
+    int t; 
+};
+
 class RMSprop : public Optimizer {
     struct State {
         std::vector<float> v; // square average
