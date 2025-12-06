@@ -148,6 +148,40 @@ class RMSprop : public Optimizer {
     std::unordered_map<void*, State> states;
     double alpha, eps;
 public:
+    RMSprop(const std::vector<Tensor*>& p, double learning_rate = 0.01, 
+            double alpha_ = 0.99, double epsilon = 1e-8) 
+        : Optimizer(p, learning_rate), alpha(alpha_), eps(epsilon) {}
+
+    void step() override {
+        for (auto* p : params) {
+            if (!p->impl->storage->grad) continue;
+            
+            size_t n = p->numel();
+            void* key = p->impl->storage->data.get();
+
+            if (states.find(key) == states.end()) {
+                states[key] = { std::vector<float>(n, 0.0f) };
+            }
+            State& s = states[key];
+
+            if (p->_dtype() == DType::Float32) {
+                float* theta = (float*)p->impl->storage->data.get();
+                float* grad  = (float*)p->impl->storage->grad.get();
+                float* v = s.v.data();
+
+                #pragma omp parallel for
+                for (size_t i = 0; i < n; ++i) {
+                    float g = grad[i];
+                    // v = alpha * v + (1 - alpha) * g^2
+                    v[i] = (float)alpha * v[i] + (1.0f - (float)alpha) * g * g;
+                    // theta = theta - lr * g / (sqrt(v) + eps)
+                    theta[i] -= (float)lr * g / (std::sqrt(v[i]) + (float)eps);
+                }
+            }
+        }
+    }
+};
+
 
 // --- Learning Rate Scheduler ---
 class StepLR {
