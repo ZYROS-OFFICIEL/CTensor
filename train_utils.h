@@ -331,6 +331,59 @@ class RAdam : public Optimizer {
     
     double beta1, beta2, eps;
     int t; 
+    
+public:
+    RAdam(const std::vector<Tensor*>& p, double learning_rate = 0.001, 
+          double b1 = 0.9, double b2 = 0.999, double epsilon = 1e-8) 
+        : Optimizer(p, learning_rate), beta1(b1), beta2(b2), eps(epsilon), t(0) {}
+
+    void step() override {
+        t++;
+        // Calculate rho_inf
+        float rho_inf = 2.0f / (1.0f - (float)beta2) - 1.0f;
+
+        for (auto* p : params) {
+            if (!p->impl->storage->grad) continue;
+            
+            size_t n = p->numel();
+            void* key = p->impl->storage->data.get();
+
+            if (states.find(key) == states.end()) {
+                states[key] = { std::vector<float>(n, 0.0f), std::vector<float>(n, 0.0f) };
+            }
+            State& s = states[key];
+            
+            if (p->_dtype() == DType::Float32) {
+                float* theta = (float*)p->impl->storage->data.get();
+                float* grad  = (float*)p->impl->storage->grad.get();
+                float* m = s.m.data();
+                float* v = s.v.data();
+                
+                double bias_correction1 = 1.0 - std::pow(beta1, t);
+                double bias_correction2 = 1.0 - std::pow(beta2, t);
+                
+                // Calculate rho_t
+                float rho_t = rho_inf - 2.0f * t * std::pow(beta2, t) / (1.0f - std::pow(beta2, t));
+
+                #pragma omp parallel for
+                for (size_t i = 0; i < n; ++i) {
+                    float g = grad[i];
+                    m[i] = (float)beta1 * m[i] + (1.0f - (float)beta1) * g;
+                    v[i] = (float)beta2 * v[i] + (1.0f - (float)beta2) * g * g;
+                    
+                    float m_hat = m[i] / (float)bias_correction1;
+                    
+                    if (rho_t > 4.0f) {
+                        float v_hat = std::sqrt(v[i] / (float)bias_correction2) + (float)eps;
+                        float rect = std::sqrt(((rho_t - 4.0f) * (rho_t - 2.0f) * rho_inf) / ((rho_inf - 4.0f) * (rho_inf - 2.0f) * rho_t));
+                        theta[i] -= (float)lr * rect * m_hat / v_hat;
+                    } else {
+                        theta[i] -= (float)lr * m_hat;
+                    }
+                }
+            }
+        }
+    }
 };
 
 class RMSprop : public Optimizer {
