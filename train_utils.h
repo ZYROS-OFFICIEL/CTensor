@@ -190,6 +190,39 @@ class Adagrad : public Optimizer {
     };
     std::unordered_map<void*, State> states;
     double eps;
+    
+public:
+    Adagrad(const std::vector<Tensor*>& p, double learning_rate = 0.01, double epsilon = 1e-10) 
+        : Optimizer(p, learning_rate), eps(epsilon) {}
+
+    void step() override {
+        for (auto* p : params) {
+            if (!p->impl->storage->grad) continue;
+            
+            size_t n = p->numel();
+            void* key = p->impl->storage->data.get();
+
+            if (states.find(key) == states.end()) {
+                states[key] = { std::vector<float>(n, 0.0f) };
+            }
+            State& s = states[key];
+
+            if (p->_dtype() == DType::Float32) {
+                float* theta = (float*)p->impl->storage->data.get();
+                float* grad  = (float*)p->impl->storage->grad.get();
+                float* sum_sq = s.sum_sq.data();
+
+                #pragma omp parallel for
+                for (size_t i = 0; i < n; ++i) {
+                    float g = grad[i];
+                    // sum_sq += g^2
+                    sum_sq[i] += g * g;
+                    // theta = theta - lr * g / (sqrt(sum_sq) + eps)
+                    theta[i] -= (float)lr * g / (std::sqrt(sum_sq[i]) + (float)eps);
+                }
+            }
+        }
+    }
 };
 // --- Learning Rate Scheduler ---
 class StepLR {
