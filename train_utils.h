@@ -181,8 +181,16 @@ public:
         }
     }
 };
-
-
+// --- Adagrad Optimizer ---
+// Adapts learning rate based on sum of squared gradients so far
+// theta = theta - lr * grad / sqrt(sum_sq_grad + eps)
+class Adagrad : public Optimizer {
+    struct State {
+        std::vector<float> sum_sq; 
+    };
+    std::unordered_map<void*, State> states;
+    double eps;
+};
 // --- Learning Rate Scheduler ---
 class StepLR {
     Optimizer& optim;
