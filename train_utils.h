@@ -141,6 +141,20 @@ public:
         }
     }
 };
+
+// --- AdamW Optimizer ---
+// Adam with decoupled weight decay
+class AdamW : public Optimizer {
+    struct State {
+        std::vector<float> m;
+        std::vector<float> v;
+    };
+    std::unordered_map<void*, State> states;
+    
+    double beta1, beta2, eps, weight_decay;
+    int t; 
+};
+
 class RMSprop : public Optimizer {
     struct State {
         std::vector<float> v; // square average
