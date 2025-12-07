@@ -480,6 +480,63 @@ class Lion : public Optimizer {
     std::unordered_map<void*, State> states;
     
     double beta1, beta2, weight_decay;
+    
+public:
+    Lion(const std::vector<Tensor*>& p, double learning_rate = 0.0001, 
+         double b1 = 0.9, double b2 = 0.99, double decay = 0.01) 
+        : Optimizer(p, learning_rate), beta1(b1), beta2(b2), weight_decay(decay) {}
+
+    void step() override {
+        for (auto* p : params) {
+            if (!p->impl->storage->grad) continue;
+            
+            size_t n = p->numel();
+            void* key = p->impl->storage->data.get();
+
+            if (states.find(key) == states.end()) {
+                states[key] = { std::vector<float>(n, 0.0f) };
+            }
+            State& s = states[key];
+            
+            // Fast Path: Float32 and Contiguous
+            if (p->_dtype() == DType::Float32 && p->is_contiguous()) {
+                float* theta = (float*)p->impl->storage->data.get();
+                float* grad  = (float*)p->impl->storage->grad.get();
+                float* m = s.m.data();
+                
+                // Pre-calculate constants
+                float beta1_f = (float)beta1;
+                float beta2_f = (float)beta2;
+                float lr_decay = (float)(lr * weight_decay);
+                float lr_f = (float)lr;
+
+                #pragma omp parallel for
+                for (size_t i = 0; i < n; ++i) {
+                    float g = grad[i];
+                    float m_t = m[i];
+
+                    // 1. Perform Weight Decay
+                    if (weight_decay > 0) {
+                        theta[i] -= lr_decay * theta[i];
+                    }
+
+                    // 2. Symbolic Update (c_t)
+                    // c_t = beta1 * m_{t-1} + (1 - beta1) * g_t
+                    float c_t = beta1_f * m_t + (1.0f - beta1_f) * g;
+
+                    // 3. Update Model Parameters
+                    // theta_t = theta_{t-1} - lr * sign(c_t)
+                    // Branchless sign optimization: (c_t > 0) - (c_t < 0)
+                    float sign_ct = (c_t > 0.0f) ? 1.0f : ((c_t < 0.0f) ? -1.0f : 0.0f);
+                    theta[i] -= lr_f * sign_ct;
+
+                    // 4. Update Momentum
+                    // m_t = beta2 * m_{t-1} + (1 - beta2) * g_t
+                    m[i] = beta2_f * m_t + (1.0f - beta2_f) * g;
+                }
+            }
+        }
+    }
 };
 
 // --- Learning Rate Scheduler ---
