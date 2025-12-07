@@ -382,21 +382,29 @@ Tensor Tensor::reshape(const std::vector<size_t>& new_shape) const {
     size_t new_n = 1;
     for (auto v: new_shape) new_n *= v;
     if (old_n != new_n) throw std::invalid_argument("reshape: number of elements mismatch");
+    
+    // If not contiguous, we MUST copy data to new linear storage to satisfy reshape
+    if (!is_contiguous()) {
+        Tensor contig = this->contiguous();
+        return contig.reshape(new_shape);
+    }
+
     std::vector<size_t> nst(new_shape.size());
     if (!new_shape.empty()) {
         nst.back() = 1;
         for (int i = (int)new_shape.size()-2; i >= 0; --i)
             nst[i] = nst[i+1] * new_shape[i+1];
     }
+    
+    // Contiguous storage, safe to view with new strides
     Tensor out;
     out.impl = std::make_shared<Tensorimpl>(impl->storage, impl->offset, new_shape, nst, impl->dtype, impl->requires_grad);
+    
     if (impl->requires_grad) {
-        // Save old shape for backward
         std::vector<size_t> old_shape_vec(impl->shape, impl->shape + impl->ndim);
         out.impl->grad_fn = std::make_shared<GradReshape>(*this, old_shape_vec);
     }
     return out;
-
 }
 
 Tensor Tensor::select(size_t dim, size_t index) const {
