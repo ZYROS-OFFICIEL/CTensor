@@ -100,6 +100,9 @@ struct Tensor {
     inline double read_scalar(size_t idx) const;
     inline void write_scalar(size_t idx, double val);
 
+    //Contiguous tensor check
+    bool is_contiguous() const;
+    Tensor contiguous() const; 
     // convenience constructors (implement in .cpp)
     static Tensor ones(const std::vector<size_t>& shape_, DType dt = DType::Float32, bool requires_grad_ = false);
     static Tensor zeros(const std::vector<size_t>& shape_, DType dt = DType::Float32, bool requires_grad_ = false);
