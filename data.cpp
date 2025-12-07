@@ -254,7 +254,7 @@ inline Tensor from_npy(const std::string& filename, bool requires_grad ) {
 //---------------tensor -> image  ---------------
 void tensorio::to_image(const Tensor& t, const std::string& path) {
     assert(t.impl->ndim == 3 && "Expected [C,H,W] tensor");
-
+    Tensor contig_t = t.contiguous();
     size_t C = t.impl->shape[0];
     size_t H = t.impl->shape[1];
     size_t W = t.impl->shape[2];
