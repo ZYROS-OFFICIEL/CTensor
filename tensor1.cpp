@@ -99,6 +99,45 @@ std::vector<size_t> Tensor::shape() const {
     if (!impl) return {};
     return std::vector<size_t>(impl->shape, impl->shape + impl->ndim);
 }
+// --- Make Contiguous ---
+Tensor Tensor::contiguous() const {
+    if (!impl) throw std::runtime_error("Empty tensor");
+    if (is_contiguous()) return *this; // Already good
+
+    // Allocate new standard packed tensor
+    Tensor out(shape(), _dtype(), impl->requires_grad);
+    size_t n = numel();
+    
+    // Copy element by element respecting strides
+    // We use a flat loop and reconstruct indices, or a recursive copy.
+    // For simplicity and correctness with arbitrary strides:
+    
+    auto* src_data = impl->storage->data.get();
+    auto* dst_data = out.impl->storage->data.get();
+    DType dt = _dtype();
+    
+    size_t ndim = impl->ndim;
+    const size_t* shape_ptr = impl->shape;
+    const size_t* stride_ptr = impl->strides;
+    size_t offset_base = impl->offset;
+
+    // Parallelize the copy
+    #pragma omp parallel for
+    for (size_t i = 0; i < n; ++i) {
+        size_t temp = i;
+        size_t src_idx = offset_base;
+        for (int d = (int)ndim - 1; d >= 0; --d) {
+            size_t sz = shape_ptr[d];
+            size_t coord = temp % sz;
+            temp /= sz;
+            src_idx += coord * stride_ptr[d];
+        }
+        double val = read_scalar_at(src_data, src_idx, dt);
+        write_scalar_at(dst_data, i, dt, val); // 'out' is contiguous, so 'i' is valid linear index
+    }
+    
+    return out;
+}
 
 Tensor Tensor::clone() const {
     // Allocate new tensor with same shape + dtype
