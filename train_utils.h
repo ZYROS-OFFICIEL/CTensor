@@ -469,6 +469,19 @@ public:
         }
     }
 };
+
+// --- Lion Optimizer (Google, 2023) ---
+// "Symbolic Discovery of Optimization Algorithms"
+// Uses sign-based updates. Faster compute (no sqrt/div) and 2x memory efficient (1 state).
+class Lion : public Optimizer {
+    struct State {
+        std::vector<float> m; // Only momentum! No 'v' (variance) needed.
+    };
+    std::unordered_map<void*, State> states;
+    
+    double beta1, beta2, weight_decay;
+};
+
 // --- Learning Rate Scheduler ---
 class StepLR {
     Optimizer& optim;
