@@ -139,19 +139,27 @@ Tensor Tensor::contiguous() const {
     return out;
 }
 
+// --- Clone ---
 Tensor Tensor::clone() const {
-    // Allocate new tensor with same shape + dtype
-    Tensor out(shape(), _dtype(), impl->requires_grad);
-
-    size_t bytes = numel() * dtype_size(_dtype());
-
-    // Deep copy raw buffer
-    memcpy(out.impl->storage->data.get(),
-           impl->storage->data.get(),
-           bytes);
-
-    return out;
+    if (!impl) throw std::runtime_error("Empty tensor");
+    
+    // If contiguous, we can do fast memcpy. If not, we must use strided copy.
+    if (is_contiguous()) {
+        Tensor out(shape(), _dtype(), impl->requires_grad);
+        size_t bytes = numel() * dtype_size(_dtype());
+        // Careful: impl->offset might be > 0 even if contiguous (e.g. slicing first dim)
+        // But is_contiguous() check above handles stride checks. 
+        // We must point to the correct start address.
+        
+        char* src_bytes = (char*)impl->storage->data.get() + impl->offset * dtype_size(_dtype());
+        memcpy(out.impl->storage->data.get(), src_bytes, bytes);
+        return out;
+    } else {
+        // Fallback to contiguous() which handles allocation and strided copy
+        return contiguous(); 
+    }
 }
+
 
 void Tensor::print_shape() const {
     if (!impl) { std::cout << "()\n"; return; }
