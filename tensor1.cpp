@@ -99,6 +99,23 @@ std::vector<size_t> Tensor::shape() const {
     if (!impl) return {};
     return std::vector<size_t>(impl->shape, impl->shape + impl->ndim);
 }
+
+// --- Contiguity Check ---
+bool Tensor::is_contiguous() const {
+    if (!impl) return false;
+    if (impl->ndim == 0) return true;
+    
+    size_t expected_stride = 1;
+    for (int i = (int)impl->ndim - 1; i >= 0; --i) {
+        if (impl->shape[i] != 1) { // Skip dimensions of size 1 as they don't affect layout
+            if (impl->strides[i] != expected_stride) return false;
+            expected_stride *= impl->shape[i];
+        }
+    }
+    return true;
+}
+
+
 // --- Make Contiguous ---
 Tensor Tensor::contiguous() const {
     if (!impl) throw std::runtime_error("Empty tensor");
