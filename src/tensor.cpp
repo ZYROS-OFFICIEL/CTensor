@@ -98,3 +98,50 @@ Tensorimpl::~Tensorimpl() {
     std::free(shape);
     std::free(strides);
 }
+
+// ======================================================================================
+//                                  TENSOR KERNELS
+// ======================================================================================
+
+// --- Contiguous Kernel ---
+template <typename T>
+void contiguous_kernel(const void* src, void* dst, size_t n, 
+                       size_t ndim, const size_t* shape, const size_t* strides, size_t offset) {
+    const T* s = (const T*)src;
+    T* d = (T*)dst;
+    
+    // We can rely on compiler autovectorization here since types are known!
+    #pragma omp parallel for
+    for (size_t i = 0; i < n; ++i) {
+        size_t temp = i;
+        size_t src_idx = offset;
+        for (int dim = (int)ndim - 1; dim >= 0; --dim) {
+            size_t sz = shape[dim];
+            size_t coord = temp % sz;
+            temp /= sz;
+            src_idx += coord * strides[dim];
+        }
+        d[i] = s[src_idx];
+    }
+}
+
+// --- Fill Kernel ---
+template <typename T>
+void fill_kernel(void* data, size_t n, double value) {
+    T* ptr = (T*)data;
+    T v = static_cast<T>(value);
+    #pragma omp parallel for
+    for (size_t i = 0; i < n; ++i) {
+        ptr[i] = v;
+    }
+}
+
+// --- Vector Init Kernel ---
+template <typename T>
+void vector_init_kernel(void* data, size_t n, const std::vector<double>& vals) {
+    T* ptr = (T*)data;
+    #pragma omp parallel for
+    for (size_t i = 0; i < n; ++i) {
+        ptr[i] = static_cast<T>(vals[i]);
+    }
+}
