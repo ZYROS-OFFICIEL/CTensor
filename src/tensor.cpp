@@ -1,4 +1,5 @@
-#include "tensor1.h"
+#include "tensor.h"
+#include "dispatch.h"
 #include "autograd.h"
 #include "data.h"
 #include <cstdlib>

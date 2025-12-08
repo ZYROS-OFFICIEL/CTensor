@@ -1,5 +1,5 @@
 #pragma once
-#include "tensor1.h"
+#include "tensor.h"
 #include <stdexcept>
 #include <string>
 
