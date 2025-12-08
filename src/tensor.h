@@ -1,4 +1,5 @@
 #pragma once
+#include "device.h"
 #include <cstddef>
 #include <vector>
 #include <memory>
@@ -75,8 +76,8 @@ struct Storage {
     std::shared_ptr<void> data;
     std::shared_ptr<void> grad;
     size_t size = 0;
-
-    static std::shared_ptr<Storage> allocate(size_t n, DType dt, bool requires_grad = false);
+    Device device;
+    static std::shared_ptr<Storage> allocate(size_t n, DType dt, bool requires_grad = false,Device dev = Device(DeviceType::CPU));
 };
 
 // ----------------- low-level impl -----------------
@@ -90,7 +91,7 @@ struct Tensorimpl {
     DType dtype = DType::Float32;
     std::shared_ptr<GradFn> grad_fn;
 
-    Tensorimpl(const std::vector<size_t>& shape_, DType dtype_ = DType::Float32, bool requires_grad_ = false);
+    Tensorimpl(const std::vector<size_t>& shape_, DType dtype_, bool requires_grad_, Device dev_ );
     Tensorimpl(std::shared_ptr<Storage> storage_,
                size_t offset_,
                const std::vector<size_t>& shape_,
@@ -104,6 +105,9 @@ struct Tensorimpl {
 struct Tensor {
     std::shared_ptr<Tensorimpl> impl;
 
+    Device device() const;
+    Tensor to(Device target_device); 
+    
     Tensor() = default;
     Tensor(const std::vector<size_t>& shape_, DType dtype_ = DType::Float32, bool requires_grad_ = false);
     Tensor(const Tensor& other) = default;
