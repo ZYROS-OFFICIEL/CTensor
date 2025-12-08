@@ -107,7 +107,7 @@ struct Tensor {
 
     Device device() const;
     Tensor to(Device target_device); 
-    
+
     Tensor() = default;
     Tensor(const std::vector<size_t>& shape_, DType dtype_ = DType::Float32, bool requires_grad_ = false);
     Tensor(const Tensor& other) = default;
@@ -212,6 +212,12 @@ struct Tensor {
 
     void backward(); 
 };
+
+
+#ifdef USE_CUDA
+    #include <cuda_runtime.h>
+#endif
+
 
 // ---------- inline small wrappers ----------
 inline DType Tensor::_dtype() const {
