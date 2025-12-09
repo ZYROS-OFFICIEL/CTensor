@@ -9,6 +9,7 @@
 #include <cmath>
 #include <iostream>
 #include <cstdint>
+#include <numeric> // For std::accumulate
 
 // ----------------- DType System -----------------
 enum class DType { 
@@ -74,31 +75,61 @@ struct GradFn;
 // ----------------- Storage -----------------
 struct Storage {
     std::shared_ptr<void> data;
-    std::shared_ptr<void> grad;
     size_t size = 0;
     Device device;
-    static std::shared_ptr<Storage> allocate(size_t n, DType dt, bool requires_grad = false,Device dev = Device(DeviceType::CPU));
+    static std::shared_ptr<Storage> allocate(size_t n, DType dt, bool requires_grad = false, Device dev = Device(DeviceType::CPU));
 };
+
+// ----------------- Strides Helper -----------------
+inline std::vector<size_t> calc_strides(const std::vector<size_t>& shape) {
+    if (shape.empty()) return {};
+    std::vector<size_t> strides(shape.size());
+    size_t current = 1;
+    for (int i = (int)shape.size() - 1; i >= 0; --i) {
+        strides[i] = current;
+        current *= shape[i];
+    }
+    return strides;
+}
 
 // ----------------- low-level impl -----------------
 struct Tensorimpl {
-    std::shared_ptr<Storage> storage;
+    std::shared_ptr<Storage> data;
+    
+    // IMPROVEMENT: Grad is now a Tensorimpl, allowing gradients to have views/strides
+    std::shared_ptr<Tensorimpl> grad = nullptr; 
+    
     size_t offset = 0;
     size_t ndim = 0;
-    size_t* shape = nullptr;
-    size_t* strides = nullptr;
+    
+    // IMPROVEMENT: Use vector instead of raw pointers for safety
+    std::vector<size_t> shape;
+    std::vector<size_t> strides;
+    
     bool requires_grad = false;
     DType dtype = DType::Float32;
     std::shared_ptr<GradFn> grad_fn;
 
-    Tensorimpl(const std::vector<size_t>& shape_, DType dtype_, bool requires_grad_, Device dev_ );
+    // Default constructor
+    Tensorimpl(const std::vector<size_t>& shape_, DType dtype_, bool requires_grad_, Device dev_)
+        : shape(shape_), strides(calc_strides(shape_)), dtype(dtype_), requires_grad(requires_grad_), ndim(shape_.size()) {
+        
+        size_t total_el = 1;
+        for (auto s : shape) total_el *= s;
+        data = Storage::allocate(total_el, dtype, requires_grad, dev_);
+    }
+
+    // View constructor
     Tensorimpl(std::shared_ptr<Storage> storage_,
                size_t offset_,
                const std::vector<size_t>& shape_,
                const std::vector<size_t>& strides_,
                DType dtype_,
-               bool requires_grad_);
-    ~Tensorimpl();
+               bool requires_grad_)
+        : data(storage_), offset(offset_), shape(shape_), strides(strides_), 
+          dtype(dtype_), requires_grad(requires_grad_), ndim(shape_.size()) {}
+    
+    // Rule of Zero: No custom destructor needed thanks to std::vector and shared_ptr
 };
 
 // ----------------- Tensor (public API) -----------------
@@ -109,12 +140,17 @@ struct Tensor {
     Tensor to(Device target_device); 
 
     Tensor() = default;
+    
+    // Constructor declarations
     Tensor(const std::vector<size_t>& shape_, DType dtype_ = DType::Float32, bool requires_grad_ = false);
+    Tensor(const size_t* shape_ptr, size_t ndim, DType dtype, bool requires_grad)
+        : Tensor(std::vector<size_t>(shape_ptr, shape_ptr + ndim), dtype, requires_grad) {}
+
+    // Standard Rule of 5 defaults are fine
     Tensor(const Tensor& other) = default;
     Tensor(Tensor&& other) noexcept = default;
     Tensor& operator=(const Tensor& other) = default;
     Tensor& operator=(Tensor&& other) noexcept = default;
-    Tensor(const size_t* shape_ptr, size_t ndim, DType dtype, bool requires_grad): Tensor(std::vector<size_t>(shape_ptr, shape_ptr + ndim), dtype, requires_grad) {}
 
     ~Tensor() = default;
 
@@ -143,7 +179,6 @@ struct Tensor {
 
     Tensor clone() const;
     Tensor detach() const;
-    Tensor detach(); 
     Tensor& requires_grad_(bool b);
 
     // ---------------- Templated Proxy ----------------
@@ -161,6 +196,7 @@ struct Tensor {
             if (!impl) throw std::runtime_error("Invalid tensor");
             if (depth >= impl->ndim) throw std::out_of_range("Too many indices");
             if (i >= impl->shape[depth]) throw std::out_of_range("Index out of bounds");
+            
             size_t new_offset = offset + i * impl->strides[depth];
             return ProxyBase(impl, new_offset, depth + 1);
         }
@@ -168,14 +204,16 @@ struct Tensor {
         operator double() const {
             if (!impl) throw std::runtime_error("Invalid tensor");
             if (depth != impl->ndim) throw std::out_of_range("Not at leaf index");
-            return read_scalar_at(impl->storage->data.get(), offset, impl->dtype);
+            // FIXED: Access impl->data (Storage) -> data (void*)
+            return read_scalar_at(impl->data->data.get(), offset, impl->dtype);
         }
 
         template <bool W = Writable, typename = std::enable_if_t<W>>
         ProxyBase& operator=(double val) {
             if (!impl) throw std::runtime_error("Invalid tensor");
             if (depth != impl->ndim) throw std::out_of_range("Not at leaf index");
-            write_scalar_at(impl->storage->data.get(), offset, impl->dtype, val);
+            // FIXED: Access impl->data (Storage) -> data (void*)
+            write_scalar_at(impl->data->data.get(), offset, impl->dtype, val);
             return *this;
         }
 
@@ -208,9 +246,21 @@ struct Tensor {
     void save_image(const std::string& path) const;
 
     Tensor gather(const Tensor& index, size_t dim=1) const;
+    
     std::shared_ptr<GradFn> grad_fn;
 
+    // Gradient / Autograd API
     void backward(); 
+    
+    // Helper to get gradient as a Tensor (wraps the internal impl)
+    Tensor grad() const {
+        if (!impl || !impl->grad) return Tensor();
+        Tensor g;
+        g.impl = impl->grad;
+        return g;
+    }
+
+    void zero_grad();
 };
 
 
@@ -232,14 +282,46 @@ inline size_t Tensor::dtype_bytes() const {
 
 inline double Tensor::read_scalar(size_t idx) const {
     if (!impl) throw std::runtime_error("Tensor is empty");
-    return read_scalar_at(impl->storage->data.get(), idx, impl->dtype);
+    return read_scalar_at(impl->data->data.get(), idx, impl->dtype);
 }
 
 inline void Tensor::write_scalar(size_t idx, double val) {
     if (!impl) throw std::runtime_error("Tensor is empty");
-    write_scalar_at(impl->storage->data.get(), idx, impl->dtype, val);
+    write_scalar_at(impl->data->data.get(), idx, impl->dtype, val);
 }
+
 inline bool Tensor::requires_grad() const {
     if (!impl) throw std::runtime_error("Tensor is empty");
     return impl->requires_grad;
+}
+
+// Simple implementations for constructors to make it compile with the new impl structure
+inline Tensor::Tensor(const std::vector<size_t>& shape_, DType dtype_, bool requires_grad_) {
+    impl = std::make_shared<Tensorimpl>(shape_, dtype_, requires_grad_, Device(DeviceType::CPU));
+}
+
+inline Tensor::Proxy Tensor::operator[](size_t i) {
+    if (!impl) throw std::runtime_error("Invalid tensor");
+    if (impl->ndim == 0) throw std::out_of_range("Cannot index scalar");
+    if (i >= impl->shape[0]) throw std::out_of_range("Index out of bounds");
+    return Proxy(impl, impl->offset + i * impl->strides[0], 1);
+}
+
+inline Tensor::ConstProxy Tensor::operator[](size_t i) const {
+    if (!impl) throw std::runtime_error("Invalid tensor");
+    if (impl->ndim == 0) throw std::out_of_range("Cannot index scalar");
+    if (i >= impl->shape[0]) throw std::out_of_range("Index out of bounds");
+    return ConstProxy(impl, impl->offset + i * impl->strides[0], 1);
+}
+
+inline std::vector<size_t> Tensor::shape() const {
+    if(!impl) return {};
+    return impl->shape;
+}
+
+inline size_t Tensor::numel() const {
+    if(!impl) return 0;
+    size_t n = 1;
+    for(auto s : impl->shape) n *= s;
+    return n;
 }
