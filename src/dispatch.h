@@ -23,6 +23,5 @@
         DISPATCH_CASE(DType::Int16,    int16_t,  __VA_ARGS__) \
         DISPATCH_CASE(DType::Int64,    int64_t,  __VA_ARGS__) \
         DISPATCH_CASE(DType::Bool,     bool,     __VA_ARGS__) \
-        /* Float16 TODO: Add half-precision class support later */ \
         default: throw std::runtime_error(std::string(NAME) + ": unsupported dtype"); \
     }
