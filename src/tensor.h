@@ -179,6 +179,7 @@ struct Tensor {
 
     Tensor clone() const;
     Tensor detach() const;
+    Tensor detach() ;
     Tensor& requires_grad_(bool b);
 
     // ---------------- Templated Proxy ----------------
