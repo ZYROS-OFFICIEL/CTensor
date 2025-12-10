@@ -364,17 +364,17 @@ Tensor sinh_mp(const Tensor& a) { return unary_op_impl(a, [](auto x){ return std
 Tensor cosh_mp(const Tensor& a) { return unary_op_impl(a, [](auto x){ return std::cosh(x); }, a.requires_grad() ? std::make_shared<GradCosH>(a) : nullptr); }
 
 Tensor sigmoid_mp(const Tensor& a) { 
-    return unary_op_impl(a, [](double x){ return 1.0 / (1.0 + std::exp(-x)); }, 
+    return unary_op_impl(a, [](auto x){ return 1.0 / (1.0 + std::exp(-x)); }, 
                          a.requires_grad() ? std::make_shared<GradSigmoid>(a) : nullptr); 
 }
 
 Tensor Relu_mp(const Tensor& a) { 
-    return unary_op_impl(a, [](double x){ return x > 0 ? x : 0.0; }, 
+    return unary_op_impl(a, [](auto x){ return x > 0 ? x : 0.0; }, 
                          a.requires_grad() ? std::make_shared<GradRelu>(a) : nullptr); 
 }
 
 Tensor softplus_mp(const Tensor& a) { 
-    return unary_op_impl(a, [](double x){ return std::log(1.0 + std::exp(x)); }, 
+    return unary_op_impl(a, [](auto x){ return std::log(1.0 + std::exp(x)); }, 
                          a.requires_grad() ? std::make_shared<GradSoftPlus>(a) : nullptr); 
 }
 
@@ -397,8 +397,8 @@ Tensor reduction_op_impl(const Tensor& t, int dim, ReduceFunc reducer, InitFunc 
     size_t reduce_size = t.impl->shape[dim];
     
     DISPATCH_ALL_TYPES(t._dtype(), "reduction", [&] {
-        const scalar_t* src = (const scalar_t*)t.impl->storage->data.get();
-        scalar_t* dst = (scalar_t*)out.impl->storage->data.get();
+        const scalar_t* src = (const scalar_t*)t.impl->data->data.get();
+        scalar_t* dst = (scalar_t*)out.impl->data->data.get();
         
         #pragma omp parallel for
         for (size_t i = 0; i < out_n; ++i) {
@@ -440,19 +440,19 @@ Tensor mean_mp(const Tensor& t, int dim) {
 
 // --- Comparisons ---
 
-Tensor lt_mp(const Tensor& a, double b) { return unary_op_impl(a, [b](double x){ return x < b ? 1.0 : 0.0; }); }
-Tensor le_mp(const Tensor& a, double b) { return unary_op_impl(a, [b](double x){ return x <= b ? 1.0 : 0.0; }); }
-Tensor gt_mp(const Tensor& a, double b) { return unary_op_impl(a, [b](double x){ return x > b ? 1.0 : 0.0; }); }
-Tensor ge_mp(const Tensor& a, double b) { return unary_op_impl(a, [b](double x){ return x >= b ? 1.0 : 0.0; }); }
-Tensor eq_mp(const Tensor& a, double b) { return unary_op_impl(a, [b](double x){ return x == b ? 1.0 : 0.0; }); }
-Tensor neq_mp(const Tensor& a, double b) { return unary_op_impl(a, [b](double x){ return x != b ? 1.0 : 0.0; }); }
+Tensor lt_mp(const Tensor& a, double b) { return unary_op_impl(a, [b](auto x){ return x < b ? 1.0 : 0.0; }); }
+Tensor le_mp(const Tensor& a, double b) { return unary_op_impl(a, [b](auto x){ return x <= b ? 1.0 : 0.0; }); }
+Tensor gt_mp(const Tensor& a, double b) { return unary_op_impl(a, [b](auto x){ return x > b ? 1.0 : 0.0; }); }
+Tensor ge_mp(const Tensor& a, double b) { return unary_op_impl(a, [b](auto x){ return x >= b ? 1.0 : 0.0; }); }
+Tensor eq_mp(const Tensor& a, double b) { return unary_op_impl(a, [b](auto x){ return x == b ? 1.0 : 0.0; }); }
+Tensor neq_mp(const Tensor& a, double b) { return unary_op_impl(a, [b](auto x){ return x != b ? 1.0 : 0.0; }); }
 
-Tensor lt_mp(const Tensor& a, const Tensor& b) { return binary_op_impl(a, b, [](double x, double y){ return x < y ? 1.0 : 0.0; }); }
-Tensor le_mp(const Tensor& a, const Tensor& b) { return binary_op_impl(a, b, [](double x, double y){ return x <= y ? 1.0 : 0.0; }); }
-Tensor gt_mp(const Tensor& a, const Tensor& b) { return binary_op_impl(a, b, [](double x, double y){ return x > y ? 1.0 : 0.0; }); }
-Tensor ge_mp(const Tensor& a, const Tensor& b) { return binary_op_impl(a, b, [](double x, double y){ return x >= y ? 1.0 : 0.0; }); }
-Tensor eq_mp(const Tensor& a, const Tensor& b) { return binary_op_impl(a, b, [](double x, double y){ return x == y ? 1.0 : 0.0; }); }
-Tensor ne_mp(const Tensor& a, const Tensor& b) { return binary_op_impl(a, b, [](double x, double y){ return x != y ? 1.0 : 0.0; }); }
+Tensor lt_mp(const Tensor& a, const Tensor& b) { return binary_op_impl(a, b, [](auto x, auto y){ return x < y ? 1.0 : 0.0; }); }
+Tensor le_mp(const Tensor& a, const Tensor& b) { return binary_op_impl(a, b, [](auto x, auto y){ return x <= y ? 1.0 : 0.0; }); }
+Tensor gt_mp(const Tensor& a, const Tensor& b) { return binary_op_impl(a, b, [](auto x, auto y){ return x > y ? 1.0 : 0.0; }); }
+Tensor ge_mp(const Tensor& a, const Tensor& b) { return binary_op_impl(a, b, [](auto x, auto y){ return x >= y ? 1.0 : 0.0; }); }
+Tensor eq_mp(const Tensor& a, const Tensor& b) { return binary_op_impl(a, b, [](auto x, auto y){ return x == y ? 1.0 : 0.0; }); }
+Tensor ne_mp(const Tensor& a, const Tensor& b) { return binary_op_impl(a, b, [](auto x, auto y){ return x != y ? 1.0 : 0.0; }); }
 
 // --- Utilities ---
 
