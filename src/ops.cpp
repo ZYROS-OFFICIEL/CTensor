@@ -349,19 +349,19 @@ Tensor matmul_mp(const Tensor& A, const Tensor& B) {
 
 // --- Unary Math Ops ---
 
-Tensor abs_mp(const Tensor& a) { return unary_op_impl(a, [](double x){ return std::abs(x); }, a.requires_grad() ? std::make_shared<GradAbs>(a) : nullptr); }
-Tensor ln_mp(const Tensor& a) { return unary_op_impl(a, [](double x){ return std::log(x); }, a.requires_grad() ? std::make_shared<GradLn>(a) : nullptr); }
-Tensor exp_mp(const Tensor& a) { return unary_op_impl(a, [](double x){ return std::exp(x); }, a.requires_grad() ? std::make_shared<GradExp>(a) : nullptr); }
-Tensor sqrt_mp(const Tensor& a) { return unary_op_impl(a, [](double x){ return std::sqrt(x); }, a.requires_grad() ? std::make_shared<GradSqrt>(a) : nullptr); }
-Tensor sin_mp(const Tensor& a) { return unary_op_impl(a, [](double x){ return std::sin(x); }, a.requires_grad() ? std::make_shared<GradSin>(a) : nullptr); }
-Tensor cos_mp(const Tensor& a) { return unary_op_impl(a, [](double x){ return std::cos(x); }, a.requires_grad() ? std::make_shared<GradCos>(a) : nullptr); }
-Tensor tan_mp(const Tensor& a) { return unary_op_impl(a, [](double x){ return std::tan(x); }, a.requires_grad() ? std::make_shared<GradTan>(a) : nullptr); }
-Tensor asin_mp(const Tensor& a) { return unary_op_impl(a, [](double x){ return std::asin(x); }, a.requires_grad() ? std::make_shared<GradASin>(a) : nullptr); }
-Tensor acos_mp(const Tensor& a) { return unary_op_impl(a, [](double x){ return std::acos(x); }, a.requires_grad() ? std::make_shared<GradACos>(a) : nullptr); }
-Tensor atan_mp(const Tensor& a) { return unary_op_impl(a, [](double x){ return std::atan(x); }, a.requires_grad() ? std::make_shared<GradATan>(a) : nullptr); }
-Tensor tanh_mp(const Tensor& a) { return unary_op_impl(a, [](double x){ return std::tanh(x); }, a.requires_grad() ? std::make_shared<GradTanH>(a) : nullptr); }
-Tensor sinh_mp(const Tensor& a) { return unary_op_impl(a, [](double x){ return std::sinh(x); }, a.requires_grad() ? std::make_shared<GradSinH>(a) : nullptr); }
-Tensor cosh_mp(const Tensor& a) { return unary_op_impl(a, [](double x){ return std::cosh(x); }, a.requires_grad() ? std::make_shared<GradCosH>(a) : nullptr); }
+Tensor abs_mp(const Tensor& a) { return unary_op_impl(a, [](auto x){ return std::abs(x); }, a.requires_grad() ? std::make_shared<GradAbs>(a) : nullptr); }
+Tensor ln_mp(const Tensor& a) { return unary_op_impl(a, [](auto x){ return std::log(x); }, a.requires_grad() ? std::make_shared<GradLn>(a) : nullptr); }
+Tensor exp_mp(const Tensor& a) { return unary_op_impl(a, [](auto x){ return std::exp(x); }, a.requires_grad() ? std::make_shared<GradExp>(a) : nullptr); }
+Tensor sqrt_mp(const Tensor& a) { return unary_op_impl(a, [](auto x){ return std::sqrt(x); }, a.requires_grad() ? std::make_shared<GradSqrt>(a) : nullptr); }
+Tensor sin_mp(const Tensor& a) { return unary_op_impl(a, [](auto x){ return std::sin(x); }, a.requires_grad() ? std::make_shared<GradSin>(a) : nullptr); }
+Tensor cos_mp(const Tensor& a) { return unary_op_impl(a, [](auto x){ return std::cos(x); }, a.requires_grad() ? std::make_shared<GradCos>(a) : nullptr); }
+Tensor tan_mp(const Tensor& a) { return unary_op_impl(a, [](auto x){ return std::tan(x); }, a.requires_grad() ? std::make_shared<GradTan>(a) : nullptr); }
+Tensor asin_mp(const Tensor& a) { return unary_op_impl(a, [](auto x){ return std::asin(x); }, a.requires_grad() ? std::make_shared<GradASin>(a) : nullptr); }
+Tensor acos_mp(const Tensor& a) { return unary_op_impl(a, [](auto x){ return std::acos(x); }, a.requires_grad() ? std::make_shared<GradACos>(a) : nullptr); }
+Tensor atan_mp(const Tensor& a) { return unary_op_impl(a, [](auto x){ return std::atan(x); }, a.requires_grad() ? std::make_shared<GradATan>(a) : nullptr); }
+Tensor tanh_mp(const Tensor& a) { return unary_op_impl(a, [](auto x){ return std::tanh(x); }, a.requires_grad() ? std::make_shared<GradTanH>(a) : nullptr); }
+Tensor sinh_mp(const Tensor& a) { return unary_op_impl(a, [](auto x){ return std::sinh(x); }, a.requires_grad() ? std::make_shared<GradSinH>(a) : nullptr); }
+Tensor cosh_mp(const Tensor& a) { return unary_op_impl(a, [](auto x){ return std::cosh(x); }, a.requires_grad() ? std::make_shared<GradCosH>(a) : nullptr); }
 
 Tensor sigmoid_mp(const Tensor& a) { 
     return unary_op_impl(a, [](double x){ return 1.0 / (1.0 + std::exp(-x)); }, 
