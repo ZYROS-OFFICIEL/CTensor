@@ -1,35 +1,11 @@
-#include "opsmp.h"
+#include "ops.h"
 #include "autograd.h"
+#include "dispatch.h"
 #include <algorithm>
 #include <stdexcept>
 #include <omp.h>
 #include <cmath>
 #include <limits>
-
-// --- Helper Macros for Dispatching ---
-// We reuse the same pattern as in tensor1.cpp locally here
-// or we could include "dispatch.h" if we made one.
-// Since we didn't create a separate header yet, I'll redefine it locally for safety.
-
-#define DISPATCH_CASE(ENUM, TYPE, ...) \
-    case ENUM: { \
-        using scalar_t = TYPE; \
-        __VA_ARGS__(); \
-        break; \
-    }
-
-#define DISPATCH_ALL_TYPES(DTYPE, NAME, ...) \
-    switch (DTYPE) { \
-        DISPATCH_CASE(DType::Float32,  float,    __VA_ARGS__) \
-        DISPATCH_CASE(DType::Int32,    int32_t,  __VA_ARGS__) \
-        DISPATCH_CASE(DType::Double64, double,   __VA_ARGS__) \
-        DISPATCH_CASE(DType::UInt8,    uint8_t,  __VA_ARGS__) \
-        DISPATCH_CASE(DType::Int8,     int8_t,   __VA_ARGS__) \
-        DISPATCH_CASE(DType::Int16,    int16_t,  __VA_ARGS__) \
-        DISPATCH_CASE(DType::Int64,    int64_t,  __VA_ARGS__) \
-        DISPATCH_CASE(DType::Bool,     bool,     __VA_ARGS__) \
-        default: throw std::runtime_error(std::string(NAME) + ": unsupported dtype"); \
-    }
 
 // ======================================================================================
 //                                      HELPERS
@@ -87,7 +63,7 @@ void binary_kernel_broadcast(const void* src_a, const void* src_b, void* dst, si
         }
         
         // Operation happens in double for safety/generality, cast back
-        res_ptr[flat] = static_cast<T>(op((double)a_ptr[idx_a], (double)b_ptr[idx_b]));
+        res_ptr[flat] = static_cast<T>(op(a_ptr[idx_a], b_ptr[idx_b]));
     }
 }
 
@@ -101,7 +77,7 @@ void binary_kernel_fast(const void* src_a, const void* src_b, void* dst, size_t 
     // This loop is perfectly auto-vectorizable by the compiler (SIMD)
     #pragma omp parallel for
     for (size_t i = 0; i < n; ++i) {
-        res_ptr[i] = static_cast<T>(op((double)a_ptr[i], (double)b_ptr[i]));
+        res_ptr[i] = static_cast<T>(op(a_ptr[i], b_ptr[i]));
     }
 }
 
@@ -152,9 +128,9 @@ Tensor binary_op_impl(const Tensor& a, const Tensor& b, Func op, std::shared_ptr
             }
 
             binary_kernel_broadcast<scalar_t>(
-                a.impl->storage->data.get(),
-                b.impl->storage->data.get(),
-                out.impl->storage->data.get(),
+                a.impl->data->data.get(),
+                b.impl->data->data.get(),
+                out.impl->data->data.get(),
                 n, ndim, out_shape.data(),
                 sa_pad.data(), sb_pad.data(),
                 a.impl->offset, b.impl->offset,
@@ -181,7 +157,7 @@ void unary_kernel_strided(const void* src, void* dst, size_t n,
             rem /= shape[dim];
             idx += coord * strides[dim];
         }
-        d[flat] = static_cast<T>(op((double)s[idx]));
+        d[flat] = static_cast<T>(op(s[idx]));
     }
 }
 
@@ -198,8 +174,8 @@ Tensor unary_op_impl(const Tensor& a, Func op, std::shared_ptr<GradFn> grad_fn =
     DISPATCH_ALL_TYPES(a._dtype(), "unary_op", [&] {
         if (a.is_contiguous()) {
             // Fast Path: Contiguous
-            const scalar_t* s = (const scalar_t*)a.impl->storage->data.get();
-            scalar_t* d = (scalar_t*)out.impl->storage->data.get();
+            const scalar_t* s = (const scalar_t*)a.impl->data->data.get();
+            scalar_t* d = (scalar_t*)out.impl->data->data.get();
             
             // Add offset if slicing contiguous
             size_t off = a.impl->offset;
@@ -209,8 +185,8 @@ Tensor unary_op_impl(const Tensor& a, Func op, std::shared_ptr<GradFn> grad_fn =
         } else {
             // Slow Path: Strided
             unary_kernel_strided<scalar_t>(
-                a.impl->storage->data.get(),
-                out.impl->storage->data.get(),
+                a.impl->data->data.get(),
+                out.impl->data->data.get(),
                 n, a.impl->ndim, a.impl->shape, a.impl->strides, a.impl->offset, op
             );
         }
@@ -225,54 +201,54 @@ Tensor unary_op_impl(const Tensor& a, Func op, std::shared_ptr<GradFn> grad_fn =
 // --- Binary Ops ---
 
 Tensor add_mp(const Tensor& a, const Tensor& b) {
-    return binary_op_impl(a, b, [](double x, double y){ return x + y; }, 
+    return binary_op_impl(a, b, [](auto x, auto y){ return x + y; }, 
                           (a.requires_grad() || b.requires_grad()) ? std::make_shared<GradAdd>(a, b) : nullptr);
 }
 
 Tensor diff_mp(const Tensor& a, const Tensor& b) {
-    return binary_op_impl(a, b, [](double x, double y){ return x - y; }, 
+    return binary_op_impl(a, b, [](auto x, auto y){ return x - y; }, 
                           (a.requires_grad() || b.requires_grad()) ? std::make_shared<GradSub>(a, b) : nullptr);
 }
 
 Tensor mult_mp(const Tensor& a, const Tensor& b) {
-    return binary_op_impl(a, b, [](double x, double y){ return x * y; }, 
+    return binary_op_impl(a, b, [](auto x, auto y){ return x * y; }, 
                           (a.requires_grad() || b.requires_grad()) ? std::make_shared<GradMul>(a, b) : nullptr);
 }
 
 Tensor div_mp(const Tensor& a, const Tensor& b) {
-    return binary_op_impl(a, b, [](double x, double y){ return x / y; }, 
+    return binary_op_impl(a, b, [](auto x, auto y){ return x / y; }, 
                           (a.requires_grad() || b.requires_grad()) ? std::make_shared<GradDiv>(a, b) : nullptr);
 }
 
 Tensor pow_mp(const Tensor& a, const Tensor& b) {
-    return binary_op_impl(a, b, [](double x, double y){ return std::pow(x, y); }, 
+    return binary_op_impl(a, b, [](auto x, auto y){ return std::pow(x, y); }, 
                           (a.requires_grad() || b.requires_grad()) ? std::make_shared<GradPow>(a, b) : nullptr);
 }
 
 // --- Scalar Ops ---
 
-Tensor add_scalar_mp(const Tensor& a, double scalar) {
-    return unary_op_impl(a, [scalar](double x){ return x + scalar; }, 
+Tensor add_scalar_mp(const Tensor& a, auto scalar) {
+    return unary_op_impl(a, [scalar](auto x){ return x + scalar; }, 
                          a.requires_grad() ? std::make_shared<GradAddScalar>(a, scalar) : nullptr);
 }
 
-Tensor sub_scalar_mp(const Tensor& a, double scalar) {
-    return unary_op_impl(a, [scalar](double x){ return x - scalar; }, 
+Tensor sub_scalar_mp(const Tensor& a, auto scalar) {
+    return unary_op_impl(a, [scalar](auto x){ return x - scalar; }, 
                          a.requires_grad() ? std::make_shared<GradSubScalar>(a, scalar) : nullptr);
 }
 
-Tensor sub_afterscalar_mp(double scalar, const Tensor& a) {
-    return unary_op_impl(a, [scalar](double x){ return scalar - x; }, 
+Tensor sub_afterscalar_mp(auto scalar, const Tensor& a) {
+    return unary_op_impl(a, [scalar](auto x){ return scalar - x; }, 
                          a.requires_grad() ? std::make_shared<GradSubAfterScalar>(a, scalar) : nullptr);
 }
 
-Tensor mult_scalar_mp(const Tensor& a, double scalar) {
-    return unary_op_impl(a, [scalar](double x){ return x * scalar; }, 
+Tensor mult_scalar_mp(const Tensor& a, auto scalar) {
+    return unary_op_impl(a, [scalar](auto x){ return x * scalar; }, 
                          a.requires_grad() ? std::make_shared<GradMulScalar>(a, scalar) : nullptr);
 }
 
-Tensor div_scalar_mp(const Tensor& a, double scalar) {
-    return unary_op_impl(a, [scalar](double x){ return x / scalar; }, 
+Tensor div_scalar_mp(const Tensor& a, auto scalar) {
+    return unary_op_impl(a, [scalar](auto x){ return x / scalar; }, 
                          a.requires_grad() ? std::make_shared<GradDivScalar>(a, scalar) : nullptr);
 }
 
