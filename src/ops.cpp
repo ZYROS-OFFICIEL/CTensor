@@ -232,38 +232,38 @@ Tensor add_scalar_mp(const Tensor& a, auto scalar) {
                          a.requires_grad() ? std::make_shared<GradAddScalar>(a, scalar) : nullptr);
 }
 
-Tensor sub_scalar_mp(const Tensor& a, auto scalar) {
+Tensor sub_scalar_mp(const Tensor& a, double scalar) {
     return unary_op_impl(a, [scalar](auto x){ return x - scalar; }, 
                          a.requires_grad() ? std::make_shared<GradSubScalar>(a, scalar) : nullptr);
 }
 
-Tensor sub_afterscalar_mp(auto scalar, const Tensor& a) {
+Tensor sub_afterscalar_mp(double scalar, const Tensor& a) {
     return unary_op_impl(a, [scalar](auto x){ return scalar - x; }, 
                          a.requires_grad() ? std::make_shared<GradSubAfterScalar>(a, scalar) : nullptr);
 }
 
-Tensor mult_scalar_mp(const Tensor& a, auto scalar) {
+Tensor mult_scalar_mp(const Tensor& a, double scalar) {
     return unary_op_impl(a, [scalar](auto x){ return x * scalar; }, 
                          a.requires_grad() ? std::make_shared<GradMulScalar>(a, scalar) : nullptr);
 }
 
-Tensor div_scalar_mp(const Tensor& a, auto scalar) {
+Tensor div_scalar_mp(const Tensor& a, double scalar) {
     return unary_op_impl(a, [scalar](auto x){ return x / scalar; }, 
                          a.requires_grad() ? std::make_shared<GradDivScalar>(a, scalar) : nullptr);
 }
 
 Tensor scalar_div_mp(double scalar, const Tensor& a) {
-    return unary_op_impl(a, [scalar](double x){ return scalar / x; }, 
+    return unary_op_impl(a, [scalar](auto x){ return scalar / x; }, 
                          a.requires_grad() ? std::make_shared<GradScalarDiv>(a, scalar) : nullptr);
 }
 
 Tensor pow_scalar_mp(const Tensor& a, double scalar) {
-    return unary_op_impl(a, [scalar](double x){ return std::pow(x, scalar); }, 
+    return unary_op_impl(a, [scalar](auto x){ return std::pow(x, scalar); }, 
                          a.requires_grad() ? std::make_shared<GradPowScalar>(a, scalar) : nullptr);
 }
 
 Tensor scalar_pow_mp(double scalar, const Tensor& a) {
-    return unary_op_impl(a, [scalar](double x){ return std::pow(scalar, x); }, 
+    return unary_op_impl(a, [scalar](auto x){ return std::pow(scalar, x); }, 
                          a.requires_grad() ? std::make_shared<GradScalarPow>(a, scalar) : nullptr);
 }
 
@@ -279,12 +279,12 @@ void matmul_kernel(const Tensor& A, const Tensor& B, Tensor& C,
                    size_t stride_cm, size_t stride_cn,
                    size_t batch_out, size_t a_batch_off, size_t b_batch_off)
 {
-    const T* da = (const T*)A.impl->storage->data.get();
-    const T* db = (const T*)B.impl->storage->data.get();
-    T* dc = (T*)C.impl->storage->data.get();
+    const T* da = (const T*)A.impl->data->data.get();
+    const T* db = (const T*)B.impl->data->data.get();
+    T* dc = (T*)C.impl->data->data.get();
     
     // Parallelize Batch and M rows
-    #pragma omp parallel for collapse(2)
+    _Pragma("omp parallel for collapse(2)")
     for (size_t b = 0; b < batch_out; ++b) {
         for (size_t m = 0; m < M; ++m) {
             

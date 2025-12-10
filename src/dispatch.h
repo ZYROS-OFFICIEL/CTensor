@@ -11,7 +11,7 @@
         break; \
     }
 
-// The Main Dispatcher
+// The Main DispatcherI
 // Usage: DISPATCH_ALL_TYPES(tensor.dtype(), "function_name", [&] { ... code using scalar_t ... });
 #define DISPATCH_ALL_TYPES(DTYPE, NAME, ...) \
     switch (DTYPE) { \
