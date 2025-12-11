@@ -32,3 +32,24 @@ static bool has_avx2() {
 static bool has_avx512f() {
     return cpu_supports("avx512f");
 }
+
+// ----------------------------- Helpers -----------------------------
+inline void check_same_shape_or_throw(const Tensor& a, const Tensor& b) {
+    auto as = a.shape();
+    auto bs = b.shape();
+    if (as != bs) throw std::invalid_argument("shape mismatch in binary op");
+}
+
+inline size_t dtype_size_bytes(DType dt) {
+    return dtype_size(dt);
+}
+
+inline bool is_cpu_device(const Tensor& t) {
+    if (!t.impl) throw std::runtime_error("Empty tensor in is_cpu_device");
+    return (t.impl->data->device.type == DeviceType::CPU);
+}
+
+inline bool is_cuda_device(const Tensor& t) {
+    if (!t.impl) throw std::runtime_error("Empty tensor in is_cuda_device");
+    return (t.impl->data->device.type == DeviceType::CUDA);
+}
