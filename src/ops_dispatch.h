@@ -184,3 +184,34 @@ Tensor matmul(const Tensor &a, const Tensor &b) {
 }
 
 } 
+
+// ========================================================================
+//                           Comparisons
+// ========================================================================
+
+#define IMPLEMENT_COMPARE_OP(NAME, FUNC_MP, FUNC_AVX2, FUNC_AVX512) \
+Tensor NAME(const Tensor &a, const Tensor &b) { \
+    ensure_same_device(a,b,#NAME); \
+    if (a.shape() != b.shape()) throw std::runtime_error(std::string(#NAME) + ": shape mismatch"); \
+    if (a.device().is_cpu()) { \
+        switch (a._dtype()) { \
+            case DType::Float32: \
+                if (cpu_has_avx512f()) return FUNC_AVX512 ## _f32(a,b); \
+                if (cpu_has_avx2())    return FUNC_AVX2 ## _f32(a,b); \
+                return FUNC_MP(a,b); \
+            case DType::Double64: \
+                if (cpu_has_avx512f()) return FUNC_AVX512 ## _f64(a,b); \
+                if (cpu_has_avx2())    return FUNC_AVX2 ## _f64(a,b); \
+                return FUNC_MP(a,b); \
+            default: return FUNC_MP(a,b); \
+        } \
+    } \
+    throw std::runtime_error(std::string(#NAME) + ": unsupported device"); \
+}
+
+IMPLEMENT_COMPARE_OP(lt, lt_mp, lt_avx2, lt_avx512)
+IMPLEMENT_COMPARE_OP(le, le_mp, le_avx2, le_avx512)
+IMPLEMENT_COMPARE_OP(gt, gt_mp, gt_avx2, gt_avx512)
+IMPLEMENT_COMPARE_OP(ge, ge_mp, ge_avx2, ge_avx512)
+IMPLEMENT_COMPARE_OP(eq, eq_mp, eq_avx2, eq_avx512)
+IMPLEMENT_COMPARE_OP(ne, ne_mp, ne_avx2, ne_avx512)
