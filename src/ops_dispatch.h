@@ -1,10 +1,3 @@
-// ops_dispatch.cpp
-// Central dispatcher: device -> dtype -> architecture (SIMD family)
-// This file performs only dispatching. Actual per-element scalar kernels
-// are provided in opsmp.cpp/h (functions like add_mp, sub_mp, ...).
-// SIMD kernels are declared here as stubs and for now call the scalar
-// fallback so you can validate the dispatching pipeline.
-
 #include "ops.h"
 #include "dispatch.h"
 #include "tensor.h"
@@ -33,58 +26,6 @@ static inline bool cpu_has_avx512f() {
 #endif
 }
 
-// ---------- SIMD stub declarations (implementations later) ----------
-// Each SIMD variant currently delegates to the scalar "op_mp" fallback
-// so we can validate the dispatch pipeline. Replace bodies with true
-// vectorized implementations later.
-
-// add
-static Tensor add_avx512_f32(const Tensor &a, const Tensor &b) { return add_mp(a,b); }
-static Tensor add_avx2_f32  (const Tensor &a, const Tensor &b) { return add_mp(a,b); }
-static Tensor add_scalar_f32(const Tensor &a, const Tensor &b) { return add_mp(a,b); }
-
-static Tensor add_scalar_i32(const Tensor &a, const Tensor &b) { return add_mp(a,b); }
-
-static Tensor add_avx512_f64(const Tensor &a, const Tensor &b) { return add_mp(a,b); }
-static Tensor add_avx2_f64  (const Tensor &a, const Tensor &b) { return add_mp(a,b); }
-static Tensor add_scalar_f64(const Tensor &a, const Tensor &b) { return add_mp(a,b); }
-
-// sub (same pattern)
-static Tensor sub_avx512_f32(const Tensor &a, const Tensor &b) { return sub_mp(a,b); }
-static Tensor sub_avx2_f32  (const Tensor &a, const Tensor &b) { return sub_mp(a,b); }
-static Tensor sub_scalar_f32(const Tensor &a, const Tensor &b) { return sub_mp(a,b); }
-static Tensor sub_scalar_i32(const Tensor &a, const Tensor &b) { return sub_mp(a,b); }
-static Tensor sub_avx512_f64(const Tensor &a, const Tensor &b) { return sub_mp(a,b); }
-static Tensor sub_avx2_f64  (const Tensor &a, const Tensor &b) { return sub_mp(a,b); }
-static Tensor sub_scalar_f64(const Tensor &a, const Tensor &b) { return sub_mp(a,b); }
-
-// mul
-static Tensor mul_avx512_f32(const Tensor &a, const Tensor &b) { return mul_mp(a,b); }
-static Tensor mul_avx2_f32  (const Tensor &a, const Tensor &b) { return mul_mp(a,b); }
-static Tensor mul_scalar_f32(const Tensor &a, const Tensor &b) { return mul_mp(a,b); }
-static Tensor mul_scalar_i32(const Tensor &a, const Tensor &b) { return mul_mp(a,b); }
-static Tensor mul_avx512_f64(const Tensor &a, const Tensor &b) { return mul_mp(a,b); }
-static Tensor mul_avx2_f64  (const Tensor &a, const Tensor &b) { return mul_mp(a,b); }
-static Tensor mul_scalar_f64(const Tensor &a, const Tensor &b) { return mul_mp(a,b); }
-
-// div
-static Tensor div_avx512_f32(const Tensor &a, const Tensor &b) { return div_mp(a,b); }
-static Tensor div_avx2_f32  (const Tensor &a, const Tensor &b) { return div_mp(a,b); }
-static Tensor div_scalar_f32(const Tensor &a, const Tensor &b) { return div_mp(a,b); }
-static Tensor div_scalar_i32(const Tensor &a, const Tensor &b) { return div_mp(a,b); }
-static Tensor div_avx512_f64(const Tensor &a, const Tensor &b) { return div_mp(a,b); }
-static Tensor div_avx2_f64  (const Tensor &a, const Tensor &b) { return div_mp(a,b); }
-static Tensor div_scalar_f64(const Tensor &a, const Tensor &b) { return div_mp(a,b); }
-
-// pow
-static Tensor pow_avx512_f32(const Tensor &a, const Tensor &b) { return pow_mp(a,b); }
-static Tensor pow_avx2_f32  (const Tensor &a, const Tensor &b) { return pow_mp(a,b); }
-static Tensor pow_scalar_f32(const Tensor &a, const Tensor &b) { return pow_mp(a,b); }
-static Tensor pow_scalar_i32(const Tensor &a, const Tensor &b) { return pow_mp(a,b); }
-static Tensor pow_avx512_f64(const Tensor &a, const Tensor &b) { return pow_mp(a,b); }
-static Tensor pow_avx2_f64  (const Tensor &a, const Tensor &b) { return pow_mp(a,b); }
-static Tensor pow_scalar_f64(const Tensor &a, const Tensor &b) { return pow_mp(a,b); }
-
 // ---------- Dispatcher helpers ----------
 inline void ensure_same_device(const Tensor &a, const Tensor &b, const char* opname) {
     if (a.device() != b.device()) throw std::runtime_error(std::string(opname) + ": tensors must be on same device");
@@ -106,16 +47,16 @@ Tensor add(const Tensor &a, const Tensor &b) {
                 // dtype-level dispatch
                 if (cpu_has_avx512f()) return add_avx512_f32(a,b);
                 if (cpu_has_avx2())    return add_avx2_f32(a,b);
-                return add_scalar_f32(a,b);
+                return add_mp(a,b);
             }
             case DType::Int32: {
                 // ints: use scalar mp fallback for now
-                return add_scalar_i32(a,b);
+                return add_mp(a,b);
             }
             case DType::Double64: {
                 if (cpu_has_avx512f()) return add_avx512_f64(a,b);
                 if (cpu_has_avx2())    return add_avx2_f64(a,b);
-                return add_scalar_f64(a,b);
+                return add_mp(a,b);
             }
             default:
                 throw std::runtime_error("add: unsupported dtype");
@@ -136,13 +77,13 @@ Tensor sub(const Tensor &a, const Tensor &b) {
             case DType::Float32: {
                 if (cpu_has_avx512f()) return sub_avx512_f32(a,b);
                 if (cpu_has_avx2())    return sub_avx2_f32(a,b);
-                return sub_scalar_f32(a,b);
+                return diff_mp(a,b);
             }
-            case DType::Int32: return sub_scalar_i32(a,b);
+            case DType::Int32: return diff_mp(a,b);
             case DType::Double64: {
                 if (cpu_has_avx512f()) return sub_avx512_f64(a,b);
                 if (cpu_has_avx2())    return sub_avx2_f64(a,b);
-                return sub_scalar_f64(a,b);
+                return diff_mp(a,b);
             }
             default: throw std::runtime_error("sub: unsupported dtype");
         }
@@ -160,13 +101,13 @@ Tensor mul(const Tensor &a, const Tensor &b) {
             case DType::Float32: {
                 if (cpu_has_avx512f()) return mul_avx512_f32(a,b);
                 if (cpu_has_avx2())    return mul_avx2_f32(a,b);
-                return mul_scalar_f32(a,b);
+                return mult_mp(a,b);
             }
             case DType::Int32: return mul_scalar_i32(a,b);
             case DType::Double64: {
                 if (cpu_has_avx512f()) return mul_avx512_f64(a,b);
                 if (cpu_has_avx2())    return mul_avx2_f64(a,b);
-                return mul_scalar_f64(a,b);
+                return mult_mp(a,b);
             }
             default: throw std::runtime_error("mul: unsupported dtype");
         }
@@ -184,13 +125,13 @@ Tensor div(const Tensor &a, const Tensor &b) {
             case DType::Float32: {
                 if (cpu_has_avx512f()) return div_avx512_f32(a,b);
                 if (cpu_has_avx2())    return div_avx2_f32(a,b);
-                return div_scalar_f32(a,b);
+                return div_mp(a,b);
             }
             case DType::Int32: return div_scalar_i32(a,b);
             case DType::Double64: {
                 if (cpu_has_avx512f()) return div_avx512_f64(a,b);
                 if (cpu_has_avx2())    return div_avx2_f64(a,b);
-                return div_scalar_f64(a,b);
+                return div_mp(a,b);
             }
             default: throw std::runtime_error("div: unsupported dtype");
         }
@@ -208,13 +149,13 @@ Tensor pow(const Tensor &a, const Tensor &b) {
             case DType::Float32: {
                 if (cpu_has_avx512f()) return pow_avx512_f32(a,b);
                 if (cpu_has_avx2())    return pow_avx2_f32(a,b);
-                return pow_scalar_f32(a,b);
+                return pow_mp(a,b);
             }
             case DType::Int32: return pow_scalar_i32(a,b);
             case DType::Double64: {
                 if (cpu_has_avx512f()) return pow_avx512_f64(a,b);
                 if (cpu_has_avx2())    return pow_avx2_f64(a,b);
-                return pow_scalar_f64(a,b);
+                return pow_mp(a,b);
             }
             default: throw std::runtime_error("pow: unsupported dtype");
         }
@@ -224,4 +165,4 @@ Tensor pow(const Tensor &a, const Tensor &b) {
 
 // You can add more ops following the same pattern.
 
-} // namespace Ops
+} 
