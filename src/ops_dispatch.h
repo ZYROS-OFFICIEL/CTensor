@@ -183,7 +183,46 @@ Tensor matmul(const Tensor &a, const Tensor &b) {
     throw std::runtime_error("matmul: unsupported device");
 }
 
-} 
+
+// ========================================================================
+//                           Unary Operations
+// ========================================================================
+
+#define IMPLEMENT_UNARY_OP(NAME, FUNC_MP, FUNC_AVX2, FUNC_AVX512) \
+Tensor NAME(const Tensor &a) { \
+    if (a.device().is_cpu()) { \
+        switch (a._dtype()) { \
+            case DType::Float32: \
+                if (cpu_has_avx512f()) return FUNC_AVX512 ## _f32(a); \
+                if (cpu_has_avx2())    return FUNC_AVX2 ## _f32(a); \
+                return FUNC_MP(a); \
+            case DType::Double64: \
+                if (cpu_has_avx512f()) return FUNC_AVX512 ## _f64(a); \
+                if (cpu_has_avx2())    return FUNC_AVX2 ## _f64(a); \
+                return FUNC_MP(a); \
+            default: return FUNC_MP(a); \
+        } \
+    } \
+    throw std::runtime_error(std::string(#NAME) + ": unsupported device"); \
+}
+
+IMPLEMENT_UNARY_OP(abs, abs_mp, abs_avx2, abs_avx512)
+IMPLEMENT_UNARY_OP(log, ln_mp, ln_avx2, ln_avx512)   // Maps Ops::log -> ln_mp
+IMPLEMENT_UNARY_OP(exp, exp_mp, exp_avx2, exp_avx512)
+IMPLEMENT_UNARY_OP(sqrt, sqrt_mp, sqrt_avx2, sqrt_avx512)
+IMPLEMENT_UNARY_OP(sin, sin_mp, sin_avx2, sin_avx512)
+IMPLEMENT_UNARY_OP(asin, asin_mp, asin_avx2, asin_avx512)
+IMPLEMENT_UNARY_OP(cos, cos_mp, cos_avx2, cos_avx512)
+IMPLEMENT_UNARY_OP(acos, acos_mp, acos_avx2, acos_avx512)
+IMPLEMENT_UNARY_OP(tan, tan_mp, tan_avx2, tan_avx512)
+IMPLEMENT_UNARY_OP(atan, atan_mp, atan_avx2, atan_avx512)
+IMPLEMENT_UNARY_OP(tanh, tanh_mp, tanh_avx2, tanh_avx512)
+IMPLEMENT_UNARY_OP(sinh, sinh_mp, sinh_avx2, sinh_avx512)
+IMPLEMENT_UNARY_OP(cosh, cosh_mp, cosh_avx2, cosh_avx512)
+IMPLEMENT_UNARY_OP(sigmoid, sigmoid_mp, sigmoid_avx2, sigmoid_avx512)
+IMPLEMENT_UNARY_OP(relu, Relu_mp, relu_avx2, relu_avx512) // Maps Ops::relu -> Relu_mp
+IMPLEMENT_UNARY_OP(softplus, softplus_mp, softplus_avx2, softplus_avx512)
+
 
 // ========================================================================
 //                           Comparisons
@@ -215,3 +254,4 @@ IMPLEMENT_COMPARE_OP(gt, gt_mp, gt_avx2, gt_avx512)
 IMPLEMENT_COMPARE_OP(ge, ge_mp, ge_avx2, ge_avx512)
 IMPLEMENT_COMPARE_OP(eq, eq_mp, eq_avx2, eq_avx512)
 IMPLEMENT_COMPARE_OP(ne, ne_mp, ne_avx2, ne_avx512)
+}
