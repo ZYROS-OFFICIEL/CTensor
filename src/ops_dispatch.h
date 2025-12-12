@@ -254,7 +254,7 @@ IMPLEMENT_COMPARE_OP(gt, gt_mp, gt_avx2, gt_avx512)
 IMPLEMENT_COMPARE_OP(ge, ge_mp, ge_avx2, ge_avx512)
 IMPLEMENT_COMPARE_OP(eq, eq_mp, eq_avx2, eq_avx512)
 IMPLEMENT_COMPARE_OP(ne, ne_mp, ne_avx2, ne_avx512)
-}
+
 // ========================================================================
 //                           Reductions
 // ========================================================================
@@ -280,3 +280,12 @@ Reduction_Op(sum, sum_mp, sum_avx2, sum_avx512)
 Reduction_Op(mean, mean_mp, mean_avx2, mean_avx512)
 Reduction_Op(max, max_mp, max_avx2, max_avx512)
 Reduction_Op(min, min_mp, min_avx2, min_avx512)
+
+
+//                           Utilities
+Tensor cat(const std::vector<Tensor>& tensors, size_t dim) {
+    // For cat, usually purely memory bound, so just using MP version is common
+    return cat_mp(tensors, dim);
+}
+
+} 
