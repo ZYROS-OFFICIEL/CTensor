@@ -220,7 +220,7 @@ IMPLEMENT_UNARY_OP(tanh, tanh_mp, tanh_avx2, tanh_avx512)
 IMPLEMENT_UNARY_OP(sinh, sinh_mp, sinh_avx2, sinh_avx512)
 IMPLEMENT_UNARY_OP(cosh, cosh_mp, cosh_avx2, cosh_avx512)
 IMPLEMENT_UNARY_OP(sigmoid, sigmoid_mp, sigmoid_avx2, sigmoid_avx512)
-IMPLEMENT_UNARY_OP(relu, Relu_mp, relu_avx2, relu_avx512) // Maps Ops::relu -> Relu_mp
+IMPLEMENT_UNARY_OP(relu, Relu_mp, relu_avx2, relu_avx512) 
 IMPLEMENT_UNARY_OP(softplus, softplus_mp, softplus_avx2, softplus_avx512)
 
 
@@ -255,3 +255,28 @@ IMPLEMENT_COMPARE_OP(ge, ge_mp, ge_avx2, ge_avx512)
 IMPLEMENT_COMPARE_OP(eq, eq_mp, eq_avx2, eq_avx512)
 IMPLEMENT_COMPARE_OP(ne, ne_mp, ne_avx2, ne_avx512)
 }
+// ========================================================================
+//                           Reductions
+// ========================================================================
+
+#define Reduction_Op(NAME, FUNC_MP, FUNC_AVX2, FUNC_AVX512) \
+Tensor NAME(const Tensor &a) { \
+    if (a.device().is_cpu()) { \
+        switch (a._dtype()) { \
+            case DType::Float32: \
+                if (cpu_has_avx512f()) return FUNC_AVX512 ## _f32(a); \
+                if (cpu_has_avx2())    return FUNC_AVX2 ## _f32(a); \
+                return FUNC_MP(a); \
+            case DType::Double64: \
+                if (cpu_has_avx512f()) return FUNC_AVX512 ## _f64(a); \
+                if (cpu_has_avx2())    return FUNC_AVX2 ## _f64(a); \
+                return FUNC_MP(a); \
+            default: return FUNC_MP(a); \
+        } \
+    } \
+    throw std::runtime_error(std::string(#NAME) + ": unsupported device"); \
+}
+Reduction_Op(sum, sum_mp, sum_avx2, sum_avx512)
+Reduction_Op(mean, mean_mp, mean_avx2, mean_avx512)
+Reduction_Op(max, max_mp, max_avx2, max_avx512)
+Reduction_Op(min, min_mp, min_avx2, min_avx512)
