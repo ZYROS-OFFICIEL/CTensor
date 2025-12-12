@@ -33,7 +33,6 @@ inline void ensure_same_device(const Tensor &a, const Tensor &b, const char* opn
 
 // The main scheme: device -> dtype -> arch
 
-namespace Ops {
 
 Tensor add(const Tensor &a, const Tensor &b) {
     ensure_same_device(a,b,"add");
@@ -288,4 +287,4 @@ Tensor cat(const std::vector<Tensor>& tensors, size_t dim) {
     return cat_mp(tensors, dim);
 }
 
-} 
+
