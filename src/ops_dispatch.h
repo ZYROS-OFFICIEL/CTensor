@@ -163,6 +163,24 @@ Tensor pow(const Tensor &a, const Tensor &b) {
     throw std::runtime_error("pow: unsupported device");
 }
 
-// You can add more ops following the same pattern.
+
+Tensor matmul(const Tensor &a, const Tensor &b) {
+    ensure_same_device(a,b,"matmul");
+    // Shape check usually handled inside impl or we can add basic checks here
+    if (a.device().is_cpu()) {
+        switch (a._dtype()) {
+            case DType::Float32:
+                if (cpu_has_avx512f()) return matmul_avx512_f32(a,b);
+                if (cpu_has_avx2())    return matmul_avx2_f32(a,b);
+                return matmul_mp(a,b);
+            case DType::Double64:
+                if (cpu_has_avx512f()) return matmul_avx512_f64(a,b);
+                if (cpu_has_avx2())    return matmul_avx2_f64(a,b);
+                return matmul_mp(a,b);
+            default: return matmul_mp(a,b);
+        }
+    }
+    throw std::runtime_error("matmul: unsupported device");
+}
 
 } 
