@@ -415,3 +415,30 @@ Tensor binary_op_broadcast(const Tensor& A, const Tensor& B, std::function<__m25
     return out;
 }
 
+
+// Simple unary op with broadcasting (mostly for broadcasting scalar -> tensor or same shape)
+Tensor unary_op_broadcast(const Tensor& A, std::function<__m256(__m256)> avx_func) {
+    std::vector<size_t> a_shape = A.shape();
+    size_t n = A.numel();
+    Tensor out(a_shape, A.device(), DType::Float32);
+    const float* a_ptr = (const float*)A.data();
+    float* out_ptr = (float*)out.data();
+
+    size_t vec_end = (n / 8) * 8;
+    int32_t tail_maskbits[8]; build_tail_mask(tail_maskbits, n - vec_end);
+
+    #pragma omp parallel for
+    for (size_t i = 0; i < vec_end; i += 8) {
+        __m256 va = _mm256_loadu_ps(a_ptr + i);
+        __m256 vr = avx_func(va);
+        _mm256_storeu_ps(out_ptr + i, vr);
+    }
+    if (n != vec_end) {
+        int tail = (int)(n - vec_end);
+        int32_t maskbits[8]; build_tail_mask(maskbits, tail);
+        __m256 va = masked_loadu_ps(a_ptr + vec_end, maskbits);
+        __m256 vr = avx_func(va);
+        masked_storeu_ps(out_ptr + vec_end, vr, maskbits);
+    }
+    return out;
+}
