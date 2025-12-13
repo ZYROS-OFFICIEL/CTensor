@@ -463,3 +463,13 @@ Tensor pow_avx2_f32(const Tensor& a, const Tensor& b) {
     return binary_op_broadcast(a, b, [](__m256 x, __m256 y){ return pow256_ps(x, y); });
 }
 
+
+// comparisons: convert mask -> 0.0f / 1.0f
+template<int CMP_FLAG>
+Tensor cmp_avx2_f32(const Tensor& a, const Tensor& b) {
+    return binary_op_broadcast(a, b, []( __m256 x, __m256 y){
+        __m256 m = _mm256_cmp_ps(x, y, CMP_FLAG);
+        // mask bits are 0xFFFFFFFF for true; convert to 1.0f by ANDing with 1.0
+        return _mm256_and_ps(m, _ps_1);
+    });
+}
