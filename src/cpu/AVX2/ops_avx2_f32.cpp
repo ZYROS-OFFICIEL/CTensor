@@ -137,3 +137,43 @@ inline __m256 log256_ps(__m256 x) {
     x = _mm256_or_ps(x, invalid_mask); // propagate NaNs
     return x;
 }
+
+// --- Sine (Sin) ---
+inline __m256 sin256_ps(__m256 x) {
+    __m256 xmm1, xmm2, xmm3, sign_bit, y;
+    __m256i emm0, emm2;
+    sign_bit = x;
+    x = _mm256_abs_ps(x);
+
+    xmm1 = _mm256_mul_ps(x, _mm256_set1_ps(0.63661977236758134308f)); // 2/pi
+    emm2 = _mm256_cvttps_epi32(xmm1);
+    emm2 = _mm256_add_epi32(emm2, _mm256_set1_epi32(1));
+    emm2 = _mm256_and_si256(emm2, _mm256_set1_epi32(~1));
+    y = _mm256_cvtepi32_ps(emm2);
+
+    __m256 poly_mask = _mm256_castsi256_ps(_mm256_cmpeq_epi32(_mm256_and_si256(emm2, _mm256_set1_epi32(4)), _mm256_setzero_si256()));
+    sign_bit = _mm256_xor_ps(sign_bit, _mm256_and_ps(_mm256_castsi256_ps(_mm256_set1_epi32(0x80000000)), poly_mask)); // swap sign if needed
+
+    __m256 m1 = _mm256_mul_ps(y, _mm256_set1_ps(-1.5703125f)); // -PI/2 1
+    __m256 m2 = _mm256_mul_ps(y, _mm256_set1_ps(-4.837512969970703125e-4f)); // -PI/2 2
+    __m256 m3 = _mm256_mul_ps(y, _mm256_set1_ps(-7.549789948768648e-8f)); // -PI/2 3
+    
+    x = _mm256_add_ps(x, m1);
+    x = _mm256_add_ps(x, m2);
+    x = _mm256_add_ps(x, m3);
+
+    __m256 z = _mm256_mul_ps(x, x);
+    y = _mm256_set1_ps(2.443315711809948E-005f);
+    y = _mm256_mul_ps(y, z);
+    y = _mm256_add_ps(y, _mm256_set1_ps(-1.388731625493765E-003f));
+    y = _mm256_mul_ps(y, z);
+    y = _mm256_add_ps(y, _mm256_set1_ps(4.166664568298827E-002f));
+    y = _mm256_mul_ps(y, z);
+    y = _mm256_mul_ps(y, z);
+    __m256 tmp = _mm256_mul_ps(z, _ps_05);
+    y = _mm256_sub_ps(y, tmp);
+    y = _mm256_add_ps(y, _ps_1);
+    y = _mm256_mul_ps(y, x);
+
+    return _mm256_xor_ps(y, _mm256_and_ps(sign_bit, _mm256_castsi256_ps(_mm256_set1_epi32(0x80000000))));
+}
