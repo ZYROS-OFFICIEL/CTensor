@@ -203,3 +203,9 @@ inline __m256 sigmoid256_ps(__m256 x) {
     __m256 den = _mm256_add_ps(_ps_1, e);
     return _mm256_div_ps(_ps_1, den);
 }
+// --- Pow ---
+inline __m256 pow256_ps(__m256 a, __m256 b) {
+    // a^b = exp(b * ln(a))
+    // Note: this implementation propagates NaNs if a <= 0
+    return exp256_ps(_mm256_mul_ps(b, log256_ps(a)));
+}
