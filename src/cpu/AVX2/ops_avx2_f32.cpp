@@ -177,3 +177,10 @@ inline __m256 sin256_ps(__m256 x) {
 
     return _mm256_xor_ps(y, _mm256_and_ps(sign_bit, _mm256_castsi256_ps(_mm256_set1_epi32(0x80000000))));
 }
+
+// --- Cosine (Cos) ---
+inline __m256 cos256_ps(__m256 x) {
+    // cos(x) = sin(x + pi/2)
+    x = _mm256_add_ps(x, _mm256_set1_ps(1.57079632679489661923f));
+    return sin256_ps(x);
+}
