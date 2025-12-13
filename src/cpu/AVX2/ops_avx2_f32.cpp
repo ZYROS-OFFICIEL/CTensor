@@ -184,3 +184,13 @@ inline __m256 cos256_ps(__m256 x) {
     x = _mm256_add_ps(x, _mm256_set1_ps(1.57079632679489661923f));
     return sin256_ps(x);
 }
+
+// --- Tanh ---
+inline __m256 tanh256_ps(__m256 x) {
+    // tanh(x) = (e^(2x) - 1) / (e^(2x) + 1)
+    __m256 two_x = _mm256_mul_ps(x, _mm256_set1_ps(2.0f));
+    __m256 exp_2x = exp256_ps(two_x);
+    __m256 num = _mm256_sub_ps(exp_2x, _ps_1);
+    __m256 den = _mm256_add_ps(exp_2x, _ps_1);
+    return _mm256_div_ps(num, den);
+}
