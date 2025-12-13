@@ -194,3 +194,12 @@ inline __m256 tanh256_ps(__m256 x) {
     __m256 den = _mm256_add_ps(exp_2x, _ps_1);
     return _mm256_div_ps(num, den);
 }
+
+// --- Sigmoid ---
+inline __m256 sigmoid256_ps(__m256 x) {
+    // 1 / (1 + exp(-x))
+    __m256 neg_x = _mm256_xor_ps(x, _mm256_set1_ps(-0.0f));
+    __m256 e = exp256_ps(neg_x);
+    __m256 den = _mm256_add_ps(_ps_1, e);
+    return _mm256_div_ps(_ps_1, den);
+}
