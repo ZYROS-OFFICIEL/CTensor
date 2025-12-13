@@ -222,3 +222,33 @@ inline float hsum256_ps(__m256 v) {
 }
 
 } 
+// ---------------------------
+// Broadcasting helpers
+// ---------------------------
+
+
+// Convert shape vector to strides in bytes
+static inline std::vector<int64_t> shape_to_strides_bytes(const std::vector<size_t>& shape) {
+std::vector<int64_t> strides(shape.size());
+if (shape.empty()) return strides;
+strides.back() = sizeof(float);
+for (int i = (int)shape.size()-2; i >= 0; --i) {
+strides[i] = strides[i+1] * (int64_t)shape[i+1];
+}
+return strides;
+}
+
+
+// Compute broadcasted output shape for two shapes
+static std::vector<size_t> broadcast_shape(const std::vector<size_t>& a, const std::vector<size_t>& b) {
+size_t na = a.size(), nb = b.size();
+size_t n = std::max(na, nb);
+std::vector<size_t> out(n);
+for (size_t i = 0; i < n; ++i) {
+size_t ai = (i < n - na) ? 1 : a[i - (n - na)];
+size_t bi = (i < n - nb) ? 1 : b[i - (n - nb)];
+if (ai != 1 && bi != 1 && ai != bi) throw std::runtime_error("broadcast: incompatible shapes");
+out[i] = std::max(ai, bi);
+}
+return out;
+}
