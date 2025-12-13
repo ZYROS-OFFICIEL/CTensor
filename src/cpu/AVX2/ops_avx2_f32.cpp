@@ -442,3 +442,24 @@ Tensor unary_op_broadcast(const Tensor& A, std::function<__m256(__m256)> avx_fun
     }
     return out;
 }
+
+// ---------------------------
+// Public API wrappers (vectorized)
+// ---------------------------
+
+Tensor add_avx2_f32(const Tensor& a, const Tensor& b) {
+    return binary_op_broadcast(a, b, [](__m256 x, __m256 y){ return _mm256_add_ps(x, y); });
+}
+Tensor sub_avx2_f32(const Tensor& a, const Tensor& b) {
+    return binary_op_broadcast(a, b, [](__m256 x, __m256 y){ return _mm256_sub_ps(x, y); });
+}
+Tensor mul_avx2_f32(const Tensor& a, const Tensor& b) {
+    return binary_op_broadcast(a, b, [](__m256 x, __m256 y){ return _mm256_mul_ps(x, y); });
+}
+Tensor div_avx2_f32(const Tensor& a, const Tensor& b) {
+    return binary_op_broadcast(a, b, [](__m256 x, __m256 y){ return _mm256_div_ps(x, y); });
+}
+Tensor pow_avx2_f32(const Tensor& a, const Tensor& b) {
+    return binary_op_broadcast(a, b, [](__m256 x, __m256 y){ return pow256_ps(x, y); });
+}
+
