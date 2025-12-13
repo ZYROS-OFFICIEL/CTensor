@@ -209,3 +209,16 @@ inline __m256 pow256_ps(__m256 a, __m256 b) {
     // Note: this implementation propagates NaNs if a <= 0
     return exp256_ps(_mm256_mul_ps(b, log256_ps(a)));
 }
+// --- Horizontal Sum ---
+inline float hsum256_ps(__m256 v) {
+    __m128 vlow = _mm256_castps256_ps128(v);
+    __m128 vhigh = _mm256_extractf128_ps(v, 1);
+    vlow = _mm_add_ps(vlow, vhigh);
+    __m128 shuf = _mm_movehdup_ps(vlow);
+    __m128 sums = _mm_add_ps(vlow, shuf);
+    shuf = _mm_movehl_ps(shuf, sums);
+    sums = _mm_add_ss(sums, shuf);
+    return _mm_cvtss_f32(sums);
+}
+
+} 
