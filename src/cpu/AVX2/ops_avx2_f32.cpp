@@ -473,3 +473,11 @@ Tensor cmp_avx2_f32(const Tensor& a, const Tensor& b) {
         return _mm256_and_ps(m, _ps_1);
     });
 }
+
+Tensor lt_avx2_f32(const Tensor& a, const Tensor& b) { return cmp_avx2_f32<_CMP_LT_OQ>(a,b); }
+Tensor le_avx2_f32(const Tensor& a, const Tensor& b) { return cmp_avx2_f32<_CMP_LE_OQ>(a,b); }
+Tensor gt_avx2_f32(const Tensor& a, const Tensor& b) { return cmp_avx2_f32<_CMP_GT_OQ>(a,b); }
+Tensor ge_avx2_f32(const Tensor& a, const Tensor& b) { return cmp_avx2_f32<_CMP_GE_OQ>(a,b); }
+Tensor eq_avx2_f32(const Tensor& a, const Tensor& b) { return cmp_avx2_f32<_CMP_EQ_OQ>(a,b); }
+Tensor ne_avx2_f32(const Tensor& a, const Tensor& b) { return cmp_avx2_f32<_CMP_NEQ_OQ>(a,b); }
+
