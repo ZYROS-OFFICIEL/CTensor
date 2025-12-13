@@ -226,29 +226,192 @@ inline float hsum256_ps(__m256 v) {
 // Broadcasting helpers
 // ---------------------------
 
-
 // Convert shape vector to strides in bytes
 static inline std::vector<int64_t> shape_to_strides_bytes(const std::vector<size_t>& shape) {
-std::vector<int64_t> strides(shape.size());
-if (shape.empty()) return strides;
-strides.back() = sizeof(float);
-for (int i = (int)shape.size()-2; i >= 0; --i) {
-strides[i] = strides[i+1] * (int64_t)shape[i+1];
+    std::vector<int64_t> strides(shape.size());
+    if (shape.empty()) return strides;
+    strides.back() = sizeof(float);
+    for (int i = (int)shape.size()-2; i >= 0; --i) {
+        strides[i] = strides[i+1] * (int64_t)shape[i+1];
+    }
+    return strides;
 }
-return strides;
-}
-
 
 // Compute broadcasted output shape for two shapes
 static std::vector<size_t> broadcast_shape(const std::vector<size_t>& a, const std::vector<size_t>& b) {
-size_t na = a.size(), nb = b.size();
-size_t n = std::max(na, nb);
-std::vector<size_t> out(n);
-for (size_t i = 0; i < n; ++i) {
-size_t ai = (i < n - na) ? 1 : a[i - (n - na)];
-size_t bi = (i < n - nb) ? 1 : b[i - (n - nb)];
-if (ai != 1 && bi != 1 && ai != bi) throw std::runtime_error("broadcast: incompatible shapes");
-out[i] = std::max(ai, bi);
+    size_t na = a.size(), nb = b.size();
+    size_t n = std::max(na, nb);
+    std::vector<size_t> out(n);
+    for (size_t i = 0; i < n; ++i) {
+        size_t ai = (i < n - na) ? 1 : a[i - (n - na)];
+        size_t bi = (i < n - nb) ? 1 : b[i - (n - nb)];
+        if (ai != 1 && bi != 1 && ai != bi) throw std::runtime_error("broadcast: incompatible shapes");
+        out[i] = std::max(ai, bi);
+    }
+    return out;
 }
-return out;
+
+// Build per-dimension index multipliers for linear index -> offset
+static std::vector<int64_t> build_index_multipliers(const std::vector<size_t>& shape) {
+    std::vector<int64_t> mult(shape.size());
+    if (shape.empty()) return mult;
+    mult.back() = 1;
+    for (int i = (int)shape.size()-2; i >= 0; --i) mult[i] = mult[i+1] * (int64_t)shape[i+1];
+    return mult;
 }
+
+// Given linear index, produce offset in bytes using shape/strides (strides in bytes)
+static inline int32_t compute_offset_bytes(size_t lin_idx, const std::vector<size_t>& out_shape, const std::vector<int64_t>& out_mult, const std::vector<size_t>& in_shape, const std::vector<int64_t>& in_strides_bytes) {
+    int32_t offset = 0;
+    size_t nd = out_shape.size();
+    size_t offset_dim = nd - in_shape.size();
+    for (size_t d = 0; d < nd; ++d) {
+        size_t coord = (lin_idx / out_mult[d]) % out_shape[d];
+        // map to input coord
+        size_t in_coord = 0;
+        if (d < offset_dim) {
+            in_coord = 0; // leading dims are broadcast
+        } else {
+            size_t idx = d - offset_dim;
+            if (in_shape[idx] == 1) in_coord = 0;
+            else in_coord = coord;
+        }
+        if (d >= offset_dim) {
+            size_t idx = d - offset_dim;
+            offset += (int32_t)(in_coord * (in_strides_bytes[idx]));
+        }
+    }
+    return offset;
+}
+
+// ---------------------------
+// Core templates using broadcasting and gathers/masked loads
+// No scalar fallback (caller handles any special-cases)
+// ---------------------------
+
+// Binary op with broadcasting. avx_func takes (__m256 a, __m256 b) and returns __m256.
+// scalar_func is provided only for correctness reference (not used here because caller has dispatcher) but kept for signature compat.
+Tensor binary_op_broadcast(const Tensor& A, const Tensor& B, std::function<__m256(__m256,__m256)> avx_func) {
+    // Extract shapes and compute broadcasted shape
+    std::vector<size_t> a_shape = A.shape();
+    std::vector<size_t> b_shape = B.shape();
+    std::vector<size_t> out_shape = broadcast_shape(a_shape, b_shape);
+    size_t out_numel = 1;
+    for (auto s : out_shape) out_numel *= s;
+
+    Tensor out(out_shape, A.device(), DType::Float32);
+
+    const float* a_ptr = (const float*)A.data();
+    const float* b_ptr = (const float*)B.data();
+    float* out_ptr = (float*)out.data();
+
+    // build index multipliers and strides (bytes)
+    auto out_mult = build_index_multipliers(out_shape);
+    auto a_strides = shape_to_strides_bytes(a_shape);
+    auto b_strides = shape_to_strides_bytes(b_shape);
+    auto a_nd = a_shape.size();
+    auto b_nd = b_shape.size();
+    size_t nd = out_shape.size();
+
+    // precompute whether a/b are contiguous with element stride == sizeof(float) and not broadcasted
+    bool a_contig = (A.is_contiguous());
+    bool b_contig = (B.is_contiguous());
+
+    // We'll iterate in blocks of 8 and use gathers for non-unit stride cases
+    size_t vec_end = (out_numel / 8) * 8;
+    int32_t tail_maskbits[8];
+    build_tail_mask(tail_maskbits, out_numel - vec_end);
+
+    // Parallel loop
+    #pragma omp parallel
+    {
+        // thread-local gather index buffer
+        int32_t gather_idx[8];
+
+        #pragma omp for
+        for (size_t i = 0; i < vec_end; i += 8) {
+            // for each lane compute byte offsets for a and b
+            for (int lane = 0; lane < 8; ++lane) {
+                size_t lin = i + lane;
+                gather_idx[lane] = compute_offset_bytes(lin, out_shape, out_mult, a_shape, a_strides);
+            }
+            // decide load method for A
+            __m256 va;
+            bool a_is_broadcast = (a_shape.size()==1 && a_shape[0]==1) || (a_shape.size()==0);
+            if (a_contig && a_shape == out_shape) {
+                va = _mm256_loadu_ps(a_ptr + i);
+            } else if (a_is_broadcast) {
+                // scalar broadcast
+                float aval = *((const float*)a_ptr);
+                va = _mm256_set1_ps(aval);
+            } else {
+                // gather
+                // gather expects offsets in bytes; use i32 offsets
+                va = _mm256_i32gather_ps((const float*)a_ptr, _mm256_loadu_si256((const __m256i*)gather_idx), 1);
+            }
+
+            // compute offsets for B
+            for (int lane = 0; lane < 8; ++lane) {
+                size_t lin = i + lane;
+                gather_idx[lane] = compute_offset_bytes(lin, out_shape, out_mult, b_shape, b_strides);
+            }
+            __m256 vb;
+            bool b_is_broadcast = (b_shape.size()==1 && b_shape[0]==1) || (b_shape.size()==0);
+            if (b_contig && b_shape == out_shape) {
+                vb = _mm256_loadu_ps(b_ptr + i);
+            } else if (b_is_broadcast) {
+                float bval = *((const float*)b_ptr);
+                vb = _mm256_set1_ps(bval);
+            } else {
+                vb = _mm256_i32gather_ps((const float*)b_ptr, _mm256_loadu_si256((const __m256i*)gather_idx), 1);
+            }
+
+            __m256 vr = avx_func(va, vb);
+            _mm256_storeu_ps(out_ptr + i, vr);
+        }
+
+        // handle tail if any (masked store)
+        size_t tail_start = vec_end;
+        size_t tail = out_numel - vec_end;
+        if (tail) {
+            // compute gather offsets for tail lanes
+            int32_t tail_idx[8];
+            for (size_t lane = 0; lane < tail; ++lane) tail_idx[lane] = compute_offset_bytes(vec_end + lane, out_shape, out_mult, a_shape, a_strides);
+            // load a (use gather or broadcast)
+            __m256 va;
+            if (a_contig && a_shape == out_shape) {
+                // load first tail elements into vector with masked load
+                int32_t maskbits[8]; build_tail_mask(maskbits, tail);
+                va = masked_loadu_ps(a_ptr + vec_end, maskbits);
+            } else if ((a_shape.size()==1 && a_shape[0]==1) || (a_shape.size()==0)) {
+                va = _mm256_set1_ps(*((const float*)a_ptr));
+            } else {
+                // build gather idx bytes for tail
+                int32_t gidx[8]; for (size_t lane=0; lane<tail; ++lane) gidx[lane] = tail_idx[lane]; for (size_t lane=tail; lane<8; ++lane) gidx[lane]=0;
+                va = _mm256_i32gather_ps((const float*)a_ptr, _mm256_loadu_si256((const __m256i*)gidx), 1);
+            }
+            // similarly for B
+            if (b_contig && b_shape == out_shape) {
+                int32_t maskbits[8]; build_tail_mask(maskbits, tail);
+                __m256 vb = masked_loadu_ps(b_ptr + vec_end, maskbits);
+                __m256 vr = avx_func(va, vb);
+                int32_t maskbits_store[8]; build_tail_mask(maskbits_store, tail);
+                masked_storeu_ps(out_ptr + vec_end, vr, maskbits_store);
+            } else if ((b_shape.size()==1 && b_shape[0]==1) || (b_shape.size()==0)) {
+                __m256 vb = _mm256_set1_ps(*((const float*)b_ptr));
+                __m256 vr = avx_func(va, vb);
+                int32_t maskbits_store[8]; build_tail_mask(maskbits_store, tail);
+                masked_storeu_ps(out_ptr + vec_end, vr, maskbits_store);
+            } else {
+                int32_t gidxb[8]; for (size_t lane=0; lane<tail; ++lane) gidxb[lane] = compute_offset_bytes(vec_end + lane, out_shape, out_mult, b_shape, b_strides); for (size_t lane=tail; lane<8; ++lane) gidxb[lane]=0;
+                __m256 vb = _mm256_i32gather_ps((const float*)b_ptr, _mm256_loadu_si256((const __m256i*)gidxb), 1);
+                __m256 vr = avx_func(va, vb);
+                int32_t maskbits_store[8]; build_tail_mask(maskbits_store, tail);
+                masked_storeu_ps(out_ptr + vec_end, vr, maskbits_store);
+            }
+        }
+    }
+
+    return out;
+}
+
