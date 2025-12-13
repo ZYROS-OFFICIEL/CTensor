@@ -77,3 +77,63 @@ inline __m256 exp256_ps(__m256 x) {
     y = _mm256_mul_ps(y, pow2n);
     return y;
 }
+
+// --- Natural Logarithm (Ln) ---
+inline __m256 log256_ps(__m256 x) {
+    __m256 one = _ps_1;
+    __m256 invalid_mask = _mm256_cmp_ps(x, _mm256_setzero_ps(), _CMP_LE_OQ);
+
+    x = _mm256_max_ps(x, _mm256_set1_ps(1.17549435e-38f)); // avoid denormal/zero
+
+    __m256i emm0 = _mm256_srli_epi32(_mm256_castps_si256(x), 23);
+    
+    // keep only the fractional part
+    x = _mm256_and_ps(x, _mm256_castsi256_ps(_mm256_set1_epi32(0x7fffff)));
+    x = _mm256_or_ps(x, _ps_05);
+
+    emm0 = _mm256_sub_epi32(emm0, _pi32_0x7f);
+    __m256 e = _mm256_cvtepi32_ps(emm0);
+
+    e = _mm256_add_ps(e, one);
+
+    __m256 mask = _mm256_cmp_ps(x, _mm256_set1_ps(0.707106781186547524f), _CMP_LT_OQ);
+    __m256 tmp = _mm256_and_ps(x, mask);
+    x = _mm256_sub_ps(x, one);
+    e = _mm256_sub_ps(e, _mm256_and_ps(one, mask));
+    x = _mm256_add_ps(x, tmp);
+
+    __m256 z = _mm256_mul_ps(x, x);
+    __m256 y = _mm256_set1_ps(7.0376836292E-2f);
+    y = _mm256_mul_ps(y, x);
+    y = _mm256_add_ps(y, _mm256_set1_ps(-1.1514610310E-1f));
+    y = _mm256_mul_ps(y, x);
+    y = _mm256_add_ps(y, _mm256_set1_ps(1.1676998740E-1f));
+    y = _mm256_mul_ps(y, x);
+    y = _mm256_add_ps(y, _mm256_set1_ps(-1.2420140846E-1f));
+    y = _mm256_mul_ps(y, x);
+    y = _mm256_add_ps(y, _mm256_set1_ps(1.4249322787E-1f));
+    y = _mm256_mul_ps(y, x);
+    y = _mm256_add_ps(y, _mm256_set1_ps(-1.6668057665E-1f));
+    y = _mm256_mul_ps(y, x);
+    y = _mm256_add_ps(y, _mm256_set1_ps(2.0000714765E-1f));
+    y = _mm256_mul_ps(y, x);
+    y = _mm256_add_ps(y, _mm256_set1_ps(-2.4999993993E-1f));
+    y = _mm256_mul_ps(y, x);
+    y = _mm256_add_ps(y, _mm256_set1_ps(3.3333331174E-1f));
+    y = _mm256_mul_ps(y, x);
+
+    y = _mm256_mul_ps(y, z);
+
+    tmp = _mm256_mul_ps(e, _mm256_set1_ps(-2.12194440e-4f));
+    y = _mm256_add_ps(y, tmp);
+
+    tmp = _mm256_mul_ps(z, _ps_05);
+    y = _mm256_sub_ps(y, tmp);
+
+    tmp = _mm256_mul_ps(e, _mm256_set1_ps(0.693359375f));
+    x = _mm256_add_ps(x, y);
+    x = _mm256_add_ps(x, tmp);
+    
+    x = _mm256_or_ps(x, invalid_mask); // propagate NaNs
+    return x;
+}
