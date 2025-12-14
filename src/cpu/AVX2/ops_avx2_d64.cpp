@@ -539,6 +539,24 @@ Tensor relu_avx2_d64(const Tensor& a) {
     return out;
 }
 
+OMP_SIMD_UNARY_D64(ln_avx2_d64, std::log)
+OMP_SIMD_UNARY_D64(exp_avx2_d64, std::exp)
+OMP_SIMD_UNARY_D64(sin_avx2_d64, std::sin)
+OMP_SIMD_UNARY_D64(cos_avx2_d64, std::cos)
+OMP_SIMD_UNARY_D64(tan_avx2_d64, std::tan)
+OMP_SIMD_UNARY_D64(asin_avx2_d64, std::asin)
+OMP_SIMD_UNARY_D64(acos_avx2_d64, std::acos)
+OMP_SIMD_UNARY_D64(atan_avx2_d64, std::atan)
+OMP_SIMD_UNARY_D64(sinh_avx2_d64, std::sinh)
+OMP_SIMD_UNARY_D64(cosh_avx2_d64, std::cosh)
+OMP_SIMD_UNARY_D64(tanh_avx2_d64, std::tanh)
+
+// Sigmoid / Softplus helpers
+inline double sigmoid_scalar(double x) { return 1.0 / (1.0 + std::exp(-x)); }
+OMP_SIMD_UNARY_D64(sigmoid_avx2_d64, sigmoid_scalar)
+
+inline double softplus_scalar(double x) { return std::log(1.0 + std::exp(x)); }
+OMP_SIMD_UNARY_D64(softplus_avx2_d64, softplus_scalar)
 
 } // namespace
 
