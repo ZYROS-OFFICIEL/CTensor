@@ -366,6 +366,111 @@ Tensor min_avx2_d64(const Tensor& t, int dim) {
     return out;
 }
 
+/*------------------------------------------Binary API---------------------------------------------------*/
+
+Tensor add_avx2_d64(const Tensor& a, const Tensor& b) {
+    return binary_op_broadcast_d64(a, b, [](__m256d x, __m256d y){ return _mm256_add_pd(x, y); });
+}
+Tensor sub_avx2_d64(const Tensor& a, const Tensor& b) {
+    return binary_op_broadcast_d64(a, b, [](__m256d x, __m256d y){ return _mm256_sub_pd(x, y); });
+}
+Tensor mul_avx2_d64(const Tensor& a, const Tensor& b) {
+    return binary_op_broadcast_d64(a, b, [](__m256d x, __m256d y){ return _mm256_mul_pd(x, y); });
+}
+Tensor div_avx2_d64(const Tensor& a, const Tensor& b) {
+    return binary_op_broadcast_d64(a, b, [](__m256d x, __m256d y){ return _mm256_div_pd(x, y); });
+}
+
+// Pow: Use OMP SIMD instead of raw AVX for double precision power
+Tensor pow_avx2_d64(const Tensor& A, const Tensor& B) {
+    std::vector<size_t> a_shape = A.shape();
+    std::vector<size_t> b_shape = B.shape();
+    std::vector<size_t> out_shape = broadcast_shape(a_shape, b_shape);
+    size_t out_numel = 1; for (auto s : out_shape) out_numel *= s;
+    Tensor out(out_shape, A.device(), DType::Double64);
+
+    const double* a_ptr = (const double*)A.data();
+    const double* b_ptr = (const double*)B.data();
+    double* out_ptr = (double*)out.data();
+
+    bool a_contig = (A.is_contiguous()) && (a_shape == out_shape);
+    bool b_contig = (B.is_contiguous()) && (b_shape == out_shape);
+
+    if (a_contig && b_contig) {
+        #pragma omp parallel for simd
+        for (size_t i = 0; i < out_numel; ++i) {
+            out_ptr[i] = std::pow(a_ptr[i], b_ptr[i]);
+        }
+    } else {
+        // Fallback to scalar broadcast loop with OMP
+        auto out_mult = build_index_multipliers(out_shape);
+        auto a_strides = shape_to_strides_bytes(a_shape);
+        auto b_strides = shape_to_strides_bytes(b_shape);
+
+        #pragma omp parallel for
+        for (size_t i = 0; i < out_numel; ++i) {
+            int32_t a_off = compute_offset_bytes(i, out_shape, out_mult, a_shape, a_strides);
+            int32_t b_off = compute_offset_bytes(i, out_shape, out_mult, b_shape, b_strides);
+            double val_a = *(const double*)((const char*)a_ptr + a_off);
+            double val_b = *(const double*)((const char*)b_ptr + b_off);
+            out_ptr[i] = std::pow(val_a, val_b);
+        }
+    }
+    return out;
+}
+/*------------------------------------------Binary API---------------------------------------------------*/
+
+Tensor add_avx2_d64(const Tensor& a, const Tensor& b) {
+    return binary_op_broadcast_d64(a, b, [](__m256d x, __m256d y){ return _mm256_add_pd(x, y); });
+}
+Tensor sub_avx2_d64(const Tensor& a, const Tensor& b) {
+    return binary_op_broadcast_d64(a, b, [](__m256d x, __m256d y){ return _mm256_sub_pd(x, y); });
+}
+Tensor mul_avx2_d64(const Tensor& a, const Tensor& b) {
+    return binary_op_broadcast_d64(a, b, [](__m256d x, __m256d y){ return _mm256_mul_pd(x, y); });
+}
+Tensor div_avx2_d64(const Tensor& a, const Tensor& b) {
+    return binary_op_broadcast_d64(a, b, [](__m256d x, __m256d y){ return _mm256_div_pd(x, y); });
+}
+
+// Pow: Use OMP SIMD instead of raw AVX for double precision power
+Tensor pow_avx2_d64(const Tensor& A, const Tensor& B) {
+    std::vector<size_t> a_shape = A.shape();
+    std::vector<size_t> b_shape = B.shape();
+    std::vector<size_t> out_shape = broadcast_shape(a_shape, b_shape);
+    size_t out_numel = 1; for (auto s : out_shape) out_numel *= s;
+    Tensor out(out_shape, A.device(), DType::Double64);
+
+    const double* a_ptr = (const double*)A.data();
+    const double* b_ptr = (const double*)B.data();
+    double* out_ptr = (double*)out.data();
+
+    bool a_contig = (A.is_contiguous()) && (a_shape == out_shape);
+    bool b_contig = (B.is_contiguous()) && (b_shape == out_shape);
+
+    if (a_contig && b_contig) {
+        #pragma omp parallel for simd
+        for (size_t i = 0; i < out_numel; ++i) {
+            out_ptr[i] = std::pow(a_ptr[i], b_ptr[i]);
+        }
+    } else {
+        // Fallback to scalar broadcast loop with OMP
+        auto out_mult = build_index_multipliers(out_shape);
+        auto a_strides = shape_to_strides_bytes(a_shape);
+        auto b_strides = shape_to_strides_bytes(b_shape);
+
+        #pragma omp parallel for
+        for (size_t i = 0; i < out_numel; ++i) {
+            int32_t a_off = compute_offset_bytes(i, out_shape, out_mult, a_shape, a_strides);
+            int32_t b_off = compute_offset_bytes(i, out_shape, out_mult, b_shape, b_strides);
+            double val_a = *(const double*)((const char*)a_ptr + a_off);
+            double val_b = *(const double*)((const char*)b_ptr + b_off);
+            out_ptr[i] = std::pow(val_a, val_b);
+        }
+    }
+    return out;
+}
+
 } // namespace
 
 #endif // __AVX2__
