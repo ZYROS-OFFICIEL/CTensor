@@ -53,10 +53,10 @@ Tensor sigmoid_avx2_d64(const Tensor& a);
 Tensor softplus_avx2_d64(const Tensor& a);
 
 // ========================================================================
-//                        Reductions (Float32)
+//                        Reductions (Double64)
 // ========================================================================
 
-Tensor sum_avx2_f32(const Tensor& t, int dim = -1);
-Tensor mean_avx2_f32(const Tensor& t, int dim = -1);
-Tensor max_avx2_f32(const Tensor& t, int dim = -1);
-Tensor min_avx2_f32(const Tensor& t, int dim = -1);
+Tensor sum_avx2_d64(const Tensor& t, int dim = -1);
+Tensor mean_avx2_d64(const Tensor& t, int dim = -1);
+Tensor max_avx2_d64(const Tensor& t, int dim = -1);
+Tensor min_avx2_d64(const Tensor& t, int dim = -1);
