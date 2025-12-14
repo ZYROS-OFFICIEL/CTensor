@@ -209,3 +209,14 @@ Tensor binary_op_broadcast_d64(const Tensor& A, const Tensor& B, std::function<_
 
     return out;
 }
+
+/*----------------------Comparing ops template---------------------------*/
+template<int CMP_FLAG>
+Tensor cmp_avx2_d64_impl(const Tensor& a, const Tensor& b) {
+    return binary_op_broadcast_d64(a, b, []( __m256d x, __m256d y){
+        __m256d m = _mm256_cmp_pd(x, y, CMP_FLAG);
+        // mask bits are 0xFFFFFFFFFFFFFFFF for true.
+        // AND with 1.0 to get 1.0 for true, 0.0 for false.
+        return _mm256_and_pd(m, _pd_1);
+    });
+}
