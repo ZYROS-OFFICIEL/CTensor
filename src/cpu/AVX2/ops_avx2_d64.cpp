@@ -220,3 +220,44 @@ Tensor cmp_avx2_d64_impl(const Tensor& a, const Tensor& b) {
         return _mm256_and_pd(m, _pd_1);
     });
 }
+/*----------------------Matmul (Double)---------------------------*/
+
+Tensor matmul_avx2_d64(const Tensor& A, const Tensor& B) {
+    if (A.shape().size() != 2 || B.shape().size() != 2) throw std::runtime_error("matmul_avx2_d64: only 2D tensors");
+    size_t M = A.shape()[0];
+    size_t K = A.shape()[1];
+    size_t N = B.shape()[1];
+    if (K != B.shape()[0]) throw std::runtime_error("matmul_avx2_d64: shape mismatch");
+
+    Tensor C({M, N}, A.device(), DType::Double64);
+    const double* a_ptr = (const double*)A.data();
+    const double* b_ptr = (const double*)B.data();
+    double* c_ptr = (double*)C.data();
+    std::memset(c_ptr, 0, M * N * sizeof(double));
+
+    #pragma omp parallel for
+    for (size_t i = 0; i < M; ++i) {
+        for (size_t k = 0; k < K; ++k) {
+            double a_val = a_ptr[i * K + k];
+            __m256d va = _mm256_set1_pd(a_val);
+            
+            size_t j = 0;
+            // Unroll 4 doubles at a time
+            for (; j + 4 <= N; j += 4) {
+                double* c_addr = c_ptr + i * N + j;
+                const double* b_addr = b_ptr + k * N + j;
+                
+                __m256d vc = _mm256_loadu_pd(c_addr);
+                __m256d vb = _mm256_loadu_pd(b_addr);
+                // FMA: result = a * b + c
+                __m256d vres = _mm256_fmadd_pd(va, vb, vc);
+                _mm256_storeu_pd(c_addr, vres);
+            }
+            // Tail
+            for (; j < N; ++j) {
+                c_ptr[i*N + j] += a_val * b_ptr[k*N + j];
+            }
+        }
+    }
+    return C;
+}
