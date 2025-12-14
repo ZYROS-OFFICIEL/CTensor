@@ -471,6 +471,24 @@ Tensor pow_avx2_d64(const Tensor& A, const Tensor& B) {
     return out;
 }
 
+/*------------------------------------------Unuary ops---------------------------------------------------*/
+
+// For now we will not use AVX2 for unary ops on double, just OMP SIMD for their complexity and time cost.We will refactor them later.
+
+#define OMP_SIMD_UNARY_D64(FUNC_NAME, STD_FUNC) \
+Tensor FUNC_NAME(const Tensor& a) { \
+    Tensor out(a.shape(), a.device(), DType::Double64); \
+    const double* pa = (const double*)a.data(); \
+    double* pout = (double*)out.data(); \
+    size_t n = a.numel(); \
+    _Pragma("omp parallel for simd") \
+    for (size_t i = 0; i < n; ++i) { \
+        pout[i] = STD_FUNC(pa[i]); \
+    } \
+    return out; \
+}
+
+
 } // namespace
 
 #endif // __AVX2__
