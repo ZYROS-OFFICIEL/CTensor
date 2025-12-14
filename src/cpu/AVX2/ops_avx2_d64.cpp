@@ -488,6 +488,57 @@ Tensor FUNC_NAME(const Tensor& a) { \
     return out; \
 }
 
+// Pure AVX2 intrinsics for simple ops
+Tensor abs_avx2_d64(const Tensor& a) {
+    static const __m256i abs_mask = _mm256_set1_epi64x(0x7FFFFFFFFFFFFFFF);
+    Tensor out(a.shape(), a.device(), DType::Double64);
+    const double* pa = (const double*)a.data();
+    double* pout = (double*)out.data();
+    size_t n = a.numel();
+    size_t vec_end = (n/4)*4;
+
+    #pragma omp parallel for
+    for (size_t i=0; i<vec_end; i+=4) {
+        __m256d v = _mm256_loadu_pd(pa+i);
+        // And with mask to clear sign bit
+        v = _mm256_and_pd(v, _mm256_castsi256_pd(abs_mask));
+        _mm256_storeu_pd(pout+i, v);
+    }
+    for (size_t i=vec_end; i<n; ++i) pout[i] = std::abs(pa[i]);
+    return out;
+}
+
+Tensor sqrt_avx2_d64(const Tensor& a) {
+    Tensor out(a.shape(), a.device(), DType::Double64);
+    const double* pa = (const double*)a.data();
+    double* pout = (double*)out.data();
+    size_t n = a.numel();
+    size_t vec_end = (n/4)*4;
+
+    #pragma omp parallel for
+    for (size_t i=0; i<vec_end; i+=4) {
+        _mm256_storeu_pd(pout+i, _mm256_sqrt_pd(_mm256_loadu_pd(pa+i)));
+    }
+    for (size_t i=vec_end; i<n; ++i) pout[i] = std::sqrt(pa[i]);
+    return out;
+}
+
+Tensor relu_avx2_d64(const Tensor& a) {
+    Tensor out(a.shape(), a.device(), DType::Double64);
+    const double* pa = (const double*)a.data();
+    double* pout = (double*)out.data();
+    size_t n = a.numel();
+    size_t vec_end = (n/4)*4;
+    __m256d zero = _mm256_setzero_pd();
+
+    #pragma omp parallel for
+    for (size_t i=0; i<vec_end; i+=4) {
+        _mm256_storeu_pd(pout+i, _mm256_max_pd(_mm256_loadu_pd(pa+i), zero));
+    }
+    for (size_t i=vec_end; i<n; ++i) pout[i] = std::max(0.0, pa[i]);
+    return out;
+}
+
 
 } // namespace
 
