@@ -261,3 +261,111 @@ Tensor matmul_avx2_d64(const Tensor& A, const Tensor& B) {
     }
     return C;
 }
+/*----------------------Reductions (Double)---------------------------*/
+Tensor sum_avx2_d64(const Tensor& t, int dim) {
+    if (dim != -1) throw std::runtime_error("sum_avx2_d64: only dim=-1");
+    size_t n = t.numel();
+    const double* data = (const double*)t.data();
+    double global_sum = 0.0;
+    size_t vec_end = (n/4)*4;
+
+    #pragma omp parallel
+    {
+        __m256d vsum = _mm256_setzero_pd();
+        #pragma omp for nowait
+        for (size_t i=0; i<vec_end; i+=4) {
+            vsum = _mm256_add_pd(vsum, _mm256_loadu_pd(data+i));
+        }
+        double local_sum = hsum256_pd(vsum);
+        #pragma omp atomic
+        global_sum += local_sum;
+    }
+    for (size_t i=vec_end; i<n; ++i) global_sum += data[i];
+
+    Tensor out({1}, t.device(), DType::Double64);
+    ((double*)out.data())[0] = global_sum;
+    return out;
+}
+
+Tensor mean_avx2_d64(const Tensor& t, int dim) {
+    Tensor s = sum_avx2_d64(t, dim);
+    double n = static_cast<double>(t.numel());
+    ((double*)s.data())[0] /= n;
+    return s;
+}
+
+Tensor max_avx2_d64(const Tensor& t, int dim) {
+    if (dim != -1) throw std::runtime_error("max_avx2_d64: only dim=-1");
+    const double* data = (const double*)t.data();
+    size_t n = t.numel();
+    double global_max = -std::numeric_limits<double>::infinity();
+    size_t vec_end = (n/4)*4;
+
+    #pragma omp parallel
+    {
+        __m256d vmax = _mm256_set1_pd(-std::numeric_limits<double>::infinity());
+        #pragma omp for nowait
+        for (size_t i=0; i<vec_end; i+=4) {
+            vmax = _mm256_max_pd(vmax, _mm256_loadu_pd(data+i));
+        }
+        
+        // Horizontal max
+        // [d3, d2, d1, d0]
+        __m256d y = _mm256_permute2f128_pd(vmax, vmax, 1); // swap halves
+        __m256d m1 = _mm256_max_pd(vmax, y);
+        __m256d m2 = _mm256_permute_pd(m1, 0x5); // swap pairs
+        __m256d m3 = _mm256_max_pd(m1, m2);
+        double local_max = _mm256_cvtsd_f64(m3);
+
+        #pragma omp critical
+        {
+            if (local_max > global_max) global_max = local_max;
+        }
+    }
+    for (size_t i=vec_end; i<n; ++i) {
+        if (data[i] > global_max) global_max = data[i];
+    }
+
+    Tensor out({1}, t.device(), DType::Double64);
+    ((double*)out.data())[0] = global_max;
+    return out;
+}
+
+Tensor min_avx2_d64(const Tensor& t, int dim) {
+    if (dim != -1) throw std::runtime_error("min_avx2_d64: only dim=-1");
+    const double* data = (const double*)t.data();
+    size_t n = t.numel();
+    double global_min = std::numeric_limits<double>::infinity();
+    size_t vec_end = (n/4)*4;
+
+    #pragma omp parallel
+    {
+        __m256d vmin = _mm256_set1_pd(std::numeric_limits<double>::infinity());
+        #pragma omp for nowait
+        for (size_t i=0; i<vec_end; i+=4) {
+            vmin = _mm256_min_pd(vmin, _mm256_loadu_pd(data+i));
+        }
+        
+        __m256d y = _mm256_permute2f128_pd(vmin, vmin, 1);
+        __m256d m1 = _mm256_min_pd(vmin, y);
+        __m256d m2 = _mm256_permute_pd(m1, 0x5);
+        __m256d m3 = _mm256_min_pd(m1, m2);
+        double local_min = _mm256_cvtsd_f64(m3);
+
+        #pragma omp critical
+        {
+            if (local_min < global_min) global_min = local_min;
+        }
+    }
+    for (size_t i=vec_end; i<n; ++i) {
+        if (data[i] < global_min) global_min = data[i];
+    }
+
+    Tensor out({1}, t.device(), DType::Double64);
+    ((double*)out.data())[0] = global_min;
+    return out;
+}
+
+} // namespace
+
+#endif // __AVX2__
