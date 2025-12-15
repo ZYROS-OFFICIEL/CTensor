@@ -43,7 +43,6 @@ inline double hsum256_pd(__m256d v) {
     return _mm256_cvtsd_f64(v);
 }
 
-} 
 
 /*----------------------Broadcasting & Dispatch Helpers---------------------------*/
 
