@@ -165,3 +165,22 @@ inline __m512 cos512_ps(__m512 x) {
     x = _mm512_add_ps(x, _mm512_set1_ps(1.57079632679489661923f));
     return sin512_ps(x);
 }
+
+inline __m512 tanh512_ps(__m512 x) {
+    __m512 two_x = _mm512_mul_ps(x, _mm512_set1_ps(2.0f));
+    __m512 exp_2x = exp512_ps(two_x);
+    __m512 num = _mm512_sub_ps(exp_2x, _zmm_1);
+    __m512 den = _mm512_add_ps(exp_2x, _zmm_1);
+    return _mm512_div_ps(num, den);
+}
+
+inline __m512 sigmoid512_ps(__m512 x) {
+    __m512 neg_x = _mm512_xor_ps(x, _mm512_set1_ps(-0.0f));
+    __m512 e = exp512_ps(neg_x);
+    __m512 den = _mm512_add_ps(_zmm_1, e);
+    return _mm512_div_ps(_zmm_1, den);
+}
+
+inline __m512 pow512_ps(__m512 a, __m512 b) {
+    return exp512_ps(_mm512_mul_ps(b, log512_ps(a)));
+}
