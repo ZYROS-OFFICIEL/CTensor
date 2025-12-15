@@ -254,10 +254,7 @@ static inline int32_t compute_offset_bytes(size_t lin_idx, const std::vector<siz
     return offset;
 }
 
-// ---------------------------
-// Binary Broadcast Template (AVX-512)
-// ---------------------------
-// Uses masking for tail handling, ensuring NO SCALAR FALLBACK.
+// ----------------------Binary Broadcast Template (AVX-512)----------------------
 
 Tensor binary_op_broadcast_512(const Tensor& A, const Tensor& B, std::function<__m512(__m512,__m512)> op) {
     std::vector<size_t> a_shape = A.shape();
@@ -331,3 +328,23 @@ Tensor binary_op_broadcast_512(const Tensor& A, const Tensor& B, std::function<_
     }
     return out;
 }
+
+//-----------------------Unary Template (AVX-512)----------------------
+
+Tensor unary_op_512(const Tensor& A, std::function<__m512(__m512)> op) {
+    Tensor out(A.shape(), A.device(), DType::Float32);
+    const float* a_ptr = (const float*)A.data();
+    float* out_ptr = (float*)out.data();
+    size_t n = A.numel();
+
+    #pragma omp parallel for
+    for (size_t i = 0; i < n; i += 16) {
+        size_t rem = n - i;
+        __mmask16 k = (rem >= 16) ? 0xFFFF : tail_mask(rem);
+        __m512 va = _mm512_maskz_loadu_ps(k, a_ptr + i);
+        __m512 vr = op(va);
+        _mm512_mask_storeu_ps(out_ptr + i, k, vr);
+    }
+    return out;
+}
+
