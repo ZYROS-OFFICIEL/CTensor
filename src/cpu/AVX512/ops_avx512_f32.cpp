@@ -202,3 +202,54 @@ inline float hsum512_ps(__m512 v) {
     sums = _mm_add_ss(sums, shuf);
     return _mm_cvtss_f32(sums);
 }
+
+} // namespace
+
+// ---------------------------Broadcasting & Dispatch Logic---------------------------
+
+static inline std::vector<int64_t> shape_to_strides_bytes(const std::vector<size_t>& shape) {
+    std::vector<int64_t> strides(shape.size());
+    if (shape.empty()) return strides;
+    strides.back() = sizeof(float);
+    for (int i = (int)shape.size()-2; i >= 0; --i) {
+        strides[i] = strides[i+1] * (int64_t)shape[i+1];
+    }
+    return strides;
+}
+
+static std::vector<size_t> broadcast_shape(const std::vector<size_t>& a, const std::vector<size_t>& b) {
+    size_t na = a.size(), nb = b.size();
+    size_t n = std::max(na, nb);
+    std::vector<size_t> out(n);
+    for (size_t i = 0; i < n; ++i) {
+        size_t ai = (i < n - na) ? 1 : a[i - (n - na)];
+        size_t bi = (i < n - nb) ? 1 : b[i - (n - nb)];
+        if (ai != 1 && bi != 1 && ai != bi) throw std::runtime_error("broadcast: incompatible shapes");
+        out[i] = std::max(ai, bi);
+    }
+    return out;
+}
+
+static std::vector<int64_t> build_index_multipliers(const std::vector<size_t>& shape) {
+    std::vector<int64_t> mult(shape.size());
+    if (shape.empty()) return mult;
+    mult.back() = 1;
+    for (int i = (int)shape.size()-2; i >= 0; --i) mult[i] = mult[i+1] * (int64_t)shape[i+1];
+    return mult;
+}
+
+static inline int32_t compute_offset_bytes(size_t lin_idx, const std::vector<size_t>& out_shape, const std::vector<int64_t>& out_mult, const std::vector<size_t>& in_shape, const std::vector<int64_t>& in_strides_bytes) {
+    int32_t offset = 0;
+    size_t nd = out_shape.size();
+    size_t offset_dim = nd - in_shape.size();
+    for (size_t d = 0; d < nd; ++d) {
+        size_t coord = (lin_idx / out_mult[d]) % out_shape[d];
+        size_t in_coord = 0;
+        if (d >= offset_dim) {
+            size_t idx = d - offset_dim;
+            if (in_shape[idx] != 1) in_coord = coord;
+            offset += (int32_t)(in_coord * in_strides_bytes[idx]);
+        }
+    }
+    return offset;
+}
