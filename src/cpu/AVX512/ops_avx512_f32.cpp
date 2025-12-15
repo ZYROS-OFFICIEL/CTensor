@@ -447,3 +447,118 @@ Tensor softplus_avx512_f32(const Tensor& a) {
         return log512_ps(_mm512_add_ps(_zmm_1, exp512_ps(x))); 
     }); 
 }
+
+#define OMP_SIMD_UNARY_512(FUNC_NAME, STD_FUNC) \
+Tensor FUNC_NAME(const Tensor& a) { \
+    Tensor out(a.shape(), a.device(), DType::Float32); \
+    const float* pa = (const float*)a.data(); \
+    float* pout = (float*)out.data(); \
+    size_t n = a.numel(); \
+    _Pragma("omp parallel for simd") \
+    for (size_t i = 0; i < n; ++i) { \
+        pout[i] = STD_FUNC(pa[i]); \
+    } \
+    return out; \
+}
+
+OMP_SIMD_UNARY_512(asin_avx512_f32, std::asin)
+OMP_SIMD_UNARY_512(acos_avx512_f32, std::acos)
+OMP_SIMD_UNARY_512(tan_avx512_f32, std::tan)
+OMP_SIMD_UNARY_512(atan_avx512_f32, std::atan)
+OMP_SIMD_UNARY_512(sinh_avx512_f32, std::sinh)
+OMP_SIMD_UNARY_512(cosh_avx512_f32, std::cosh)
+
+// Reductions
+Tensor sum_avx512_f32(const Tensor& t, int dim) {
+    if (dim != -1) throw std::runtime_error("sum_avx512: only dim=-1");
+    size_t n = t.numel();
+    const float* data = (const float*)t.data();
+    float global_sum = 0.0f;
+
+    #pragma omp parallel
+    {
+        __m512 vsum = _zmm_0;
+        #pragma omp for nowait
+        for (size_t i=0; i < n; i+=16) {
+            size_t rem = n - i;
+            __mmask16 k = (rem >= 16) ? 0xFFFF : tail_mask(rem);
+            // masked load
+            __m512 v = _mm512_maskz_loadu_ps(k, data + i);
+            vsum = _mm512_add_ps(vsum, v);
+        }
+        float local_sum = hsum512_ps(vsum);
+        #pragma omp atomic
+        global_sum += local_sum;
+    }
+    Tensor out({1}, t.device(), DType::Float32);
+    ((float*)out.data())[0] = global_sum;
+    return out;
+}
+
+Tensor mean_avx512_f32(const Tensor& t, int dim) {
+    Tensor s = sum_avx512_f32(t, dim);
+    float n = static_cast<float>(t.numel());
+    ((float*)s.data())[0] /= n;
+    return s;
+}
+
+Tensor max_avx512_f32(const Tensor& t, int dim) {
+    if (dim != -1) throw std::runtime_error("max_avx512: only dim=-1");
+    const float* data = (const float*)t.data();
+    size_t n = t.numel();
+    float global_max = -std::numeric_limits<float>::infinity();
+
+    #pragma omp parallel
+    {
+        __m512 vmax = _mm512_set1_ps(-std::numeric_limits<float>::infinity());
+        #pragma omp for nowait
+        for(size_t i=0; i<n; i+=16) {
+            size_t rem = n - i;
+            __mmask16 k = (rem >= 16) ? 0xFFFF : tail_mask(rem);
+            __m512 v = _mm512_mask_loadu_ps(_mm512_set1_ps(-std::numeric_limits<float>::infinity()), k, data+i);
+            vmax = _mm512_max_ps(vmax, v);
+        }
+        // Horizontal max reduction
+        float local_max = _mm512_reduce_max_ps(vmax);
+        
+        #pragma omp critical
+        {
+            if(local_max > global_max) global_max = local_max;
+        }
+    }
+    Tensor out({1}, t.device(), DType::Float32);
+    ((float*)out.data())[0] = global_max;
+    return out;
+}
+
+Tensor min_avx512_f32(const Tensor& t, int dim) {
+    if (dim != -1) throw std::runtime_error("min_avx512: only dim=-1");
+    const float* data = (const float*)t.data();
+    size_t n = t.numel();
+    float global_min = std::numeric_limits<float>::infinity();
+
+    #pragma omp parallel
+    {
+        __m512 vmin = _mm512_set1_ps(std::numeric_limits<float>::infinity());
+        #pragma omp for nowait
+        for(size_t i=0; i<n; i+=16) {
+            size_t rem = n - i;
+            __mmask16 k = (rem >= 16) ? 0xFFFF : tail_mask(rem);
+            __m512 v = _mm512_mask_loadu_ps(_mm512_set1_ps(std::numeric_limits<float>::infinity()), k, data+i);
+            vmin = _mm512_min_ps(vmin, v);
+        }
+        float local_min = _mm512_reduce_min_ps(vmin);
+        
+        #pragma omp critical
+        {
+            if(local_min < global_min) global_min = local_min;
+        }
+    }
+    Tensor out({1}, t.device(), DType::Float32);
+    ((float*)out.data())[0] = global_min;
+    return out;
+}
+
+} // namespace
+
+#endif // __AVX512F__
