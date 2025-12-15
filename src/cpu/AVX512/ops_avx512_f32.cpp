@@ -184,3 +184,21 @@ inline __m512 sigmoid512_ps(__m512 x) {
 inline __m512 pow512_ps(__m512 a, __m512 b) {
     return exp512_ps(_mm512_mul_ps(b, log512_ps(a)));
 }
+
+// Horizontal Sum for ZMM
+inline float hsum512_ps(__m512 v) {
+    // reduce to 256
+    __m256 vlow = _mm512_castps512_ps256(v);
+    __m256 vhigh = _mm512_extractf32x8_ps(v, 1);
+    vlow = _mm256_add_ps(vlow, vhigh);
+    // reduce to 128
+    __m128 xlow = _mm256_castps256_ps128(vlow);
+    __m128 xhigh = _mm256_extractf128_ps(vlow, 1);
+    xlow = _mm_add_ps(xlow, xhigh);
+    // reduce 128
+    __m128 shuf = _mm_movehdup_ps(xlow);
+    __m128 sums = _mm_add_ps(xlow, shuf);
+    shuf = _mm_movehl_ps(shuf, sums);
+    sums = _mm_add_ss(sums, shuf);
+    return _mm_cvtss_f32(sums);
+}
