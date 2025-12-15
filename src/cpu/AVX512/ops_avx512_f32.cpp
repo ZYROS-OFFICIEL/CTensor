@@ -430,3 +430,20 @@ Tensor gt_avx512_f32(const Tensor& a, const Tensor& b) { return cmp_avx512_f32_i
 Tensor ge_avx512_f32(const Tensor& a, const Tensor& b) { return cmp_avx512_f32_impl<_CMP_GE_OQ>(a,b); }
 Tensor eq_avx512_f32(const Tensor& a, const Tensor& b) { return cmp_avx512_f32_impl<_CMP_EQ_OQ>(a,b); }
 Tensor ne_avx512_f32(const Tensor& a, const Tensor& b) { return cmp_avx512_f32_impl<_CMP_NEQ_OQ>(a,b); }
+
+// Unary
+Tensor abs_avx512_f32(const Tensor& a) { return unary_op_512(a, [](__m512 x){ return _mm512_abs_ps(x); }); }
+Tensor sqrt_avx512_f32(const Tensor& a) { return unary_op_512(a, [](__m512 x){ return _mm512_sqrt_ps(x); }); }
+Tensor relu_avx512_f32(const Tensor& a) { return unary_op_512(a, [](__m512 x){ return _mm512_max_ps(x, _zmm_0); }); }
+Tensor ln_avx512_f32(const Tensor& a) { return unary_op_512(a, [](__m512 x){ return log512_ps(x); }); }
+Tensor exp_avx512_f32(const Tensor& a) { return unary_op_512(a, [](__m512 x){ return exp512_ps(x); }); }
+Tensor sin_avx512_f32(const Tensor& a) { return unary_op_512(a, [](__m512 x){ return sin512_ps(x); }); }
+Tensor cos_avx512_f32(const Tensor& a) { return unary_op_512(a, [](__m512 x){ return cos512_ps(x); }); }
+Tensor tanh_avx512_f32(const Tensor& a) { return unary_op_512(a, [](__m512 x){ return tanh512_ps(x); }); }
+Tensor sigmoid_avx512_f32(const Tensor& a) { return unary_op_512(a, [](__m512 x){ return sigmoid512_ps(x); }); }
+Tensor softplus_avx512_f32(const Tensor& a) { 
+    return unary_op_512(a, [](__m512 x){ 
+        // log(1 + exp(x))
+        return log512_ps(_mm512_add_ps(_zmm_1, exp512_ps(x))); 
+    }); 
+}
