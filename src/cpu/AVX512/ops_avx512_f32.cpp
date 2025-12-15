@@ -113,3 +113,55 @@ inline __m512 log512_ps(__m512 x) {
     // NaNs
     return _mm512_mask_blend_ps(invalid_mask, x, _zmm_nan); 
 }
+
+
+// --- Sine (Sin) for AVX-512 ---
+inline __m512 sin512_ps(__m512 x) {
+    __m512 xmm1, sign_bit, y;
+    __m512i emm2;
+    sign_bit = x;
+    x = _mm512_abs_ps(x);
+
+    xmm1 = _mm512_mul_ps(x, _mm512_set1_ps(0.63661977236758134308f)); // 2/pi
+    emm2 = _mm512_cvttps_epi32(xmm1);
+    emm2 = _mm512_add_epi32(emm2, _mm512_set1_epi32(1));
+    emm2 = _mm512_and_si512(emm2, _mm512_set1_epi32(~1));
+    y = _mm512_cvtepi32_ps(emm2);
+
+    __mmask16 poly_mask = _mm512_cmpeq_epi32_mask(_mm512_and_si512(emm2, _mm512_set1_epi32(4)), _mm512_setzero_si512());
+    
+    // sign bit logic
+    __m512 sign_mask = _mm512_castsi512_ps(_mm512_set1_epi32(0x80000000));
+    // If poly_mask is true, we keep original sign. If false, we flip. 
+    // Wait, standard Cephes logic:
+    // swap_sign_bit = (emm2 & 4) != 0
+    // if swap, sign = ^sign
+    __m512 swap_sign = _mm512_and_ps(sign_mask, _mm512_mask_blend_ps(poly_mask, _zmm_1, _zmm_0)); // Logic slightly complex to port 1:1 visually, simplifying:
+    
+    // Correct logic: if (emm2 & 4) == 0 (poly_mask=1), no swap.
+    // If (emm2 & 4) != 0 (poly_mask=0), swap.
+    // We want to XOR with 0x80000000 if poly_mask is 0.
+    __m512 xor_mask = _mm512_mask_blend_ps(poly_mask, sign_mask, _zmm_0); 
+    sign_bit = _mm512_xor_ps(sign_bit, xor_mask);
+
+    x = _mm512_fmadd_ps(y, _mm512_set1_ps(-1.5703125f), x);
+    x = _mm512_fmadd_ps(y, _mm512_set1_ps(-4.837512969970703125e-4f), x);
+    x = _mm512_fmadd_ps(y, _mm512_set1_ps(-7.549789948768648e-8f), x);
+
+    __m512 z = _mm512_mul_ps(x, x);
+    y = _mm512_set1_ps(2.443315711809948E-005f);
+    y = _mm512_fmadd_ps(y, z, _mm512_set1_ps(-1.388731625493765E-003f));
+    y = _mm512_fmadd_ps(y, z, _mm512_set1_ps(4.166664568298827E-002f));
+    y = _mm512_mul_ps(y, z);
+    y = _mm512_mul_ps(y, z);
+    y = _mm512_fnmadd_ps(z, _zmm_05, y); // y - 0.5*z
+    y = _mm512_add_ps(y, _zmm_1);
+    y = _mm512_mul_ps(y, x);
+
+    return _mm512_xor_ps(y, _mm512_and_ps(sign_bit, sign_mask));
+}
+
+inline __m512 cos512_ps(__m512 x) {
+    x = _mm512_add_ps(x, _mm512_set1_ps(1.57079632679489661923f));
+    return sin512_ps(x);
+}
