@@ -253,3 +253,81 @@ static inline int32_t compute_offset_bytes(size_t lin_idx, const std::vector<siz
     }
     return offset;
 }
+
+// ---------------------------
+// Binary Broadcast Template (AVX-512)
+// ---------------------------
+// Uses masking for tail handling, ensuring NO SCALAR FALLBACK.
+
+Tensor binary_op_broadcast_512(const Tensor& A, const Tensor& B, std::function<__m512(__m512,__m512)> op) {
+    std::vector<size_t> a_shape = A.shape();
+    std::vector<size_t> b_shape = B.shape();
+    std::vector<size_t> out_shape = broadcast_shape(a_shape, b_shape);
+    size_t out_numel = 1;
+    for (auto s : out_shape) out_numel *= s;
+
+    Tensor out(out_shape, A.device(), DType::Float32);
+    const float* a_ptr = (const float*)A.data();
+    const float* b_ptr = (const float*)B.data();
+    float* out_ptr = (float*)out.data();
+
+    auto out_mult = build_index_multipliers(out_shape);
+    auto a_strides = shape_to_strides_bytes(a_shape);
+    auto b_strides = shape_to_strides_bytes(b_shape);
+
+    bool a_contig = A.is_contiguous() && a_shape == out_shape;
+    bool b_contig = B.is_contiguous() && b_shape == out_shape;
+    bool a_scalar = A.numel() == 1;
+    bool b_scalar = B.numel() == 1;
+
+    // We process blocks of 16 (512 bits / 32 bits)
+    // Masking handles the tail automatically.
+    
+    #pragma omp parallel for
+    for (size_t i = 0; i < out_numel; i += 16) {
+        size_t rem = out_numel - i;
+        __mmask16 k = (rem >= 16) ? 0xFFFF : tail_mask(rem);
+
+        // Load A
+        __m512 va;
+        if (a_contig) {
+            va = _mm512_maskz_loadu_ps(k, a_ptr + i);
+        } else if (a_scalar) {
+            va = _mm512_set1_ps(a_ptr[0]);
+        } else {
+            // Scatter/Gather indices calculation
+            // We calculate 16 offsets
+            int32_t idx_buf[16];
+            for (int l = 0; l < 16; ++l) {
+                if ((k >> l) & 1) { // Only compute if mask bit set
+                    idx_buf[l] = compute_offset_bytes(i + l, out_shape, out_mult, a_shape, a_strides);
+                }
+            }
+            __m512i vidx = _mm512_loadu_si512(idx_buf);
+            // Gather: scale=1 because offsets are in bytes
+            va = _mm512_mask_i32gather_ps(_zmm_0, k, vidx, a_ptr, 1);
+        }
+
+        // Load B
+        __m512 vb;
+        if (b_contig) {
+            vb = _mm512_maskz_loadu_ps(k, b_ptr + i);
+        } else if (b_scalar) {
+            vb = _mm512_set1_ps(b_ptr[0]);
+        } else {
+            int32_t idx_buf[16];
+            for (int l = 0; l < 16; ++l) {
+                if ((k >> l) & 1) idx_buf[l] = compute_offset_bytes(i + l, out_shape, out_mult, b_shape, b_strides);
+            }
+            __m512i vidx = _mm512_loadu_si512(idx_buf);
+            vb = _mm512_mask_i32gather_ps(_zmm_0, k, vidx, b_ptr, 1);
+        }
+
+        // Op
+        __m512 vr = op(va, vb);
+
+        // Store
+        _mm512_mask_storeu_ps(out_ptr + i, k, vr);
+    }
+    return out;
+}
