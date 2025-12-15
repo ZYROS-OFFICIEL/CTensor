@@ -348,3 +348,23 @@ Tensor unary_op_512(const Tensor& A, std::function<__m512(__m512)> op) {
     return out;
 }
 
+
+// ========================================================================
+//                        Implementations
+// ========================================================================
+
+Tensor add_avx512_f32(const Tensor& a, const Tensor& b) {
+    return binary_op_broadcast_512(a, b, [](__m512 x, __m512 y){ return _mm512_add_ps(x, y); });
+}
+Tensor sub_avx512_f32(const Tensor& a, const Tensor& b) {
+    return binary_op_broadcast_512(a, b, [](__m512 x, __m512 y){ return _mm512_sub_ps(x, y); });
+}
+Tensor mul_avx512_f32(const Tensor& a, const Tensor& b) {
+    return binary_op_broadcast_512(a, b, [](__m512 x, __m512 y){ return _mm512_mul_ps(x, y); });
+}
+Tensor div_avx512_f32(const Tensor& a, const Tensor& b) {
+    return binary_op_broadcast_512(a, b, [](__m512 x, __m512 y){ return _mm512_div_ps(x, y); });
+}
+Tensor pow_avx512_f32(const Tensor& a, const Tensor& b) {
+    return binary_op_broadcast_512(a, b, [](__m512 x, __m512 y){ return pow512_ps(x, y); });
+}
