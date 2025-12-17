@@ -179,3 +179,23 @@ void GradDiv::backward(const Tensor& self) {
         accumulate_grad(b, Ops::mul_scalar(res, -1.0));
     }
 }
+
+void GradMatMul::backward(const Tensor& self) {
+    Tensor grad = tensor_from_grad(self);
+    
+    //transpose
+    auto T = [](const Tensor& t) {
+        if (t.impl->ndim < 2) return t;
+        std::vector<size_t> perm(t.impl->ndim);
+        for(size_t i=0; i<t.impl->ndim; ++i) perm[i]=i;
+        std::swap(perm[t.impl->ndim-1], perm[t.impl->ndim-2]);
+        return t.permute(perm);
+    };
+
+    if (a.requires_grad()) {
+        accumulate_grad(a, Ops::matmul(grad, T(b)));
+    }
+    if (b.requires_grad()) {
+        accumulate_grad(b, Ops::matmul(T(a), grad));
+    }
+}
