@@ -9,8 +9,8 @@
 #include <cstring>
 #include <algorithm>
 #include <cmath>
-#include "tensor1.h"
-#include "opsmp.h"
+#include "tensor.h"
+#include "ops.h"
 
 // -------------------- helpers --------------------
 inline void check_index_in_storage(const Tensorimpl* impl, size_t idx, const char* ctx) {
