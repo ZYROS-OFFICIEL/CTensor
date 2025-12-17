@@ -48,7 +48,8 @@ void accumulate_grad(Tensor& target, const Tensor& grad_src);
 // ------------------ GradFn base ------------------
 struct GradFn {
     std::vector<Tensor> parents;              // used for DFS/topo traversal
-    virtual void backward(const Tensor& self) = 0; // self is the tensor whose grad is in self.impl->storage->grad
+    virtual void backward(const Tensor& self) = 0; 
+    virtual std::string name() const { return "GradFn"; }
     virtual ~GradFn() = default;
 };
 
@@ -56,14 +57,7 @@ struct GradFn {
 struct GradAdd : GradFn {
     Tensor a, b;
     GradAdd(const Tensor& a_, const Tensor& b_) : a(a_), b(b_) { parents = {a, b}; }
-    void backward(const Tensor& self) override {
-        if (!self.impl->storage->grad) throw std::runtime_error("GradAdd: missing self grad");
-
-        Tensor grad_self = tensor_from_grad(self); 
-
-        if (a.requires_grad()) accumulate_grad(a, grad_self);
-        if (b.requires_grad()) accumulate_grad(b, grad_self);
-    }
+    void backward(const Tensor& self) override ;
 };
 
 struct GradSub : GradFn {
@@ -236,73 +230,19 @@ struct GradMulScalar : GradFn {
     void backward(const Tensor& self) override;
 };
 struct GradDivScalar : GradFn {
-    Tensor a;
-    double scalar;
-    GradDivScalar(const Tensor& a_, double scalar_) : a(a_), scalar(scalar_) {
-        parents = {a};
-    }
-
-    void backward(const Tensor& self) override {
-        if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
-            throw std::runtime_error("GradDivScalar: missing self grad");
-        if (!a.impl || !a.requires_grad()) return;
-
-        Tensor grad_self = tensor_from_grad(self);
-        Tensor grad_input = grad_self * (1.0 / scalar);
-        accumulate_grad(a, grad_input);
-    }
+    Tensor a; double s;
+    GradDivScalar(const Tensor& a_, double s_) : a(a_), s(s_) { parents = {a}; }
+    void backward(const Tensor& self) override;
 };
 struct GradScalarDiv : GradFn {
-    Tensor a;
-    double scalar;
-    GradScalarDiv(const Tensor& a_, double scalar_) : a(a_), scalar(scalar_) {
-        parents = {a};
-    }
-
-    void backward(const Tensor& self) override {
-        if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
-            throw std::runtime_error("GradScalarDiv: missing self grad");
-        if (!a.impl || !a.requires_grad()) return;
-
-        Tensor grad_self = tensor_from_grad(self);
-        size_t n = a.numel_();
-        Tensor grad_input(a.shape(), a._dtype(), false);
-
-        for (size_t i = 0; i < n; ++i) {
-            double gv = read_scalar_at(grad_self.impl->storage->data.get(), i, grad_self._dtype());
-            double va = read_scalar_at(a.impl->storage->data.get(), i, a._dtype());
-            write_scalar_at(grad_input.impl->storage->data.get(), i, grad_input._dtype(), -gv * scalar / (va * va));
-        }
-
-        accumulate_grad(a, grad_input);
-    }
+    Tensor a; double s;
+    GradScalarDiv(const Tensor& a_, double s_) : a(a_), s(s_) { parents = {a}; }
+    void backward(const Tensor& self) override;
 };
-struct GradPowScalar : GradFn {
-    Tensor a;
-    double scalar;
-
-    GradPowScalar(const Tensor& a_, double scalar_) : a(a_), scalar(scalar_) {
-        parents = {a};
-    }
-
-    void backward(const Tensor& self) override {
-        if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
-            throw std::runtime_error("GradPowScalar: missing self grad");
-        if (!a.impl || !a.requires_grad()) return;
-
-        Tensor grad_self = tensor_from_grad(self);
-        size_t n = a.numel_();
-        Tensor grad_input(a.shape(), a._dtype(), false);
-
-        for (size_t i = 0; i < n; ++i) {
-            double gv = read_scalar_at(grad_self.impl->storage->data.get(), i, grad_self._dtype());
-            double va = read_scalar_at(a.impl->storage->data.get(), i, a._dtype());
-            write_scalar_at(grad_input.impl->storage->data.get(), i, grad_input._dtype(),
-                            gv * scalar * std::pow(va, scalar - 1.0));
-        }
-
-        accumulate_grad(a, grad_input);
-    }
+struct GradScalarPow : GradFn {
+    Tensor a; double s;
+    GradScalarPow(const Tensor& a_, double s_) : a(a_), s(s_) { parents = {a}; }
+    void backward(const Tensor& self) override;
 };
 struct GradScalarPow : GradFn {
     Tensor a;
@@ -312,41 +252,15 @@ struct GradScalarPow : GradFn {
         parents = {a};
     }
 
-    void backward(const Tensor& self) override {
-        if (!self.impl || !self.impl->storage || !self.impl->storage->grad)
-            throw std::runtime_error("GradScalarPow: missing self grad");
-        if (!a.impl || !a.requires_grad()) return;
-
-        Tensor grad_self = tensor_from_grad(self);
-        size_t n = a.numel_();
-        Tensor grad_input(a.shape(), a._dtype(), false);
-
-        for (size_t i = 0; i < n; ++i) {
-            double gv = read_scalar_at(grad_self.impl->storage->data.get(), i, grad_self._dtype());
-            double va = read_scalar_at(a.impl->storage->data.get(), i, a._dtype());
-            write_scalar_at(grad_input.impl->storage->data.get(), i, grad_input._dtype(),
-                            gv * std::pow(scalar, va) * std::log(scalar));
-        }
-
-        accumulate_grad(a, grad_input);
-    }
+    void backward(const Tensor& self) override {};
 };
 
 struct GradPermute : GradFn {
     Tensor t;
-    std::vector<size_t> forward_dims; // The permutation used in forward
-    std::vector<size_t> reverse_dims; // The inverse permutation for backward
+    std::vector<size_t> forward_dims; 
+    std::vector<size_t> reverse_dims; 
 
-    GradPermute(const Tensor& t_, std::vector<size_t> dims_) 
-        : t(t_), forward_dims(dims_) { 
-        parents = {t};
-        
-        // Calculate inverse permutation to restore original shape
-        reverse_dims.resize(dims_.size());
-        for (size_t i = 0; i < dims_.size(); ++i) {
-            reverse_dims[dims_[i]] = i;
-        }
-    }
+    GradPermute(const Tensor& t_, std::vector<size_t> dims_);
 
     void backward(const Tensor& self) override;
 };
