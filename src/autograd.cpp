@@ -51,3 +51,96 @@ Tensor tensor_from_grad(const Tensor& self) {
     g.impl = self.impl->grad;
     return g;
 }
+// --- Accumulation Logic ---
+
+// Helper to check padding logic
+static size_t dim_padded(const Tensor& t, size_t max_dims, size_t i) {
+    size_t t_dims = t.impl->ndim;
+    if (i < max_dims - t_dims) return 1;
+    return t.impl->shape[i - (max_dims - t_dims)];
+}
+
+void accumulate_grad(Tensor& target, const Tensor& grad_src) {
+    if (!target.impl) return; 
+
+    // 1. Identify dimensions to reduce (Broadcasting backward rule)
+    size_t t_dims = target.impl->ndim;
+    size_t g_dims = grad_src.impl->ndim;
+    size_t max_dims = std::max(t_dims, g_dims);
+    
+    std::vector<int> axes_to_reduce;
+    for (size_t i = 0; i < max_dims; ++i) {
+        size_t t_sz = dim_padded(target, max_dims, i);
+        size_t g_sz = dim_padded(grad_src, max_dims, i);
+        
+        if (t_sz == 1 && g_sz > 1) {
+            // Must reduce this axis. Calculate actual axis index in grad_src
+            if (i >= max_dims - g_dims) {
+                axes_to_reduce.push_back((int)(i - (max_dims - g_dims)));
+            }
+        }
+    }
+
+    // 2. Perform Reduction (if needed)
+    Tensor grad_aligned = grad_src;
+    if (!axes_to_reduce.empty()) {
+        for (int ax : axes_to_reduce) {
+            grad_aligned = Ops::sum(grad_aligned, ax);
+        }
+    }
+
+    // 3. Add to target.grad
+    ensure_grad_buffer(target, false);
+    
+    size_t n_target = target.numel();
+    
+    // Access the destination gradient data
+    // target.impl -> grad (Tensorimpl) -> data (Storage) -> data (void*)
+    auto* t_grad = target.impl->grad->data->data.get();
+    
+    // Access the source gradient data
+    // grad_aligned.impl -> data (Storage) -> data (void*)
+    auto* g_data = grad_aligned.impl->data->data.get();
+    
+    const size_t* t_shape = target.impl->shape.data();
+    const size_t* t_strides = target.impl->strides.data();
+    const size_t* g_shape = grad_aligned.impl->shape.data();
+    const size_t* g_strides = grad_aligned.impl->strides.data();
+    
+    size_t t_offset = target.impl->offset; // Usually 0 for gradients, but respecting structure
+    size_t g_offset = grad_aligned.impl->offset;
+    
+    size_t t_nd = target.impl->ndim;
+    size_t g_nd = grad_aligned.impl->ndim;
+    size_t pad = (t_nd > g_nd) ? t_nd - g_nd : 0;
+    
+    DType dt_t = target._dtype();
+    DType dt_g = grad_aligned._dtype();
+
+    #pragma omp parallel for
+    for (size_t i = 0; i < n_target; ++i) {
+        size_t rem = i;
+        size_t t_idx = t_offset;
+        size_t g_idx = g_offset;
+        
+        for (int d = (int)t_nd - 1; d >= 0; --d) {
+            size_t sz = t_shape[d];
+            size_t coord = rem % sz;
+            rem /= sz;
+            
+            t_idx += coord * t_strides[d];
+            
+            // Map to grad_aligned
+            if (d >= (int)pad) {
+                int g_d = d - pad;
+                if (g_shape[g_d] > 1) {
+                    g_idx += coord * g_strides[g_d];
+                }
+            }
+        }
+        
+        double v_g = read_scalar_at(g_data, g_idx, dt_g);
+        double v_t = read_scalar_at(t_grad, t_idx, dt_t);
+        write_scalar_at(t_grad, t_idx, dt_t, v_t + v_g);
+    }
+}
