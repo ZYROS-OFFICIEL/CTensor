@@ -167,3 +167,15 @@ void GradMul::backward(const Tensor& self) {
     if (a.requires_grad()) accumulate_grad(a, Ops::mul(grad, b)); 
     if (b.requires_grad()) accumulate_grad(b, Ops::mul(grad, a));
 }
+void GradDiv::backward(const Tensor& self) {
+    Tensor grad = tensor_from_grad(self);
+    if (a.requires_grad()) {
+        accumulate_grad(a, Ops::div(grad, b));
+    }
+    if (b.requires_grad()) {
+        Tensor num = Ops::mul(grad, a); 
+        Tensor den = Ops::mul(b, b);    
+        Tensor res = Ops::div(num, den);
+        accumulate_grad(b, Ops::mul_scalar(res, -1.0));
+    }
+}
