@@ -155,3 +155,9 @@ void GradAdd::backward(const Tensor& self) {
         accumulate_grad(b, grad);
     }
 }
+
+void GradSub::backward(const Tensor& self) {
+    Tensor grad = tensor_from_grad(self);
+    if (a.requires_grad()) accumulate_grad(a, grad);
+    if (b.requires_grad()) accumulate_grad(b, Ops::mul_scalar(grad, -1.0));
+}
