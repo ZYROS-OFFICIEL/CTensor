@@ -199,3 +199,18 @@ void GradMatMul::backward(const Tensor& self) {
         accumulate_grad(b, Ops::matmul(T(a), grad));
     }
 }
+
+void GradPow::backward(const Tensor& self) {
+    Tensor grad = tensor_from_grad(self);
+    if (a.requires_grad()) {
+        Tensor t1 = Ops::pow(a, Ops::sub_scalar(b, 1.0));
+        Tensor t2 = Ops::mul(t1, b);
+        accumulate_grad(a, Ops::mul(grad, t2));
+    }
+    if (b.requires_grad()) {
+        Tensor t1 = Ops::pow(a, b);
+        Tensor t2 = Ops::log(a);
+        Tensor t3 = Ops::mul(t1, t2);
+        accumulate_grad(b, Ops::mul(grad, t3));
+    }
+}
