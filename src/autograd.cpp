@@ -144,3 +144,14 @@ void accumulate_grad(Tensor& target, const Tensor& grad_src) {
         write_scalar_at(t_grad, t_idx, dt_t, v_t + v_g);
     }
 }
+
+// ------------------ GradFn implementations ------------------
+void GradAdd::backward(const Tensor& self) {
+    Tensor grad = tensor_from_grad(self);
+    if (a.requires_grad()) {
+        accumulate_grad(a, grad);
+    }
+    if (b.requires_grad()) { 
+        accumulate_grad(b, grad);
+    }
+}
