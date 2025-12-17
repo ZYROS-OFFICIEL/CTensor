@@ -214,3 +214,42 @@ void GradPow::backward(const Tensor& self) {
         accumulate_grad(b, Ops::mul(grad, t3));
     }
 }
+
+
+void backward(Tensor& root) {
+    if (!root.impl || !root.requires_grad()) 
+        throw std::runtime_error("backward: tensor does not require grad");
+
+    // 1. Initialize Root Grad (1.0)
+    ensure_grad_buffer(root, true);
+    
+    // Fill with 1.0
+    // Access: root.impl -> grad (Tensorimpl) -> data (Storage) -> data (void*)
+    auto* g_ptr = root.impl->grad->data->data.get();
+    DType dt = root._dtype();
+    size_t n = root.numel();
+    #pragma omp parallel for
+    for(size_t i=0; i<n; ++i) write_scalar_at(g_ptr, i, dt, 1.0);
+
+    // 2. Topo Sort
+    std::vector<Tensor> sort;
+    std::set<const Tensorimpl*> visited;
+    
+    std::function<void(const Tensor&)> dfs = [&](const Tensor& u) {
+        if (!u.impl || visited.count(u.impl.get())) return;
+        visited.insert(u.impl.get());
+        if (u.impl->grad_fn) {
+            for (const auto& p : u.impl->grad_fn->parents) dfs(p);
+        }
+        sort.push_back(u);
+    };
+    dfs(root);
+
+    // 3. Backward Pass (Reverse Topological)
+    for (auto it = sort.rbegin(); it != sort.rend(); ++it) {
+        Tensor& t = *it;
+        if (t.impl->grad_fn) {
+            t.impl->grad_fn->backward(t);
+        }
+    }
+}
