@@ -304,6 +304,17 @@ void GradCos::backward(const Tensor& self) {
     }
 }
 
+
+void GradTan::backward(const Tensor& self) {
+    if (t.requires_grad()) {
+        // sec^2(t) = 1/cos^2(t)
+        Tensor c = Ops::cos(t);
+        Tensor c2 = Ops::mul(c, c);
+        Tensor deriv = Ops::div_scalar_rev(1.0, c2);
+        accumulate_grad(t, Ops::mul(tensor_from_grad(self), deriv));
+    }
+}
+
 void backward(Tensor& root) {
     if (!root.impl || !root.requires_grad()) 
         throw std::runtime_error("backward: tensor does not require grad");
