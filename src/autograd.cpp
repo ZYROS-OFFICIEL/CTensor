@@ -278,7 +278,14 @@ void GradLn::backward(const Tensor& self) {
         accumulate_grad(t, Ops::div(grad, t));
     }
 }
-
+void GradExp::backward(const Tensor& self) {
+    if (t.requires_grad()) {
+        // exp(t) * grad -> self * grad (since self IS exp(t))
+        // Recomputing exp(t) is safer if self memory reused, but passing self is opt.
+        Tensor grad = tensor_from_grad(self);
+        accumulate_grad(t, Ops::mul(grad, Ops::exp(t)));
+    }
+}
 
 void backward(Tensor& root) {
     if (!root.impl || !root.requires_grad()) 
