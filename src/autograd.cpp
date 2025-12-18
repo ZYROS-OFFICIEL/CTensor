@@ -297,7 +297,12 @@ void GradSqrt::backward(const Tensor& self) {
 void GradSin::backward(const Tensor& self) {
     if (t.requires_grad()) accumulate_grad(t, Ops::mul(tensor_from_grad(self), Ops::cos(t)));
 }
-
+void GradCos::backward(const Tensor& self) {
+    if (t.requires_grad()) {
+        Tensor res = Ops::mul(tensor_from_grad(self), Ops::sin(t));
+        accumulate_grad(t, Ops::mul_scalar(res, -1.0));
+    }
+}
 
 void backward(Tensor& root) {
     if (!root.impl || !root.requires_grad()) 
