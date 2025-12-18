@@ -260,6 +260,18 @@ void GradScalarPow::backward(const Tensor& self) {
     }
 }
 
+void GradAbs::backward(const Tensor& self) {
+    if (t.requires_grad()) {
+        Tensor grad = tensor_from_grad(self);
+        // sign(t) * grad.  (Using ge(0) - lt(0))
+        Tensor pos = Ops::gt(t, 0.0);
+        Tensor neg = Ops::lt(t, 0.0);
+        Tensor sign = Ops::sub(pos, neg); // 1 if >0, -1 if <0
+        accumulate_grad(t, Ops::mul(grad, sign));
+    }
+}
+
+
 void backward(Tensor& root) {
     if (!root.impl || !root.requires_grad()) 
         throw std::runtime_error("backward: tensor does not require grad");
