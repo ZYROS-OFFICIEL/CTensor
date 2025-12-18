@@ -215,6 +215,13 @@ void GradPow::backward(const Tensor& self) {
     }
 }
 
+//--------------------Scalar backward --------------------
+void GradAddScalar::backward(const Tensor& self) {
+    if (a.requires_grad()) accumulate_grad(a, tensor_from_grad(self));
+}
+
+
+
 
 void backward(Tensor& root) {
     if (!root.impl || !root.requires_grad()) 
