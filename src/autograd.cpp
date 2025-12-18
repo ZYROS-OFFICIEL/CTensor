@@ -250,7 +250,15 @@ void GradPowScalar::backward(const Tensor& self) {
         accumulate_grad(a, Ops::mul(grad, res));
     }
 }
-
+void GradScalarPow::backward(const Tensor& self) {
+    if (a.requires_grad()) {
+        // y = s^a -> dy/da = s^a * ln(s)
+        Tensor grad = tensor_from_grad(self);
+        Tensor p = Ops::pow_scalar_rev(s, a);
+        Tensor res = Ops::mul_scalar(p, std::log(s));
+        accumulate_grad(a, Ops::mul(grad, res));
+    }
+}
 
 void backward(Tensor& root) {
     if (!root.impl || !root.requires_grad()) 
