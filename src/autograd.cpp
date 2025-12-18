@@ -225,7 +225,9 @@ void GradSubScalar::backward(const Tensor& self) {
 void GradSubAfterScalar::backward(const Tensor& self) {
     if (a.requires_grad()) accumulate_grad(a, Ops::mul_scalar(tensor_from_grad(self), -1.0));
 }
-
+void GradMulScalar::backward(const Tensor& self) {
+    if (a.requires_grad()) accumulate_grad(a, Ops::mul_scalar(tensor_from_grad(self), s));
+}
 
 void backward(Tensor& root) {
     if (!root.impl || !root.requires_grad()) 
