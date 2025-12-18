@@ -260,6 +260,7 @@ void GradScalarPow::backward(const Tensor& self) {
     }
 }
 
+//-------------------- Unary backward --------------------
 void GradAbs::backward(const Tensor& self) {
     if (t.requires_grad()) {
         Tensor grad = tensor_from_grad(self);
@@ -268,6 +269,13 @@ void GradAbs::backward(const Tensor& self) {
         Tensor neg = Ops::lt(t, 0.0);
         Tensor sign = Ops::sub(pos, neg); // 1 if >0, -1 if <0
         accumulate_grad(t, Ops::mul(grad, sign));
+    }
+}
+void GradLn::backward(const Tensor& self) {
+    if (t.requires_grad()) {
+        // 1/t * grad
+        Tensor grad = tensor_from_grad(self);
+        accumulate_grad(t, Ops::div(grad, t));
     }
 }
 
