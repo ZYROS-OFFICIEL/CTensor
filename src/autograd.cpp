@@ -343,7 +343,12 @@ void GradSoftplus::backward(const Tensor& self) {
         accumulate_grad(t, Ops::mul(grad, sig));
     }
 }
-
+//--------------------Reduction backward --------------------
+void GradSum::backward(const Tensor& self) {
+    if (t.requires_grad()) {
+        accumulate_grad(t, tensor_from_grad(self));
+    }
+}
 
 void backward(Tensor& root) {
     if (!root.impl || !root.requires_grad()) 
