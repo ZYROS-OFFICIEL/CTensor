@@ -350,6 +350,20 @@ void GradSum::backward(const Tensor& self) {
     }
 }
 
+void GradMean::backward(const Tensor& self) {
+    if (t.requires_grad()) {
+        // grad / N
+        Tensor grad = tensor_from_grad(self);
+        // Calculate N based on dimensions reduced
+        // If dim = -1, N = total elements.
+        double N = 1.0;
+        if (dim == -1) N = (double)t.numel();
+        else N = (double)t.impl->shape[dim]; // Simplified
+        
+        accumulate_grad(t, Ops::div_scalar(grad, N));
+    }
+}
+
 void backward(Tensor& root) {
     if (!root.impl || !root.requires_grad()) 
         throw std::runtime_error("backward: tensor does not require grad");
