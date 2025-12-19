@@ -399,7 +399,11 @@ void GradATan::backward(const Tensor& s){
         accumulate_grad(t, Ops::div(tensor_from_grad(s), Ops::add_scalar(Ops::mul(t,t), 1.0))); 
     }
 }
-
+void GradSinh::backward(const Tensor& s){ 
+    if(t.requires_grad()) {
+        accumulate_grad(t, Ops::mul(tensor_from_grad(s), Ops::cosh(t))); 
+    }
+}
 
 
 void backward(Tensor& root) {
