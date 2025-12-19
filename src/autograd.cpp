@@ -375,6 +375,16 @@ void GradPermute::backward(const Tensor& self) {
         accumulate_grad(t, grad.permute(reverse_dims));
     }
 }
+
+void GradReshape::backward(const Tensor& self) {
+    if (t.requires_grad()) {
+        Tensor grad = tensor_from_grad(self);
+        // Force contiguous copy to ensure safe reshape
+        Tensor contig = grad.contiguous();
+        accumulate_grad(t, contig.reshape(old_shape));
+    }
+}
+
 void backward(Tensor& root) {
     if (!root.impl || !root.requires_grad()) 
         throw std::runtime_error("backward: tensor does not require grad");
