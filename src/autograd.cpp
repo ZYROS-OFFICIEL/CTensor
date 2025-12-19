@@ -327,6 +327,14 @@ void GradSigmoid::backward(const Tensor& self) {
     }
 }
 
+void GradRelu::backward(const Tensor& self) {
+    if (t.requires_grad()) {
+        Tensor grad = tensor_from_grad(self);
+        Tensor mask = Ops::gt(t, 0.0);
+        accumulate_grad(t, Ops::mul(grad, mask));
+    }
+}
+
 
 void backward(Tensor& root) {
     if (!root.impl || !root.requires_grad()) 
