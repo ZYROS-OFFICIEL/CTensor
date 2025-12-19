@@ -404,7 +404,11 @@ void GradSinh::backward(const Tensor& s){
         accumulate_grad(t, Ops::mul(tensor_from_grad(s), Ops::cosh(t))); 
     }
 }
-
+void GradCosh::backward(const Tensor& s){ 
+    if(t.requires_grad()) {
+        accumulate_grad(t, Ops::mul(tensor_from_grad(s), Ops::sinh(t))); 
+    }
+}
 
 void backward(Tensor& root) {
     if (!root.impl || !root.requires_grad()) 
