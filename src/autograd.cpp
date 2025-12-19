@@ -363,7 +363,18 @@ void GradMean::backward(const Tensor& self) {
         accumulate_grad(t, Ops::div_scalar(grad, N));
     }
 }
-
+GradPermute::GradPermute(const Tensor& t_, const std::vector<size_t>& dims) 
+    : t(t_), forward_dims(dims) {
+    parents = {t};
+    reverse_dims.resize(dims.size());
+    for(size_t i=0; i<dims.size(); ++i) reverse_dims[dims[i]] = i;
+}
+void GradPermute::backward(const Tensor& self) {
+    if (t.requires_grad()) {
+        Tensor grad = tensor_from_grad(self);
+        accumulate_grad(t, grad.permute(reverse_dims));
+    }
+}
 void backward(Tensor& root) {
     if (!root.impl || !root.requires_grad()) 
         throw std::runtime_error("backward: tensor does not require grad");
