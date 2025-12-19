@@ -315,6 +315,19 @@ void GradTan::backward(const Tensor& self) {
     }
 }
 
+void GradSigmoid::backward(const Tensor& self) {
+    if (t.requires_grad()) {
+        // sig * (1 - sig). We can use 'self' as sig output.
+        // Assuming 'self' hasn't been modified in place.
+        // For safety, let's recompute or use 'self' carefully.
+        Tensor grad = tensor_from_grad(self);
+        Tensor one_minus = Ops::sub_scalar_rev(1.0, self); // 1 - y
+        Tensor deriv = Ops::mul(self, one_minus);
+        accumulate_grad(t, Ops::mul(grad, deriv));
+    }
+}
+
+
 void backward(Tensor& root) {
     if (!root.impl || !root.requires_grad()) 
         throw std::runtime_error("backward: tensor does not require grad");
