@@ -384,6 +384,11 @@ void GradReshape::backward(const Tensor& self) {
         accumulate_grad(t, contig.reshape(old_shape));
     }
 }
+void GradASin::backward(const Tensor& s){ 
+    if(t.requires_grad()) {
+        accumulate_grad(t, Ops::mul(tensor_from_grad(s), Ops::pow_scalar(Ops::sub_scalar_rev(1.0, Ops::mul(t,t)), -0.5))); 
+    }
+}
 
 void backward(Tensor& root) {
     if (!root.impl || !root.requires_grad()) 
