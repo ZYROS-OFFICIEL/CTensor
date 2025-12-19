@@ -335,6 +335,15 @@ void GradRelu::backward(const Tensor& self) {
     }
 }
 
+void GradSoftplus::backward(const Tensor& self) {
+    if (t.requires_grad()) {
+        // sigmoid(x)
+        Tensor grad = tensor_from_grad(self);
+        Tensor sig = Ops::sigmoid(t);
+        accumulate_grad(t, Ops::mul(grad, sig));
+    }
+}
+
 
 void backward(Tensor& root) {
     if (!root.impl || !root.requires_grad()) 
