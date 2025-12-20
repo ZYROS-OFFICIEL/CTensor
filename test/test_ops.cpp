@@ -211,3 +211,18 @@ void test_type_conversion() {
 
     passed();
 }
+int main() {
+    std::cout << "      RUNNING OPS DISPATCH TESTS       " << std::endl;
+
+    test_initialization();
+    test_arithmetic();
+    test_matmul();
+    test_reductions();
+    test_view_ops();
+    test_type_conversion();
+    test_broadcasting_manual();
+    test_autograd_simple();
+
+    std::cout << "All tests completed successfully." << std::endl;
+    return 0;
+}
