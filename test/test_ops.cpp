@@ -105,3 +105,19 @@ void test_matmul() {
 
     passed();
 }
+void test_reductions() {
+    log_test("Reductions (Sum, Mean, Max)");
+
+    Tensor t = Tensor::from_vector({1, 2, 3, 4}, {2, 2});
+
+    Tensor s = sum(t);
+    ASSERT_CLOSE(s[{0}], 10.0, 1e-5);
+
+    Tensor m = mean(t);
+    ASSERT_CLOSE(m[{0}], 2.5, 1e-5);
+
+    Tensor mx = max(t);
+    ASSERT_CLOSE(mx[{0}], 4.0, 1e-5);
+
+    passed();
+}
