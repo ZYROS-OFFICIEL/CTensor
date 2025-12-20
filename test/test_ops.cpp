@@ -3,7 +3,7 @@
 #include <cmath>
 #include <cassert>
 #include <iomanip>
-
+#include <cstdlib>
 #include "tensor.h"
 #include "ops_dispatch.h"
 #include "autograd.h" // Required if you are testing backward()
