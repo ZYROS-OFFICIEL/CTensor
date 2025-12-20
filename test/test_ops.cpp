@@ -29,3 +29,6 @@
 void log_test(const std::string& name) {
     std::cout << "[TEST] " << name << "..." << std::endl;
 }
+void passed() {
+    std::cout << " -> PASSED\n" << std::endl;
+}
