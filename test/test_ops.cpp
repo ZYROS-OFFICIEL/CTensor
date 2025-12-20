@@ -149,3 +149,26 @@ void test_broadcasting_manual() {
 
     passed();
 }
+void test_view_ops() {
+    log_test("View Operations (Reshape, Permute, Slicing)");
+
+    Tensor t = Tensor::arange(0, 6, 1, DType::Float32).reshape({2, 3});
+    // [[0, 1, 2],
+    //  [3, 4, 5]]
+
+    // Permute -> Transpose to {3, 2}
+    Tensor p = t.permute({1, 0});
+    // [[0, 3],
+    //  [1, 4],
+    //  [2, 5]]
+    
+    ASSERT_CLOSE(p[{0, 1}], 3.0, 1e-5);
+    ASSERT_CLOSE(p[{2, 1}], 5.0, 1e-5);
+
+    // Flatten
+    Tensor f = t.flatten();
+    ASSERT_TRUE(f.shape()[0] == 6);
+    ASSERT_CLOSE(f[{5}], 5.0, 1e-5);
+
+    passed();
+}
