@@ -200,3 +200,14 @@ void test_autograd_simple() {
 
     passed();
 }
+void test_type_conversion() {
+    log_test("Type Conversion (astype)");
+
+    Tensor f = Tensor::from_vector({1.5, 2.5}, {2}, DType::Float32);
+    Tensor i = f.astype(DType::Int32);
+
+    ASSERT_CLOSE(i[{0}], 1.0, 1e-5); // truncated
+    ASSERT_CLOSE(i[{1}], 2.0, 1e-5);
+
+    passed();
+}
