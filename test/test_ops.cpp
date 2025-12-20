@@ -26,3 +26,6 @@
             std::exit(1); \
         } \
     } while(0)
+void log_test(const std::string& name) {
+    std::cout << "[TEST] " << name << "..." << std::endl;
+}
