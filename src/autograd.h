@@ -14,15 +14,16 @@
 
 // -------------------- helpers --------------------
 inline void check_index_in_storage(const Tensorimpl* impl, size_t idx, const char* ctx) {
-    if (!impl || !impl->storage) {
-        std::cerr << ctx << ": missing impl/storage\n";
+    // FIXED: Tensorimpl uses 'data', not 'storage'
+    if (!impl || !impl->data) {
+        std::cerr << ctx << ": missing impl/data\n";
         return;
     }
-    if (idx >= impl->storage->size) {
+    if (idx >= impl->data->size) {
         std::cerr << "OOB " << ctx << ": idx=" << idx
                   << " offset=" << impl->offset
-                  << " storage->size=" << impl->storage->size
-                  << " ndim=" << impl->ndim << " dtype_bytes=" << impl->storage->size
+                  << " storage->size=" << impl->data->size
+                  << " ndim=" << impl->ndim
                   << "\n";
         throw std::runtime_error("index out of underlying storage bounds");
     }
@@ -35,12 +36,6 @@ void ensure_grad_buffer(Tensor &t, bool zero = false);
 Tensor tensor_from_grad(const Tensor& self);
 // copy .data -> .grad (allocate grad buffer and copy values)
 static void copy_data_to_grad(Tensor &t);
-
-// reduce `t` by summing over axes but keeping dims
-static Tensor reduce_sum_axes_keepdims(Tensor t, std::vector<int> axes);
-
-// fetch dimension value of `target` as if left-padded to `nd` dimensions
-static size_t dim_in_padded(const Tensor& target, size_t nd, size_t idx);
 
 // accumulate gradient from grad_src into target (broadcast-aware)
 void accumulate_grad(Tensor& target, const Tensor& grad_src);
@@ -105,10 +100,12 @@ struct GradSum : GradFn {
 
     void backward(const Tensor& self) override ;
 };
+
 struct GradMean : GradFn {
     Tensor t;
     double scale;
-    GradMean(const Tensor& t_, double scale_) : t(t_), scale(scale_) {
+    int dim; // FIXED: Added dim member
+    GradMean(const Tensor& t_, double scale_, int dim_ = -1) : t(t_), scale(scale_), dim(dim_) {
         parents = {t};
     }
     void backward(const Tensor& self) override ;
@@ -144,9 +141,10 @@ struct GradASin : GradFn {
 
     void backward(const Tensor& self) override;
 };
-struct GradSinH : GradFn {
+// FIXED: Renamed GradSinH to GradSinh to match cpp
+struct GradSinh : GradFn {
     Tensor t;
-    GradSinH(const Tensor& t_) : t(t_) { parents = {t}; }
+    GradSinh(const Tensor& t_) : t(t_) { parents = {t}; }
 
     void backward(const Tensor& self) override;
 };
@@ -162,9 +160,10 @@ struct GradACos : GradFn {
 
     void backward(const Tensor& self) override;
 };
-struct GradCosH : GradFn {
+// FIXED: Renamed GradCosH to GradCosh
+struct GradCosh : GradFn {
     Tensor t;
-    GradCosH(const Tensor& t_) : t(t_) { parents = {t}; }
+    GradCosh(const Tensor& t_) : t(t_) { parents = {t}; }
 
     void backward(const Tensor& self) override;
 };
@@ -180,9 +179,10 @@ struct GradATan : GradFn {
 
     void backward(const Tensor& self) override;
 };
-struct GradTanH : GradFn {
+// FIXED: Renamed GradTanH to GradTanh
+struct GradTanh : GradFn {
     Tensor t;
-    GradTanH(const Tensor& t_) : t(t_) { parents = {t}; }
+    GradTanh(const Tensor& t_) : t(t_) { parents = {t}; }
 
     void backward(const Tensor& self) override;
 };
@@ -198,9 +198,10 @@ struct GradRelu : GradFn {
 
     void backward(const Tensor& self) override;
 };
-struct GradSoftPlus : GradFn {
+// FIXED: Renamed GradSoftPlus to GradSoftplus
+struct GradSoftplus : GradFn {
     Tensor t;
-    GradSoftPlus(const Tensor& t_) : t(t_) { parents = {t}; }
+    GradSoftplus(const Tensor& t_) : t(t_) { parents = {t}; }
 
     void backward(const Tensor& self) override;
 };
@@ -239,20 +240,21 @@ struct GradScalarDiv : GradFn {
     GradScalarDiv(const Tensor& a_, double s_) : a(a_), s(s_) { parents = {a}; }
     void backward(const Tensor& self) override;
 };
-struct GradScalarPow : GradFn {
+// FIXED: Renamed duplicate GradScalarPow to GradPowScalar (Tensor^Scalar)
+struct GradPowScalar : GradFn {
     Tensor a; double s;
-    GradScalarPow(const Tensor& a_, double s_) : a(a_), s(s_) { parents = {a}; }
+    GradPowScalar(const Tensor& a_, double s_) : a(a_), s(s_) { parents = {a}; }
     void backward(const Tensor& self) override;
 };
+// FIXED: This handles Scalar^Tensor
 struct GradScalarPow : GradFn {
     Tensor a;
     double scalar;
-
     GradScalarPow(const Tensor& a_, double scalar_) : a(a_), scalar(scalar_) {
         parents = {a};
     }
-
-    void backward(const Tensor& self) override {};
+    // FIXED: Removed inline implementation, it is defined in CPP
+    void backward(const Tensor& self) override; 
 };
 
 struct GradPermute : GradFn {
@@ -260,7 +262,8 @@ struct GradPermute : GradFn {
     std::vector<size_t> forward_dims; 
     std::vector<size_t> reverse_dims; 
 
-    GradPermute(const Tensor& t_, std::vector<size_t> dims_);
+    // FIXED: Corrected constructor signature to const ref
+    GradPermute(const Tensor& t_, const std::vector<size_t>& dims_);
 
     void backward(const Tensor& self) override;
 };
@@ -272,12 +275,9 @@ struct GradReshape : GradFn {
         parents = {t}; 
     }
 
-    void backward(const Tensor& self) override {};
+    // FIXED: Removed inline body {}
+    void backward(const Tensor& self) override;
 };
-// ------------------ topo sort helper ------------------
-static void topo_sort_from(const Tensor& root, std::vector<Tensor>& topo);
 
 // ------------------ backward ------------------
-void backward(Tensor& loss);
-Tensor grad_of(const Tensor& t) ;
-
+void backward(Tensor& root);
