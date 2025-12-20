@@ -14,7 +14,6 @@ void ensure_grad_buffer(Tensor &t, bool zero_existing) {
     if (!t.impl) throw std::runtime_error("ensure_grad_buffer: undefined tensor");
 
     // Allocate if missing
-    // NOTE: 'grad' is now a shared_ptr<Tensorimpl>, so we create a new Tensorimpl
     if (!t.impl->grad) {
         // Create a new Tensorimpl with same shape/dtype/device
         t.impl->grad = std::make_shared<Tensorimpl>(
@@ -26,12 +25,11 @@ void ensure_grad_buffer(Tensor &t, bool zero_existing) {
         
         // Zero it out
         size_t nbytes = t.numel() * t.dtype_bytes();
-        // Access: impl->grad (Tensorimpl) -> data (Storage) -> data (void*)
         if (nbytes > 0 && t.impl->grad->data && t.impl->grad->data->data) {
             std::memset(t.impl->grad->data->data.get(), 0, nbytes);
         }
     } 
-    // Zero existing if requested (e.g., at start of backward pass)
+    // Zero existing if requested
     else if (zero_existing) {
         size_t nbytes = t.numel() * t.dtype_bytes();
         if (nbytes > 0 && t.impl->grad->data && t.impl->grad->data->data) {
@@ -45,12 +43,11 @@ Tensor tensor_from_grad(const Tensor& self) {
     if (!self.impl || !self.impl->grad)
         throw std::runtime_error("tensor_from_grad: missing grad buffer");
 
-    // Since 'grad' is now a Tensorimpl, we can just wrap it in a Tensor object.
-    // This avoids the manual copy loop entirely!
     Tensor g;
     g.impl = self.impl->grad;
     return g;
 }
+
 // --- Accumulation Logic ---
 
 // Helper to check padding logic
@@ -93,13 +90,7 @@ void accumulate_grad(Tensor& target, const Tensor& grad_src) {
     ensure_grad_buffer(target, false);
     
     size_t n_target = target.numel();
-    
-    // Access the destination gradient data
-    // target.impl -> grad (Tensorimpl) -> data (Storage) -> data (void*)
     auto* t_grad = target.impl->grad->data->data.get();
-    
-    // Access the source gradient data
-    // grad_aligned.impl -> data (Storage) -> data (void*)
     auto* g_data = grad_aligned.impl->data->data.get();
     
     const size_t* t_shape = target.impl->shape.data();
@@ -107,12 +98,12 @@ void accumulate_grad(Tensor& target, const Tensor& grad_src) {
     const size_t* g_shape = grad_aligned.impl->shape.data();
     const size_t* g_strides = grad_aligned.impl->strides.data();
     
-    size_t t_offset = target.impl->offset; // Usually 0 for gradients, but respecting structure
+    size_t t_offset = target.impl->offset; 
     size_t g_offset = grad_aligned.impl->offset;
     
     size_t t_nd = target.impl->ndim;
-    size_t g_nd = grad_aligned.impl->ndim;
-    size_t pad = (t_nd > g_nd) ? t_nd - g_nd : 0;
+    // size_t g_nd = grad_aligned.impl->ndim; // Unused warning fix
+    size_t pad = (t_nd > grad_aligned.impl->ndim) ? t_nd - grad_aligned.impl->ndim : 0;
     
     DType dt_t = target._dtype();
     DType dt_g = grad_aligned._dtype();
@@ -146,6 +137,15 @@ void accumulate_grad(Tensor& target, const Tensor& grad_src) {
 }
 
 // ------------------ GradFn implementations ------------------
+
+// Constructors for Grad structs that were missing definitions in CPP 
+// (If you want to keep them header-only, move bodies to .h, but here we fix linkage)
+GradSub::GradSub(const Tensor& a_, const Tensor& b_) : a(a_), b(b_) { parents = {a, b}; }
+GradMul::GradMul(const Tensor& a_, const Tensor& b_) : a(a_), b(b_) { parents = {a, b}; }
+GradDiv::GradDiv(const Tensor& a_, const Tensor& b_) : a(a_), b(b_) { parents = {a, b}; }
+GradPow::GradPow(const Tensor& a_, const Tensor& b_) : a(a_), b(b_) { parents = {a, b}; }
+GradMatMul::GradMatMul(const Tensor& a_, const Tensor& b_) : a(a_), b(b_) { parents = {a, b}; }
+
 void GradAdd::backward(const Tensor& self) {
     Tensor grad = tensor_from_grad(self);
     if (a.requires_grad()) {
@@ -226,7 +226,8 @@ void GradSubAfterScalar::backward(const Tensor& self) {
     if (a.requires_grad()) accumulate_grad(a, Ops::mul_scalar(tensor_from_grad(self), -1.0));
 }
 void GradMulScalar::backward(const Tensor& self) {
-    if (a.requires_grad()) accumulate_grad(a, Ops::mul_scalar(tensor_from_grad(self), s));
+    // FIXED: Use 'scalar' member instead of 's'
+    if (a.requires_grad()) accumulate_grad(a, Ops::mul_scalar(tensor_from_grad(self), scalar));
 }
 void GradDivScalar::backward(const Tensor& self) {
     if (a.requires_grad()) accumulate_grad(a, Ops::div_scalar(tensor_from_grad(self), s));
@@ -241,6 +242,8 @@ void GradScalarDiv::backward(const Tensor& self) {
         accumulate_grad(a, Ops::mul_scalar(res, -1.0));
     }
 }
+
+// FIXED: Renamed to GradPowScalar to match .h
 void GradPowScalar::backward(const Tensor& self) {
     if (a.requires_grad()) {
         // y = a^s -> dy/da = s * a^(s-1)
@@ -250,12 +253,14 @@ void GradPowScalar::backward(const Tensor& self) {
         accumulate_grad(a, Ops::mul(grad, res));
     }
 }
+
+// FIXED: Renamed to match .h and using 'scalar' member
 void GradScalarPow::backward(const Tensor& self) {
     if (a.requires_grad()) {
         // y = s^a -> dy/da = s^a * ln(s)
         Tensor grad = tensor_from_grad(self);
-        Tensor p = Ops::pow_scalar_rev(s, a);
-        Tensor res = Ops::mul_scalar(p, std::log(s));
+        Tensor p = Ops::pow_scalar_rev(scalar, a);
+        Tensor res = Ops::mul_scalar(p, std::log(scalar));
         accumulate_grad(a, Ops::mul(grad, res));
     }
 }
@@ -280,8 +285,6 @@ void GradLn::backward(const Tensor& self) {
 }
 void GradExp::backward(const Tensor& self) {
     if (t.requires_grad()) {
-        // exp(t) * grad -> self * grad (since self IS exp(t))
-        // Recomputing exp(t) is safer if self memory reused, but passing self is opt.
         Tensor grad = tensor_from_grad(self);
         accumulate_grad(t, Ops::mul(grad, Ops::exp(t)));
     }
@@ -317,9 +320,6 @@ void GradTan::backward(const Tensor& self) {
 
 void GradSigmoid::backward(const Tensor& self) {
     if (t.requires_grad()) {
-        // sig * (1 - sig). We can use 'self' as sig output.
-        // Assuming 'self' hasn't been modified in place.
-        // For safety, let's recompute or use 'self' carefully.
         Tensor grad = tensor_from_grad(self);
         Tensor one_minus = Ops::sub_scalar_rev(1.0, self); // 1 - y
         Tensor deriv = Ops::mul(self, one_minus);
@@ -335,6 +335,7 @@ void GradRelu::backward(const Tensor& self) {
     }
 }
 
+// FIXED: Renamed GradSoftplus
 void GradSoftplus::backward(const Tensor& self) {
     if (t.requires_grad()) {
         // sigmoid(x)
@@ -354,21 +355,23 @@ void GradMean::backward(const Tensor& self) {
     if (t.requires_grad()) {
         // grad / N
         Tensor grad = tensor_from_grad(self);
-        // Calculate N based on dimensions reduced
-        // If dim = -1, N = total elements.
         double N = 1.0;
+        // FIXED: Use dim member
         if (dim == -1) N = (double)t.numel();
-        else N = (double)t.impl->shape[dim]; // Simplified
+        else N = (double)t.impl->shape[dim];
         
         accumulate_grad(t, Ops::div_scalar(grad, N));
     }
 }
+
+// FIXED: Constructor signature match
 GradPermute::GradPermute(const Tensor& t_, const std::vector<size_t>& dims) 
     : t(t_), forward_dims(dims) {
     parents = {t};
     reverse_dims.resize(dims.size());
     for(size_t i=0; i<dims.size(); ++i) reverse_dims[dims[i]] = i;
 }
+
 void GradPermute::backward(const Tensor& self) {
     if (t.requires_grad()) {
         Tensor grad = tensor_from_grad(self);
@@ -399,16 +402,19 @@ void GradATan::backward(const Tensor& s){
         accumulate_grad(t, Ops::div(tensor_from_grad(s), Ops::add_scalar(Ops::mul(t,t), 1.0))); 
     }
 }
+// FIXED: Renamed GradSinh
 void GradSinh::backward(const Tensor& s){ 
     if(t.requires_grad()) {
         accumulate_grad(t, Ops::mul(tensor_from_grad(s), Ops::cosh(t))); 
     }
 }
+// FIXED: Renamed GradCosh
 void GradCosh::backward(const Tensor& s){ 
     if(t.requires_grad()) {
         accumulate_grad(t, Ops::mul(tensor_from_grad(s), Ops::sinh(t))); 
     }
 }
+// FIXED: Renamed GradTanh
 void GradTanh::backward(const Tensor& s){ 
     if(t.requires_grad()) {
         accumulate_grad(t, Ops::mul(tensor_from_grad(s), Ops::div_scalar_rev(1.0, Ops::mul(Ops::cosh(t), Ops::cosh(t))))); 
@@ -423,7 +429,6 @@ void backward(Tensor& root) {
     ensure_grad_buffer(root, true);
     
     // Fill with 1.0
-    // Access: root.impl -> grad (Tensorimpl) -> data (Storage) -> data (void*)
     auto* g_ptr = root.impl->grad->data->data.get();
     DType dt = root._dtype();
     size_t n = root.numel();
