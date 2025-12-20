@@ -55,3 +55,27 @@ void test_initialization() {
 
     passed();
 }
+void test_arithmetic() {
+    log_test("Basic Arithmetic (Add, Sub, Mul, Div)");
+
+    Tensor a = Tensor::full({2, 2}, 2.0);
+    Tensor b = Tensor::full({2, 2}, 3.0);
+
+    // Add
+    Tensor c = add(a, b);
+    ASSERT_CLOSE(c[{0, 0}], 5.0, 1e-5);
+
+    // Sub
+    Tensor d = sub(b, a);
+    ASSERT_CLOSE(d[{0, 0}], 1.0, 1e-5);
+
+    // Mul
+    Tensor e = mul(a, b);
+    ASSERT_CLOSE(e[{0, 0}], 6.0, 1e-5);
+
+    // Div
+    Tensor f = div(a, b);
+    ASSERT_CLOSE(f[{0, 0}], 2.0/3.0, 1e-5);
+
+    passed();
+}
