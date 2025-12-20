@@ -79,3 +79,29 @@ void test_arithmetic() {
 
     passed();
 }
+void test_matmul() {
+    log_test("Matrix Multiplication");
+
+    // A = [[1, 2], [3, 4]]
+    Tensor A = Tensor::from_vector({1, 2, 3, 4}, {2, 2});
+    
+    // B = [[1, 0], [0, 1]] (Identity)
+    Tensor B = Tensor::from_vector({1, 0, 0, 1}, {2, 2});
+
+    Tensor C = matmul(A, B);
+
+    ASSERT_CLOSE(C[{0, 0}], 1.0, 1e-5);
+    ASSERT_CLOSE(C[{0, 1}], 2.0, 1e-5);
+    ASSERT_CLOSE(C[{1, 0}], 3.0, 1e-5);
+    ASSERT_CLOSE(C[{1, 1}], 4.0, 1e-5);
+
+    // Dot product style: [1, 2] @ [2, 1]^T -> 1*2 + 2*1 = 4
+    Tensor v1 = Tensor::from_vector({1, 2}, {1, 2});
+    Tensor v2 = Tensor::from_vector({2, 1}, {2, 1}); // Transposed
+    Tensor D = matmul(v1, v2);
+    
+    ASSERT_TRUE(D.numel() == 1);
+    ASSERT_CLOSE(D[{0}], 4.0, 1e-5);
+
+    passed();
+}
