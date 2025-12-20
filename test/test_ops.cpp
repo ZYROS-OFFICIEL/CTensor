@@ -32,3 +32,26 @@ void log_test(const std::string& name) {
 void passed() {
     std::cout << " -> PASSED\n" << std::endl;
 }
+// --- Test Cases ---
+
+void test_initialization() {
+    log_test("Initialization & Shapes");
+    
+    // Test Ones
+    Tensor a = Tensor::ones({2, 3});
+    ASSERT_TRUE(a.numel() == 6);
+    ASSERT_CLOSE(a[{0, 0}], 1.0, 1e-5);
+    ASSERT_CLOSE(a[{1, 2}], 1.0, 1e-5);
+
+    // Test Full
+    Tensor b = Tensor::full({2, 2}, 3.14);
+    ASSERT_CLOSE(b[{0, 0}], 3.14, 1e-5);
+    ASSERT_CLOSE(b[{1, 1}], 3.14, 1e-5);
+
+    // Test Range
+    Tensor c = Tensor::arange(0, 5, 1, DType::Float32);
+    ASSERT_TRUE(c.numel() == 5);
+    ASSERT_CLOSE(c[{4}], 4.0, 1e-5);
+
+    passed();
+}
