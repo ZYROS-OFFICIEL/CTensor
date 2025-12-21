@@ -3,7 +3,7 @@
 #include <stdexcept>
 #include <cmath>
 #include <cstring>
-#include "tensor1.h"
+#include "tensor.h"
 #include <immintrin.h>
 #include <functional>
 //------------------ Helpers --------------------------------------------
