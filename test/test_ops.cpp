@@ -40,18 +40,18 @@ void test_initialization() {
     // Test Ones
     Tensor a = Tensor::ones({2, 3});
     ASSERT_TRUE(a.numel() == 6);
-    ASSERT_CLOSE(a[{0, 0}], 1.0, 1e-5);
-    ASSERT_CLOSE(a[{1, 2}], 1.0, 1e-5);
+    ASSERT_CLOSE((a[0, 0]), 1.0, 1e-5);
+    ASSERT_CLOSE((a[1, 2]), 1.0, 1e-5);
 
     // Test Full
     Tensor b = Tensor::full({2, 2}, 3.14);
-    ASSERT_CLOSE(b[{0, 0}], 3.14, 1e-5);
-    ASSERT_CLOSE(b[{1, 1}], 3.14, 1e-5);
+    ASSERT_CLOSE((b[0, 0]), 3.14, 1e-5);
+    ASSERT_CLOSE((b[1, 1]), 3.14, 1e-5);
 
     // Test Range
     Tensor c = Tensor::arange(0, 5, 1, DType::Float32);
     ASSERT_TRUE(c.numel() == 5);
-    ASSERT_CLOSE(c[{4}], 4.0, 1e-5);
+    ASSERT_CLOSE((c[4]), 4.0, 1e-5);
 
     passed();
 }
@@ -63,20 +63,18 @@ void test_arithmetic() {
 
     // Add
     Tensor c = add(a, b);
-    ASSERT_CLOSE(c[{0, 0}], 5.0, 1e-5);
+    ASSERT_CLOSE((c[0, 0]), 5.0, 1e-5);
 
     // Sub
     Tensor d = sub(b, a);
-    ASSERT_CLOSE(d[{0, 0}], 1.0, 1e-5);
-
+    ASSERT_CLOSE((d[0, 0]), 1.0, 1e-5);
     // Mul
     Tensor e = mul(a, b);
-    ASSERT_CLOSE(e[{0, 0}], 6.0, 1e-5);
+    ASSERT_CLOSE((e[0, 0]), 6.0, 1e-5);
 
     // Div
     Tensor f = div(a, b);
-    ASSERT_CLOSE(f[{0, 0}], 2.0/3.0, 1e-5);
-
+    ASSERT_CLOSE((f[0, 0]), 2.0/3.0, 1e-5);
     passed();
 }
 void test_matmul() {
@@ -90,10 +88,10 @@ void test_matmul() {
 
     Tensor C = matmul(A, B);
 
-    ASSERT_CLOSE(C[{0, 0}], 1.0, 1e-5);
-    ASSERT_CLOSE(C[{0, 1}], 2.0, 1e-5);
-    ASSERT_CLOSE(C[{1, 0}], 3.0, 1e-5);
-    ASSERT_CLOSE(C[{1, 1}], 4.0, 1e-5);
+    ASSERT_CLOSE((C[0, 0]), 1.0, 1e-5);
+    ASSERT_CLOSE((C[0, 1]), 2.0, 1e-5);
+    ASSERT_CLOSE((C[1, 0]), 3.0, 1e-5);
+    ASSERT_CLOSE((C[1, 1]), 4.0, 1e-5);
 
     // Dot product style: [1, 2] @ [2, 1]^T -> 1*2 + 2*1 = 4
     Tensor v1 = Tensor::from_vector({1, 2}, {1, 2});
@@ -101,7 +99,7 @@ void test_matmul() {
     Tensor D = matmul(v1, v2);
     
     ASSERT_TRUE(D.numel() == 1);
-    ASSERT_CLOSE(D[{0}], 4.0, 1e-5);
+    ASSERT_CLOSE((D[0]), 4.0, 1e-5);
 
     passed();
 }
@@ -111,13 +109,13 @@ void test_reductions() {
     Tensor t = Tensor::from_vector({1, 2, 3, 4}, {2, 2});
 
     Tensor s = sum(t);
-    ASSERT_CLOSE(s[{0}], 10.0, 1e-5);
+    ASSERT_CLOSE(s[0], 10.0, 1e-5);
 
     Tensor m = mean(t);
-    ASSERT_CLOSE(m[{0}], 2.5, 1e-5);
+    ASSERT_CLOSE(m[0], 2.5, 1e-5);
 
     Tensor mx = max(t);
-    ASSERT_CLOSE(mx[{0}], 4.0, 1e-5);
+    ASSERT_CLOSE(mx[0], 4.0, 1e-5);
 
     passed();
 }
@@ -141,8 +139,8 @@ void test_broadcasting_manual() {
         // However, standard tensor libraries broadcast here.
         // If your add_mp implementation doesn't broadcast, this test might fail.
         // We will just check if it ran.
-        ASSERT_CLOSE(C[{0, 0}], 3.0, 1e-5);
-        ASSERT_CLOSE(C[{1, 0}], 3.0, 1e-5);
+        ASSERT_CLOSE((C[0, 0]), 3.0, 1e-5);
+        ASSERT_CLOSE((C[1, 0]), 3.0, 1e-5);
     } catch (const std::exception& e) {
         std::cout << " (Skipped broadcasting test due to strict shape checks: " << e.what() << ")\n";
     }
@@ -161,14 +159,14 @@ void test_view_ops() {
     // [[0, 3],
     //  [1, 4],
     //  [2, 5]]
-    
-    ASSERT_CLOSE(p[{0, 1}], 3.0, 1e-5);
-    ASSERT_CLOSE(p[{2, 1}], 5.0, 1e-5);
+
+    ASSERT_CLOSE((p[0, 1]), 3.0, 1e-5);
+    ASSERT_CLOSE((p[2, 1]), 5.0, 1e-5);
 
     // Flatten
     Tensor f = t.flatten();
     ASSERT_TRUE(f.shape()[0] == 6);
-    ASSERT_CLOSE(f[{5}], 5.0, 1e-5);
+    ASSERT_CLOSE(f[5], 5.0, 1e-5);
 
     passed();
 }
@@ -183,7 +181,7 @@ void test_autograd_simple() {
     Tensor y = mul(x, x);
     
     // Check forward pass
-    ASSERT_CLOSE(y[{0}], 9.0, 1e-5);
+    ASSERT_CLOSE(y[0], 9.0, 1e-5);
 
     // Backward
     y.backward();
@@ -193,7 +191,7 @@ void test_autograd_simple() {
     
     // If autograd is not fully hooked up, grad might be empty/null.
     if (grad.numel() > 0) {
-        ASSERT_CLOSE(grad[{0}], 6.0, 1e-5);
+        ASSERT_CLOSE(grad[0], 6.0, 1e-5);
     } else {
         std::cout << " (Skipping Grad check - Gradient not populated)\n";
     }
@@ -206,8 +204,8 @@ void test_type_conversion() {
     Tensor f = Tensor::from_vector({1.5, 2.5}, {2}, DType::Float32);
     Tensor i = f.astype(DType::Int32);
 
-    ASSERT_CLOSE(i[{0}], 1.0, 1e-5); // truncated
-    ASSERT_CLOSE(i[{1}], 2.0, 1e-5);
+    ASSERT_CLOSE(i[0], 1.0, 1e-5); // truncated
+    ASSERT_CLOSE(i[1], 2.0, 1e-5);
 
     passed();
 }
