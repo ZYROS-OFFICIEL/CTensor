@@ -6,9 +6,6 @@
 #include <vector>
 #include <stdexcept>
 
-// Check for AVX2 support at compile time to avoid errors on non-AVX machines
-#if defined(__AVX2__)
-
 // ========================================================================
 //                        Binary Operations (Float32)
 // ========================================================================
@@ -60,5 +57,3 @@ Tensor sum_avx2_f32(const Tensor& t, int dim = -1);
 Tensor mean_avx2_f32(const Tensor& t, int dim = -1);
 Tensor max_avx2_f32(const Tensor& t, int dim = -1);
 Tensor min_avx2_f32(const Tensor& t, int dim = -1);
-
-#endif // __AVX2__
