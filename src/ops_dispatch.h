@@ -2,6 +2,10 @@
 #include "dispatch.h"
 #include "tensor.h"
 #include "opsmp.h" // user-provided scalar MP implementations (add_mp, ...)
+#include "ops_avx2_d64.h"
+#include "ops_avx2_f32.h"
+#include "ops_avx512_f32.h"
+
 #include <stdexcept>
 #include <string>
 
