@@ -60,3 +60,5 @@ Tensor sum_avx2_f32(const Tensor& t, int dim = -1);
 Tensor mean_avx2_f32(const Tensor& t, int dim = -1);
 Tensor max_avx2_f32(const Tensor& t, int dim = -1);
 Tensor min_avx2_f32(const Tensor& t, int dim = -1);
+
+#endif // __AVX2__
