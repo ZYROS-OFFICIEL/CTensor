@@ -283,3 +283,12 @@ Tensor matmul_avx512_d64(const Tensor& A, const Tensor& B) {
     }
     return C;
 }
+//                        Comparison Implementations
+
+template<int CMP_PRED>
+Tensor cmp_avx512_d64_impl(const Tensor& a, const Tensor& b) {
+    return binary_op_broadcast_512_d64(a, b, [](__m512d x, __m512d y){
+        __mmask8 k = _mm512_cmp_pd_mask(x, y, CMP_PRED);
+        return _mm512_mask_blend_pd(k, _zmm_0, _zmm_1);
+    });
+}
