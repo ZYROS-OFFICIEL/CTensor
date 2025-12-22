@@ -61,3 +61,27 @@ static std::vector<size_t> broadcast_shape(const std::vector<size_t>& a, const s
     }
     return out;
 }
+
+static std::vector<int64_t> build_index_multipliers(const std::vector<size_t>& shape) {
+    std::vector<int64_t> mult(shape.size());
+    if (shape.empty()) return mult;
+    mult.back() = 1;
+    for (int i = (int)shape.size()-2; i >= 0; --i) mult[i] = mult[i+1] * (int64_t)shape[i+1];
+    return mult;
+}
+
+static inline int32_t compute_offset_bytes(size_t lin_idx, const std::vector<size_t>& out_shape, const std::vector<int64_t>& out_mult, const std::vector<size_t>& in_shape, const std::vector<int64_t>& in_strides_bytes) {
+    int32_t offset = 0;
+    size_t nd = out_shape.size();
+    size_t offset_dim = nd - in_shape.size();
+    for (size_t d = 0; d < nd; ++d) {
+        size_t coord = (lin_idx / out_mult[d]) % out_shape[d];
+        size_t in_coord = 0;
+        if (d >= offset_dim) {
+            size_t idx = d - offset_dim;
+            if (in_shape[idx] != 1) in_coord = coord;
+            offset += (int32_t)(in_coord * in_strides_bytes[idx]);
+        }
+    }
+    return offset;
+}
