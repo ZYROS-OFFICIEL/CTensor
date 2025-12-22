@@ -85,3 +85,76 @@ static inline int32_t compute_offset_bytes(size_t lin_idx, const std::vector<siz
     }
     return offset;
 }
+
+//                     Binary Broadcast Template (Double)
+
+Tensor binary_op_broadcast_512_d64(const Tensor& A, const Tensor& B, std::function<__m512d(__m512d,__m512d)> op) {
+    std::vector<size_t> a_shape = A.shape();
+    std::vector<size_t> b_shape = B.shape();
+    std::vector<size_t> out_shape = broadcast_shape(a_shape, b_shape);
+    size_t out_numel = 1;
+    for (auto s : out_shape) out_numel *= s;
+
+    Tensor out(out_shape, A.device(), DType::Double64);
+    const double* a_ptr = (const double*)A.data();
+    const double* b_ptr = (const double*)B.data();
+    double* out_ptr = (double*)out.data();
+
+    auto out_mult = build_index_multipliers(out_shape);
+    auto a_strides = shape_to_strides_bytes(a_shape);
+    auto b_strides = shape_to_strides_bytes(b_shape);
+
+    bool a_contig = A.is_contiguous() && a_shape == out_shape;
+    bool b_contig = B.is_contiguous() && b_shape == out_shape;
+    bool a_scalar = A.numel() == 1;
+    bool b_scalar = B.numel() == 1;
+
+    // Process blocks of 8 doubles (512 bits)
+    #pragma omp parallel for
+    for (size_t i = 0; i < out_numel; i += 8) {
+        size_t rem = out_numel - i;
+        __mmask8 k = (rem >= 8) ? 0xFF : tail_mask(rem);
+
+        // Load A
+        __m512d va;
+        if (a_contig) {
+            va = _mm512_maskz_loadu_pd(k, a_ptr + i);
+        } else if (a_scalar) {
+            va = _mm512_set1_pd(a_ptr[0]);
+        } else {
+            // Scatter/Gather indices calculation (8 offsets)
+            int32_t idx_buf[8];
+            for (int l = 0; l < 8; ++l) {
+                if ((k >> l) & 1) { 
+                    idx_buf[l] = compute_offset_bytes(i + l, out_shape, out_mult, a_shape, a_strides);
+                }
+            }
+            // For doubles, we use a 256-bit index vector (8 x 32-bit ints)
+            __m256i vidx = _mm256_loadu_si256((const __m256i*)idx_buf);
+            // Scale=1 because offsets are in bytes
+            va = _mm512_mask_i32gather_pd(_zmm_0, k, vidx, a_ptr, 1);
+        }
+
+        // Load B
+        __m512d vb;
+        if (b_contig) {
+            vb = _mm512_maskz_loadu_pd(k, b_ptr + i);
+        } else if (b_scalar) {
+            vb = _mm512_set1_pd(b_ptr[0]);
+        } else {
+            int32_t idx_buf[8];
+            for (int l = 0; l < 8; ++l) {
+                if ((k >> l) & 1) idx_buf[l] = compute_offset_bytes(i + l, out_shape, out_mult, b_shape, b_strides);
+            }
+            __m256i vidx = _mm256_loadu_si256((const __m256i*)idx_buf);
+            vb = _mm512_mask_i32gather_pd(_zmm_0, k, vidx, b_ptr, 1);
+        }
+
+        // Op
+        __m512d vr = op(va, vb);
+
+        // Store
+        _mm512_mask_storeu_pd(out_ptr + i, k, vr);
+    }
+    return out;
+}
