@@ -425,3 +425,33 @@ Tensor max_avx512_d64(const Tensor& t, int dim) {
     ((double*)out.data())[0] = global_max;
     return out;
 }
+
+Tensor min_avx512_d64(const Tensor& t, int dim) {
+    if (dim != -1) throw std::runtime_error("min_avx512_d64: only dim=-1");
+    const double* data = (const double*)t.data();
+    size_t n = t.numel();
+    double global_min = std::numeric_limits<double>::infinity();
+
+    #pragma omp parallel
+    {
+        __m512d vmin = _mm512_set1_pd(std::numeric_limits<double>::infinity());
+        #pragma omp for nowait
+        for(size_t i=0; i<n; i+=8) {
+            size_t rem = n - i;
+            __mmask8 k = (rem >= 8) ? 0xFF : tail_mask(rem);
+            __m512d v = _mm512_mask_loadu_pd(_mm512_set1_pd(std::numeric_limits<double>::infinity()), k, data+i);
+            vmin = _mm512_min_pd(vmin, v);
+        }
+        double local_min = _mm512_reduce_min_pd(vmin);
+        
+        #pragma omp critical
+        {
+            if(local_min < global_min) global_min = local_min;
+        }
+    }
+    Tensor out({1}, t.device(), DType::Double64);
+    ((double*)out.data())[0] = global_min;
+    return out;
+}
+
+#endif 
