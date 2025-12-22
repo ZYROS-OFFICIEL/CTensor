@@ -336,3 +336,29 @@ OMP_SIMD_UNARY_D64(atan_avx512_d64, std::atan)
 OMP_SIMD_UNARY_D64(sinh_avx512_d64, std::sinh)
 OMP_SIMD_UNARY_D64(cosh_avx512_d64, std::cosh)
 OMP_SIMD_UNARY_D64(tanh_avx512_d64, std::tanh)
+
+// Sigmoid: 1 / (1 + exp(-x))
+Tensor sigmoid_avx512_d64(const Tensor& a) {
+    Tensor out(a.shape(), a.device(), DType::Double64);
+    const double* pa = (const double*)a.data();
+    double* pout = (double*)out.data();
+    size_t n = a.numel();
+    _Pragma("omp parallel for simd")
+    for (size_t i = 0; i < n; ++i) {
+        pout[i] = 1.0 / (1.0 + std::exp(-pa[i]));
+    }
+    return out;
+}
+
+// Softplus: log(1 + exp(x))
+Tensor softplus_avx512_d64(const Tensor& a) {
+    Tensor out(a.shape(), a.device(), DType::Double64);
+    const double* pa = (const double*)a.data();
+    double* pout = (double*)out.data();
+    size_t n = a.numel();
+    _Pragma("omp parallel for simd")
+    for (size_t i = 0; i < n; ++i) {
+        pout[i] = std::log(1.0 + std::exp(pa[i]));
+    }
+    return out;
+}
