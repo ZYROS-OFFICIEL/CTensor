@@ -57,8 +57,8 @@ Tensor add(const Tensor &a, const Tensor &b) {
                 return add_mp(a,b);
             }
             case DType::Double64: {
-                if (cpu_has_avx512f()) return add_avx512_f64(a,b);
-                if (cpu_has_avx2())    return add_avx2_f64(a,b);
+                if (cpu_has_avx512f()) return add_avx512_d64(a,b);
+                if (cpu_has_avx2())    return add_avx2_d64(a,b);
                 return add_mp(a,b);
             }
             default:
@@ -84,8 +84,8 @@ Tensor sub(const Tensor &a, const Tensor &b) {
             }
             case DType::Int32: return diff_mp(a,b);
             case DType::Double64: {
-                if (cpu_has_avx512f()) return sub_avx512_f64(a,b);
-                if (cpu_has_avx2())    return sub_avx2_f64(a,b);
+                if (cpu_has_avx512f()) return sub_avx512_d64(a,b);
+                if (cpu_has_avx2())    return sub_avx2_d64(a,b);
                 return diff_mp(a,b);
             }
             default: throw std::runtime_error("sub: unsupported dtype");
@@ -108,8 +108,8 @@ Tensor mul(const Tensor &a, const Tensor &b) {
             }
             case DType::Int32: return mul_scalar_i32(a,b);
             case DType::Double64: {
-                if (cpu_has_avx512f()) return mul_avx512_f64(a,b);
-                if (cpu_has_avx2())    return mul_avx2_f64(a,b);
+                if (cpu_has_avx512f()) return mul_avx512_d64(a,b);
+                if (cpu_has_avx2())    return mul_avx2_d64(a,b);
                 return mult_mp(a,b);
             }
             default: throw std::runtime_error("mul: unsupported dtype");
@@ -130,10 +130,10 @@ Tensor div(const Tensor &a, const Tensor &b) {
                 if (cpu_has_avx2())    return div_avx2_f32(a,b);
                 return div_mp(a,b);
             }
-            case DType::Int32: return div_scalar_i32(a,b);
+            case DType::Int32: return div_scalar_mp(a,b);
             case DType::Double64: {
-                if (cpu_has_avx512f()) return div_avx512_f64(a,b);
-                if (cpu_has_avx2())    return div_avx2_f64(a,b);
+                if (cpu_has_avx512f()) return div_avx512_d64(a,b);
+                if (cpu_has_avx2())    return div_avx2_d64(a,b);
                 return div_mp(a,b);
             }
             default: throw std::runtime_error("div: unsupported dtype");
@@ -154,10 +154,10 @@ Tensor pow(const Tensor &a, const Tensor &b) {
                 if (cpu_has_avx2())    return pow_avx2_f32(a,b);
                 return pow_mp(a,b);
             }
-            case DType::Int32: return pow_scalar_i32(a,b);
+            case DType::Int32: return pow_scalar_mp(a,b);
             case DType::Double64: {
-                if (cpu_has_avx512f()) return pow_avx512_f64(a,b);
-                if (cpu_has_avx2())    return pow_avx2_f64(a,b);
+                if (cpu_has_avx512f()) return pow_avx512_d64(a,b);
+                if (cpu_has_avx2())    return pow_avx2_d64(a,b);
                 return pow_mp(a,b);
             }
             default: throw std::runtime_error("pow: unsupported dtype");
@@ -177,8 +177,8 @@ Tensor matmul(const Tensor &a, const Tensor &b) {
                 if (cpu_has_avx2())    return matmul_avx2_f32(a,b);
                 return matmul_mp(a,b);
             case DType::Double64:
-                if (cpu_has_avx512f()) return matmul_avx512_f64(a,b);
-                if (cpu_has_avx2())    return matmul_avx2_f64(a,b);
+                if (cpu_has_avx512f()) return matmul_avx512_d64(a,b);
+                if (cpu_has_avx2())    return matmul_avx2_d64(a,b);
                 return matmul_mp(a,b);
             default: return matmul_mp(a,b);
         }
@@ -200,8 +200,8 @@ Tensor NAME(const Tensor &a) { \
                 if (cpu_has_avx2())    return FUNC_AVX2 ## _f32(a); \
                 return FUNC_MP(a); \
             case DType::Double64: \
-                if (cpu_has_avx512f()) return FUNC_AVX512 ## _f64(a); \
-                if (cpu_has_avx2())    return FUNC_AVX2 ## _f64(a); \
+                if (cpu_has_avx512f()) return FUNC_AVX512 ## _d64(a); \
+                if (cpu_has_avx2())    return FUNC_AVX2 ## _d64(a); \
                 return FUNC_MP(a); \
             default: return FUNC_MP(a); \
         } \
@@ -242,8 +242,8 @@ Tensor NAME(const Tensor &a, const Tensor &b) { \
                 if (cpu_has_avx2())    return FUNC_AVX2 ## _f32(a,b); \
                 return FUNC_MP(a,b); \
             case DType::Double64: \
-                if (cpu_has_avx512f()) return FUNC_AVX512 ## _f64(a,b); \
-                if (cpu_has_avx2())    return FUNC_AVX2 ## _f64(a,b); \
+                if (cpu_has_avx512f()) return FUNC_AVX512 ## _d64(a,b); \
+                if (cpu_has_avx2())    return FUNC_AVX2 ## _d64(a,b); \
                 return FUNC_MP(a,b); \
             default: return FUNC_MP(a,b); \
         } \
@@ -271,8 +271,8 @@ Tensor NAME(const Tensor &a) { \
                 if (cpu_has_avx2())    return FUNC_AVX2 ## _f32(a); \
                 return FUNC_MP(a); \
             case DType::Double64: \
-                if (cpu_has_avx512f()) return FUNC_AVX512 ## _f64(a); \
-                if (cpu_has_avx2())    return FUNC_AVX2 ## _f64(a); \
+                if (cpu_has_avx512f()) return FUNC_AVX512 ## _d64(a); \
+                if (cpu_has_avx2())    return FUNC_AVX2 ## _d64(a); \
                 return FUNC_MP(a); \
             default: return FUNC_MP(a); \
         } \
