@@ -362,3 +362,30 @@ Tensor softplus_avx512_d64(const Tensor& a) {
     }
     return out;
 }
+
+//                        Reductions (Double)
+
+Tensor sum_avx512_d64(const Tensor& t, int dim) {
+    if (dim != -1) throw std::runtime_error("sum_avx512_d64: only dim=-1");
+    size_t n = t.numel();
+    const double* data = (const double*)t.data();
+    double global_sum = 0.0;
+
+    #pragma omp parallel
+    {
+        __m512d vsum = _zmm_0;
+        #pragma omp for nowait
+        for (size_t i=0; i < n; i+=8) {
+            size_t rem = n - i;
+            __mmask8 k = (rem >= 8) ? 0xFF : tail_mask(rem);
+            __m512d v = _mm512_maskz_loadu_pd(k, data + i);
+            vsum = _mm512_add_pd(vsum, v);
+        }
+        double local_sum = hsum512_pd(vsum);
+        #pragma omp atomic
+        global_sum += local_sum;
+    }
+    Tensor out({1}, t.device(), DType::Double64);
+    ((double*)out.data())[0] = global_sum;
+    return out;
+}
