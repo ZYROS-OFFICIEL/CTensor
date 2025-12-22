@@ -324,3 +324,15 @@ Tensor FUNC_NAME(const Tensor& a) { \
     } \
     return out; \
 }
+
+OMP_SIMD_UNARY_D64(ln_avx512_d64, std::log)
+OMP_SIMD_UNARY_D64(exp_avx512_d64, std::exp)
+OMP_SIMD_UNARY_D64(sin_avx512_d64, std::sin)
+OMP_SIMD_UNARY_D64(cos_avx512_d64, std::cos)
+OMP_SIMD_UNARY_D64(tan_avx512_d64, std::tan)
+OMP_SIMD_UNARY_D64(asin_avx512_d64, std::asin)
+OMP_SIMD_UNARY_D64(acos_avx512_d64, std::acos)
+OMP_SIMD_UNARY_D64(atan_avx512_d64, std::atan)
+OMP_SIMD_UNARY_D64(sinh_avx512_d64, std::sinh)
+OMP_SIMD_UNARY_D64(cosh_avx512_d64, std::cosh)
+OMP_SIMD_UNARY_D64(tanh_avx512_d64, std::tanh)
