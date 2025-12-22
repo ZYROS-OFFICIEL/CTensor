@@ -33,22 +33,22 @@ Tensor ne_avx512_d64(const Tensor& a, const Tensor& b);
 //                        Unary Operations (Double64)
 // ========================================================================
 
-Tensor abs_avx2_d64(const Tensor& a);
-Tensor sqrt_avx2_d64(const Tensor& a);
-Tensor relu_avx2_d64(const Tensor& a);
-Tensor ln_avx2_d64(const Tensor& a);
-Tensor exp_avx2_d64(const Tensor& a);
-Tensor sin_avx2_d64(const Tensor& a);
-Tensor asin_avx2_d64(const Tensor& a);
-Tensor cos_avx2_d64(const Tensor& a);
-Tensor acos_avx2_d64(const Tensor& a);
-Tensor tan_avx2_d64(const Tensor& a);
-Tensor atan_avx2_d64(const Tensor& a);
-Tensor tanh_avx2_d64(const Tensor& a);
-Tensor sinh_avx2_d64(const Tensor& a);
-Tensor cosh_avx2_d64(const Tensor& a);
-Tensor sigmoid_avx2_d64(const Tensor& a);
-Tensor softplus_avx2_d64(const Tensor& a);
+Tensor abs_avx512_d64(const Tensor& a);
+Tensor sqrt_avx512_d64(const Tensor& a);
+Tensor relu_avx512_d64(const Tensor& a);
+Tensor ln_avx512_d64(const Tensor& a);
+Tensor exp_avx512_d64(const Tensor& a);
+Tensor sin_avx512_d64(const Tensor& a);
+Tensor asin_avx512_d64(const Tensor& a);
+Tensor cos_avx512_d64(const Tensor& a);
+Tensor acos_avx512_d64(const Tensor& a);
+Tensor tan_avx512_d64(const Tensor& a);
+Tensor atan_avx512_d64(const Tensor& a);
+Tensor tanh_avx512_d64(const Tensor& a);
+Tensor sinh_avx512_d64(const Tensor& a);
+Tensor cosh_avx512_d64(const Tensor& a);
+Tensor sigmoid_avx512_d64(const Tensor& a);
+Tensor softplus_avx512_d64(const Tensor& a);
 
 // ========================================================================
 //                        Reductions (Double64)
