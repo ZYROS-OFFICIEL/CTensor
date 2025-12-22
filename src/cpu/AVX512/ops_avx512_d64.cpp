@@ -192,3 +192,56 @@ Tensor mul_avx512_d64(const Tensor& a, const Tensor& b) {
 Tensor div_avx512_d64(const Tensor& a, const Tensor& b) {
     return binary_op_broadcast_512_d64(a, b, [](__m512d x, __m512d y){ return _mm512_div_pd(x, y); });
 }
+// Note: pow requires specialized implementation That handle later as it's complex
+Tensor pow_avx512_d64(const Tensor& a, const Tensor& b) {
+    // Basic broadcasting logic handled via MP-style loop for this specific op 
+    // because binary_op_broadcast takes intrinsics. We implement a specific broadcast loop here.
+    
+    std::vector<size_t> out_shape = broadcast_shape(a.shape(), b.shape());
+    Tensor out(out_shape, a.device(), DType::Double64);
+    
+    // We reuse the broadcast structure but with scalar fallback inside SIMD loop
+    // This allows the compiler to vectorise `pow(a,b)` if possible.
+    
+    // Simplification: Delegate to generic logic if shapes differ, OR:
+    // We can't easily pass a lambda with `std::pow` to binary_op_broadcast_512_d64 
+    // because it expects __m512d.
+    // So we use a scalar loop with #pragma omp simd.
+    
+    size_t out_numel = out.numel();
+    double* out_ptr = (double*)out.data();
+    const double* a_ptr = (const double*)a.data();
+    const double* b_ptr = (const double*)b.data();
+    
+    auto out_mult = build_index_multipliers(out_shape);
+    auto a_strides = shape_to_strides_bytes(a.shape());
+    auto b_strides = shape_to_strides_bytes(b.shape());
+    bool a_contig = a.is_contiguous() && a.shape() == out_shape;
+    bool b_contig = b.is_contiguous() && b.shape() == out_shape;
+    bool a_scalar = a.numel() == 1;
+    bool b_scalar = b.numel() == 1;
+
+    #pragma omp parallel for
+    for (size_t i = 0; i < out_numel; ++i) {
+        double val_a, val_b;
+        
+        if (a_contig) val_a = a_ptr[i];
+        else if (a_scalar) val_a = a_ptr[0];
+        else {
+            int32_t off = compute_offset_bytes(i, out_shape, out_mult, a.shape(), a_strides);
+            // off is bytes, we need double index? No, pointers are double*.
+            // Wait, compute_offset_bytes returns BYTE offset.
+            val_a = *(const double*)((const char*)a_ptr + off);
+        }
+
+        if (b_contig) val_b = b_ptr[i];
+        else if (b_scalar) val_b = b_ptr[0];
+        else {
+            int32_t off = compute_offset_bytes(i, out_shape, out_mult, b.shape(), b_strides);
+            val_b = *(const double*)((const char*)b_ptr + off);
+        }
+
+        out_ptr[i] = std::pow(val_a, val_b);
+    }
+    return out;
+}
