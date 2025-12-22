@@ -177,3 +177,18 @@ Tensor unary_op_512_d64(const Tensor& A, std::function<__m512d(__m512d)> op) {
     }
     return out;
 }
+
+//                        Binary Implementations
+
+Tensor add_avx512_d64(const Tensor& a, const Tensor& b) {
+    return binary_op_broadcast_512_d64(a, b, [](__m512d x, __m512d y){ return _mm512_add_pd(x, y); });
+}
+Tensor sub_avx512_d64(const Tensor& a, const Tensor& b) {
+    return binary_op_broadcast_512_d64(a, b, [](__m512d x, __m512d y){ return _mm512_sub_pd(x, y); });
+}
+Tensor mul_avx512_d64(const Tensor& a, const Tensor& b) {
+    return binary_op_broadcast_512_d64(a, b, [](__m512d x, __m512d y){ return _mm512_mul_pd(x, y); });
+}
+Tensor div_avx512_d64(const Tensor& a, const Tensor& b) {
+    return binary_op_broadcast_512_d64(a, b, [](__m512d x, __m512d y){ return _mm512_div_pd(x, y); });
+}
