@@ -36,4 +36,28 @@ inline double hsum512_pd(__m512d v) {
     return _mm_cvtsd_f64(sums);
 }
 
-} // namespace
+}
+//                     Broadcasting & Dispatch Logic
+
+static inline std::vector<int64_t> shape_to_strides_bytes(const std::vector<size_t>& shape) {
+    std::vector<int64_t> strides(shape.size());
+    if (shape.empty()) return strides;
+    strides.back() = sizeof(double);
+    for (int i = (int)shape.size()-2; i >= 0; --i) {
+        strides[i] = strides[i+1] * (int64_t)shape[i+1];
+    }
+    return strides;
+}
+
+static std::vector<size_t> broadcast_shape(const std::vector<size_t>& a, const std::vector<size_t>& b) {
+    size_t na = a.size(), nb = b.size();
+    size_t n = std::max(na, nb);
+    std::vector<size_t> out(n);
+    for (size_t i = 0; i < n; ++i) {
+        size_t ai = (i < n - na) ? 1 : a[i - (n - na)];
+        size_t bi = (i < n - nb) ? 1 : b[i - (n - nb)];
+        if (ai != 1 && bi != 1 && ai != bi) throw std::runtime_error("broadcast: incompatible shapes");
+        out[i] = std::max(ai, bi);
+    }
+    return out;
+}
