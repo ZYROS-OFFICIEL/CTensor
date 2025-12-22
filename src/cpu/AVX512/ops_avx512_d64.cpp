@@ -389,3 +389,10 @@ Tensor sum_avx512_d64(const Tensor& t, int dim) {
     ((double*)out.data())[0] = global_sum;
     return out;
 }
+
+Tensor mean_avx512_d64(const Tensor& t, int dim) {
+    Tensor s = sum_avx512_d64(t, dim);
+    double n = static_cast<double>(t.numel());
+    ((double*)s.data())[0] /= n;
+    return s;
+}
