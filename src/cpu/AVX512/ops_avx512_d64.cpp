@@ -292,3 +292,9 @@ Tensor cmp_avx512_d64_impl(const Tensor& a, const Tensor& b) {
         return _mm512_mask_blend_pd(k, _zmm_0, _zmm_1);
     });
 }
+Tensor lt_avx512_d64(const Tensor& a, const Tensor& b) { return cmp_avx512_d64_impl<_CMP_LT_OQ>(a,b); }
+Tensor le_avx512_d64(const Tensor& a, const Tensor& b) { return cmp_avx512_d64_impl<_CMP_LE_OQ>(a,b); }
+Tensor gt_avx512_d64(const Tensor& a, const Tensor& b) { return cmp_avx512_d64_impl<_CMP_GT_OQ>(a,b); }
+Tensor ge_avx512_d64(const Tensor& a, const Tensor& b) { return cmp_avx512_d64_impl<_CMP_GE_OQ>(a,b); }
+Tensor eq_avx512_d64(const Tensor& a, const Tensor& b) { return cmp_avx512_d64_impl<_CMP_EQ_OQ>(a,b); }
+Tensor ne_avx512_d64(const Tensor& a, const Tensor& b) { return cmp_avx512_d64_impl<_CMP_NEQ_OQ>(a,b); }
