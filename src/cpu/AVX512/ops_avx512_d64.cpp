@@ -245,3 +245,41 @@ Tensor pow_avx512_d64(const Tensor& a, const Tensor& b) {
     }
     return out;
 }
+Tensor matmul_avx512_d64(const Tensor& A, const Tensor& B) {
+    if (A.shape().size() != 2 || B.shape().size() != 2) throw std::runtime_error("matmul_avx512_d64: only 2D");
+    size_t M = A.shape()[0];
+    size_t K = A.shape()[1];
+    size_t N = B.shape()[1];
+    if (K != B.shape()[0]) throw std::runtime_error("matmul_avx512_d64: shape mismatch");
+
+    Tensor C({M, N}, A.device(), DType::Double64);
+    const double* a_ptr = (const double*)A.data();
+    const double* b_ptr = (const double*)B.data();
+    double* c_ptr = (double*)C.data();
+    std::memset(c_ptr, 0, M * N * sizeof(double));
+
+    // Blocked loop for AVX-512 (8 doubles)
+    #pragma omp parallel for
+    for (size_t i = 0; i < M; ++i) {
+        for (size_t k = 0; k < K; ++k) {
+            __m512d va = _mm512_set1_pd(a_ptr[i*K + k]);
+            
+            size_t j = 0;
+            for (; j + 8 <= N; j += 8) {
+                __m512d vc = _mm512_loadu_pd(c_ptr + i*N + j);
+                __m512d vb = _mm512_loadu_pd(b_ptr + k*N + j);
+                vc = _mm512_fmadd_pd(va, vb, vc);
+                _mm512_storeu_pd(c_ptr + i*N + j, vc);
+            }
+            // Tail
+            if (j < N) {
+                __mmask8 mask = tail_mask(N - j);
+                __m512d vc = _mm512_maskz_loadu_pd(mask, c_ptr + i*N + j);
+                __m512d vb = _mm512_maskz_loadu_pd(mask, b_ptr + k*N + j);
+                vc = _mm512_fmadd_pd(va, vb, vc);
+                _mm512_mask_storeu_pd(c_ptr + i*N + j, mask, vc);
+            }
+        }
+    }
+    return C;
+}
