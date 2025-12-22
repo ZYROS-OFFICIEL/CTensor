@@ -396,3 +396,32 @@ Tensor mean_avx512_d64(const Tensor& t, int dim) {
     ((double*)s.data())[0] /= n;
     return s;
 }
+
+Tensor max_avx512_d64(const Tensor& t, int dim) {
+    if (dim != -1) throw std::runtime_error("max_avx512_d64: only dim=-1");
+    const double* data = (const double*)t.data();
+    size_t n = t.numel();
+    double global_max = -std::numeric_limits<double>::infinity();
+
+    #pragma omp parallel
+    {
+        __m512d vmax = _mm512_set1_pd(-std::numeric_limits<double>::infinity());
+        #pragma omp for nowait
+        for(size_t i=0; i<n; i+=8) {
+            size_t rem = n - i;
+            __mmask8 k = (rem >= 8) ? 0xFF : tail_mask(rem);
+            // Masked load with fallback to -inf ensures we don't pick up garbage
+            __m512d v = _mm512_mask_loadu_pd(_mm512_set1_pd(-std::numeric_limits<double>::infinity()), k, data+i);
+            vmax = _mm512_max_pd(vmax, v);
+        }
+        double local_max = _mm512_reduce_max_pd(vmax);
+        
+        #pragma omp critical
+        {
+            if(local_max > global_max) global_max = local_max;
+        }
+    }
+    Tensor out({1}, t.device(), DType::Double64);
+    ((double*)out.data())[0] = global_max;
+    return out;
+}
