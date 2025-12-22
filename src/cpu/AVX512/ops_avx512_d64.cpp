@@ -158,3 +158,22 @@ Tensor binary_op_broadcast_512_d64(const Tensor& A, const Tensor& B, std::functi
     }
     return out;
 }
+
+//                  Unary Template (Double)
+
+Tensor unary_op_512_d64(const Tensor& A, std::function<__m512d(__m512d)> op) {
+    Tensor out(A.shape(), A.device(), DType::Double64);
+    const double* a_ptr = (const double*)A.data();
+    double* out_ptr = (double*)out.data();
+    size_t n = A.numel();
+
+    #pragma omp parallel for
+    for (size_t i = 0; i < n; i += 8) {
+        size_t rem = n - i;
+        __mmask8 k = (rem >= 8) ? 0xFF : tail_mask(rem);
+        __m512d va = _mm512_maskz_loadu_pd(k, a_ptr + i);
+        __m512d vr = op(va);
+        _mm512_mask_storeu_pd(out_ptr + i, k, vr);
+    }
+    return out;
+}
