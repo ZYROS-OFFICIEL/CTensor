@@ -312,3 +312,15 @@ Tensor sqrt_avx512_d64(const Tensor& a) {
 Tensor relu_avx512_d64(const Tensor& a) { 
     return unary_op_512_d64(a, [](__m512d x){ return _mm512_max_pd(x, _zmm_0); }); 
 }
+#define OMP_SIMD_UNARY_D64(FUNC_NAME, STD_FUNC) \
+Tensor FUNC_NAME(const Tensor& a) { \
+    Tensor out(a.shape(), a.device(), DType::Double64); \
+    const double* pa = (const double*)a.data(); \
+    double* pout = (double*)out.data(); \
+    size_t n = a.numel(); \
+    _Pragma("omp parallel for simd") \
+    for (size_t i = 0; i < n; ++i) { \
+        pout[i] = STD_FUNC(pa[i]); \
+    } \
+    return out; \
+}
