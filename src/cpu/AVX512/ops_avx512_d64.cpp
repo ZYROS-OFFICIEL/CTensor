@@ -298,3 +298,17 @@ Tensor gt_avx512_d64(const Tensor& a, const Tensor& b) { return cmp_avx512_d64_i
 Tensor ge_avx512_d64(const Tensor& a, const Tensor& b) { return cmp_avx512_d64_impl<_CMP_GE_OQ>(a,b); }
 Tensor eq_avx512_d64(const Tensor& a, const Tensor& b) { return cmp_avx512_d64_impl<_CMP_EQ_OQ>(a,b); }
 Tensor ne_avx512_d64(const Tensor& a, const Tensor& b) { return cmp_avx512_d64_impl<_CMP_NEQ_OQ>(a,b); }
+
+//                        Unary Operations (Double)
+
+Tensor abs_avx512_d64(const Tensor& a) { 
+    return unary_op_512_d64(a, [](__m512d x){ return _mm512_abs_pd(x); }); 
+}
+
+Tensor sqrt_avx512_d64(const Tensor& a) { 
+    return unary_op_512_d64(a, [](__m512d x){ return _mm512_sqrt_pd(x); }); 
+}
+
+Tensor relu_avx512_d64(const Tensor& a) { 
+    return unary_op_512_d64(a, [](__m512d x){ return _mm512_max_pd(x, _zmm_0); }); 
+}
