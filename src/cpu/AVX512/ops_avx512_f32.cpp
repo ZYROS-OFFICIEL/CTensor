@@ -5,7 +5,7 @@
 #include <omp.h>
 #include <limits>
 #include <cstring>
-#include <functional> // Added missing include
+#include <functional> 
 
 #if defined(__AVX512F__)
 
@@ -15,16 +15,14 @@ namespace {
 //                     Helpers for Tensor Access
 // ========================================================================
 
-// Helper to get raw pointer from Tensor since .data() is not exposed in tensor.h
 template <typename T>
 inline T* get_ptr(const Tensor& t) {
     if (!t.impl || !t.impl->data) return nullptr;
-    // (void*) storage -> cast to T* -> add offset
     return (T*)t.impl->data->data.get() + t.impl->offset;
 }
 
 // ========================================================================
-//                     Internal AVX-512 Math Constants & Helpers
+//                     AVX-512 Math Helpers (AVX512F Compatible)
 // ========================================================================
 
 const __m512 _zmm_1  = _mm512_set1_ps(1.0f);
@@ -32,18 +30,35 @@ const __m512 _zmm_05 = _mm512_set1_ps(0.5f);
 const __m512 _zmm_0  = _mm512_setzero_ps();
 const __m512 _zmm_nan= _mm512_set1_ps(NAN);
 
-// Helper to generate a mask for the first 'n' elements (0 <= n <= 16)
+// --- Bitwise Ops for AVX512F ---
+// AVX512F does not have _mm512_and_ps (requires AVX512DQ). 
+// We must cast to integer, perform op, and cast back.
+
+inline __m512 bitwise_and(__m512 a, __m512 b) {
+    return _mm512_castsi512_ps(_mm512_and_si512(_mm512_castps_si512(a), _mm512_castps_si512(b)));
+}
+
+inline __m512 bitwise_or(__m512 a, __m512 b) {
+    return _mm512_castsi512_ps(_mm512_or_si512(_mm512_castps_si512(a), _mm512_castps_si512(b)));
+}
+
+inline __m512 bitwise_xor(__m512 a, __m512 b) {
+    return _mm512_castsi512_ps(_mm512_xor_si512(_mm512_castps_si512(a), _mm512_castps_si512(b)));
+}
+
+// Helper to generate a mask for the first 'n' elements
 inline __mmask16 tail_mask(size_t n) {
     return (__mmask16)((1U << n) - 1);
 }
 
 // --- Abs ---
 inline __m512 abs_ps(__m512 x) {
+    // 0x7FFFFFFF clears the sign bit
     __m512i mask = _mm512_set1_epi32(0x7FFFFFFF);
     return _mm512_castsi512_ps(_mm512_and_si512(_mm512_castps_si512(x), mask));
 }
 
-// --- Exponential (Exp) for AVX-512 ---
+// --- Exponential (Exp) ---
 inline __m512 exp512_ps(__m512 x) {
     __m512 fx, one = _zmm_1;
     
@@ -75,7 +90,7 @@ inline __m512 exp512_ps(__m512 x) {
     return _mm512_mul_ps(y, _mm512_castsi512_ps(emm0));
 }
 
-// --- Logarithm (Ln) for AVX-512 ---
+// --- Logarithm (Ln) ---
 inline __m512 log512_ps(__m512 x) {
     __m512 one = _zmm_1;
     __mmask16 invalid_mask = _mm512_cmp_ps_mask(x, _zmm_0, _CMP_LE_OQ);
@@ -84,8 +99,10 @@ inline __m512 log512_ps(__m512 x) {
 
     __m512i emm0 = _mm512_srli_epi32(_mm512_castps_si512(x), 23);
     
-    x = _mm512_and_ps(x, _mm512_castsi512_ps(_mm512_set1_epi32(0x7fffff)));
-    x = _mm512_or_ps(x, _zmm_05);
+    // FIX: Replaced _mm512_and_ps with bitwise_and
+    x = bitwise_and(x, _mm512_castsi512_ps(_mm512_set1_epi32(0x7fffff)));
+    // FIX: Replaced _mm512_or_ps with bitwise_or
+    x = bitwise_or(x, _zmm_05);
 
     emm0 = _mm512_sub_epi32(emm0, _mm512_set1_epi32(0x7f));
     __m512 e = _mm512_cvtepi32_ps(emm0);
@@ -93,7 +110,6 @@ inline __m512 log512_ps(__m512 x) {
 
     __mmask16 mask = _mm512_cmp_ps_mask(x, _mm512_set1_ps(0.707106781186547524f), _CMP_LT_OQ);
     
-    // FIX: Typo _mm512_mask_z_mov_ps -> _mm512_maskz_mov_ps
     __m512 tmp = _mm512_maskz_mov_ps(mask, x); 
     
     x = _mm512_mask_sub_ps(x, mask, x, one);
@@ -122,12 +138,12 @@ inline __m512 log512_ps(__m512 x) {
     return _mm512_mask_blend_ps(invalid_mask, x, _zmm_nan); 
 }
 
-// --- Sine (Sin) for AVX-512 ---
+// --- Sine (Sin) ---
 inline __m512 sin512_ps(__m512 x) {
     __m512 xmm1, sign_bit, y;
     __m512i emm2;
     sign_bit = x;
-    x = _mm512_abs_ps(x);
+    x = abs_ps(x);
 
     xmm1 = _mm512_mul_ps(x, _mm512_set1_ps(0.63661977236758134308f)); 
     emm2 = _mm512_cvttps_epi32(xmm1);
@@ -139,7 +155,9 @@ inline __m512 sin512_ps(__m512 x) {
     
     __m512 sign_mask = _mm512_castsi512_ps(_mm512_set1_epi32(0x80000000));
     __m512 xor_mask = _mm512_mask_blend_ps(poly_mask, sign_mask, _zmm_0); 
-    sign_bit = _mm512_xor_ps(sign_bit, xor_mask);
+    
+    // FIX: Replaced _mm512_xor_ps with bitwise_xor
+    sign_bit = bitwise_xor(sign_bit, xor_mask);
 
     x = _mm512_fmadd_ps(y, _mm512_set1_ps(-1.5703125f), x);
     x = _mm512_fmadd_ps(y, _mm512_set1_ps(-4.837512969970703125e-4f), x);
@@ -155,7 +173,9 @@ inline __m512 sin512_ps(__m512 x) {
     y = _mm512_add_ps(y, _zmm_1);
     y = _mm512_mul_ps(y, x);
 
-    return _mm512_xor_ps(y, _mm512_and_ps(sign_bit, sign_mask));
+    // FIX: Replaced _mm512_xor_ps with bitwise_xor
+    // Also replaced _mm512_and_ps with bitwise_and
+    return bitwise_xor(y, bitwise_and(sign_bit, sign_mask));
 }
 
 inline __m512 cos512_ps(__m512 x) {
@@ -172,7 +192,8 @@ inline __m512 tanh512_ps(__m512 x) {
 }
 
 inline __m512 sigmoid512_ps(__m512 x) {
-    __m512 neg_x = _mm512_xor_ps(x, _mm512_set1_ps(-0.0f));
+    // FIX: Replaced _mm512_xor_ps with bitwise_xor
+    __m512 neg_x = bitwise_xor(x, _mm512_set1_ps(-0.0f));
     __m512 e = exp512_ps(neg_x);
     __m512 den = _mm512_add_ps(_zmm_1, e);
     return _mm512_div_ps(_zmm_1, den);
@@ -182,7 +203,7 @@ inline __m512 pow512_ps(__m512 a, __m512 b) {
     return exp512_ps(_mm512_mul_ps(b, log512_ps(a)));
 }
 
-// Horizontal Sum for ZMM
+// Horizontal Sum
 inline float hsum512_ps(__m512 v) {
     __m256 vlow = _mm512_castps512_ps256(v);
     __m256 vhigh = _mm512_extractf32x8_ps(v, 1);
@@ -248,9 +269,8 @@ static inline int32_t compute_offset_bytes(size_t lin_idx, const std::vector<siz
     return offset;
 }
 
-// ----------------------Binary Broadcast Template (AVX-512)----------------------
+// ----------------------Binary Broadcast Template----------------------
 
-// FIX: Changed std::function to Template generic to fix compiler conversion errors and overhead
 template <typename Func>
 Tensor binary_op_broadcast_512(const Tensor& A, const Tensor& B, Func op) {
     std::vector<size_t> a_shape = A.shape();
@@ -259,10 +279,8 @@ Tensor binary_op_broadcast_512(const Tensor& A, const Tensor& B, Func op) {
     size_t out_numel = 1;
     for (auto s : out_shape) out_numel *= s;
 
-    // FIX: Removed A.device() from constructor, Tensor defaults to CPU.
     Tensor out(out_shape, DType::Float32);
     
-    // FIX: Use helper to get raw pointers
     const float* a_ptr = get_ptr<float>(A);
     const float* b_ptr = get_ptr<float>(B);
     float* out_ptr = get_ptr<float>(out);
@@ -313,7 +331,7 @@ Tensor binary_op_broadcast_512(const Tensor& A, const Tensor& B, Func op) {
             vb = _mm512_mask_i32gather_ps(_zmm_0, k, vidx, b_ptr, 1);
         }
 
-        // Op (Inlined via template)
+        // Op
         __m512 vr = op(va, vb);
 
         // Store
@@ -322,15 +340,12 @@ Tensor binary_op_broadcast_512(const Tensor& A, const Tensor& B, Func op) {
     return out;
 }
 
-//-----------------------Unary Template (AVX-512)----------------------
+//-----------------------Unary Template----------------------
 
-// FIX: Templated Func
 template <typename Func>
 Tensor unary_op_512(const Tensor& A, Func op) {
-    // FIX: Removed A.device()
     Tensor out(A.shape(), DType::Float32);
     
-    // FIX: Use helper
     const float* a_ptr = get_ptr<float>(A);
     float* out_ptr = get_ptr<float>(out);
     size_t n = A.numel();
@@ -368,7 +383,7 @@ Tensor pow_avx512_f32(const Tensor& a, const Tensor& b) {
 }
 
 
-//--------------------------MATMUL for AVX-512 (simple blocking)--------------------------
+//--------------------------MATMUL--------------------------
 Tensor matmul_avx512_f32(const Tensor& A, const Tensor& B) {
     if (A.shape().size() != 2 || B.shape().size() != 2) throw std::runtime_error("matmul_avx512: only 2D");
     size_t M = A.shape()[0];
@@ -376,10 +391,8 @@ Tensor matmul_avx512_f32(const Tensor& A, const Tensor& B) {
     size_t N = B.shape()[1];
     if (K != B.shape()[0]) throw std::runtime_error("matmul_avx512: shape mismatch");
 
-    // FIX: Removed Device arg
     Tensor C({M, N}, DType::Float32);
     
-    // FIX: Use helper
     const float* a_ptr = get_ptr<float>(A);
     const float* b_ptr = get_ptr<float>(B);
     float* c_ptr = get_ptr<float>(C);
@@ -414,7 +427,6 @@ Tensor matmul_avx512_f32(const Tensor& A, const Tensor& B) {
 template<int CMP_PRED>
 Tensor cmp_avx512_f32_impl(const Tensor& a, const Tensor& b) {
     return binary_op_broadcast_512(a, b, []( __m512 x, __m512 y){
-        // We capture CMP_PRED via template arg
         __mmask16 k = _mm512_cmp_ps_mask(x, y, CMP_PRED);
         return _mm512_mask_blend_ps(k, _zmm_0, _zmm_1);
     });
