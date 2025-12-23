@@ -5,6 +5,7 @@
 #include "ops_avx2_d64.h"
 #include "ops_avx2_f32.h"
 #include "ops_avx512_f32.h"
+#include "ops_avx512_d64.h"
 
 #include <stdexcept>
 #include <string>
