@@ -5,6 +5,7 @@
 #include <omp.h>
 #include <limits>
 #include <cstring>
+#include <functional>
 
 #if defined(__AVX512F__)
 
@@ -87,18 +88,22 @@ static inline int32_t compute_offset_bytes(size_t lin_idx, const std::vector<siz
 }
 
 //                     Binary Broadcast Template (Double)
-
-Tensor binary_op_broadcast_512_d64(const Tensor& A, const Tensor& B, std::function<__m512d(__m512d,__m512d)> op) {
+// FIX: Using template Func instead of std::function to avoid alignment warnings and enable inlining
+template <typename Func>
+Tensor binary_op_broadcast_512_d64(const Tensor& A, const Tensor& B, Func op) {
     std::vector<size_t> a_shape = A.shape();
     std::vector<size_t> b_shape = B.shape();
     std::vector<size_t> out_shape = broadcast_shape(a_shape, b_shape);
     size_t out_numel = 1;
     for (auto s : out_shape) out_numel *= s;
 
-    Tensor out(out_shape, A.device(), DType::Double64);
-    const double* a_ptr = (const double*)A.data();
-    const double* b_ptr = (const double*)B.data();
-    double* out_ptr = (double*)out.data();
+    // FIX: Tensor constructor matching tensor.h (shape, dtype)
+    Tensor out(out_shape, DType::Double64);
+    
+    // FIX: accessing data via impl->data->data.get()
+    const double* a_ptr = (const double*)A.impl->data->data.get();
+    const double* b_ptr = (const double*)B.impl->data->data.get();
+    double* out_ptr = (double*)out.impl->data->data.get();
 
     auto out_mult = build_index_multipliers(out_shape);
     auto a_strides = shape_to_strides_bytes(a_shape);
@@ -160,11 +165,15 @@ Tensor binary_op_broadcast_512_d64(const Tensor& A, const Tensor& B, std::functi
 }
 
 //                  Unary Template (Double)
-
-Tensor unary_op_512_d64(const Tensor& A, std::function<__m512d(__m512d)> op) {
-    Tensor out(A.shape(), A.device(), DType::Double64);
-    const double* a_ptr = (const double*)A.data();
-    double* out_ptr = (double*)out.data();
+// FIX: Using template Func
+template <typename Func>
+Tensor unary_op_512_d64(const Tensor& A, Func op) {
+    // FIX: Tensor constructor matching tensor.h
+    Tensor out(A.shape(), DType::Double64);
+    
+    // FIX: data access
+    const double* a_ptr = (const double*)A.impl->data->data.get();
+    double* out_ptr = (double*)out.impl->data->data.get();
     size_t n = A.numel();
 
     #pragma omp parallel for
@@ -198,20 +207,14 @@ Tensor pow_avx512_d64(const Tensor& a, const Tensor& b) {
     // because binary_op_broadcast takes intrinsics. We implement a specific broadcast loop here.
     
     std::vector<size_t> out_shape = broadcast_shape(a.shape(), b.shape());
-    Tensor out(out_shape, a.device(), DType::Double64);
-    
-    // We reuse the broadcast structure but with scalar fallback inside SIMD loop
-    // This allows the compiler to vectorise `pow(a,b)` if possible.
-    
-    // Simplification: Delegate to generic logic if shapes differ, OR:
-    // We can't easily pass a lambda with `std::pow` to binary_op_broadcast_512_d64 
-    // because it expects __m512d.
-    // So we use a scalar loop with #pragma omp simd.
+    // FIX: Tensor constructor
+    Tensor out(out_shape, DType::Double64);
     
     size_t out_numel = out.numel();
-    double* out_ptr = (double*)out.data();
-    const double* a_ptr = (const double*)a.data();
-    const double* b_ptr = (const double*)b.data();
+    // FIX: data access
+    double* out_ptr = (double*)out.impl->data->data.get();
+    const double* a_ptr = (const double*)a.impl->data->data.get();
+    const double* b_ptr = (const double*)b.impl->data->data.get();
     
     auto out_mult = build_index_multipliers(out_shape);
     auto a_strides = shape_to_strides_bytes(a.shape());
@@ -229,8 +232,6 @@ Tensor pow_avx512_d64(const Tensor& a, const Tensor& b) {
         else if (a_scalar) val_a = a_ptr[0];
         else {
             int32_t off = compute_offset_bytes(i, out_shape, out_mult, a.shape(), a_strides);
-            // off is bytes, we need double index? No, pointers are double*.
-            // Wait, compute_offset_bytes returns BYTE offset.
             val_a = *(const double*)((const char*)a_ptr + off);
         }
 
@@ -245,6 +246,7 @@ Tensor pow_avx512_d64(const Tensor& a, const Tensor& b) {
     }
     return out;
 }
+
 Tensor matmul_avx512_d64(const Tensor& A, const Tensor& B) {
     if (A.shape().size() != 2 || B.shape().size() != 2) throw std::runtime_error("matmul_avx512_d64: only 2D");
     size_t M = A.shape()[0];
@@ -252,10 +254,14 @@ Tensor matmul_avx512_d64(const Tensor& A, const Tensor& B) {
     size_t N = B.shape()[1];
     if (K != B.shape()[0]) throw std::runtime_error("matmul_avx512_d64: shape mismatch");
 
-    Tensor C({M, N}, A.device(), DType::Double64);
-    const double* a_ptr = (const double*)A.data();
-    const double* b_ptr = (const double*)B.data();
-    double* c_ptr = (double*)C.data();
+    // FIX: Tensor constructor (removed device)
+    Tensor C({M, N}, DType::Double64);
+    
+    // FIX: data access
+    const double* a_ptr = (const double*)A.impl->data->data.get();
+    const double* b_ptr = (const double*)B.impl->data->data.get();
+    double* c_ptr = (double*)C.impl->data->data.get();
+    
     std::memset(c_ptr, 0, M * N * sizeof(double));
 
     // Blocked loop for AVX-512 (8 doubles)
@@ -312,11 +318,13 @@ Tensor sqrt_avx512_d64(const Tensor& a) {
 Tensor relu_avx512_d64(const Tensor& a) { 
     return unary_op_512_d64(a, [](__m512d x){ return _mm512_max_pd(x, _zmm_0); }); 
 }
+
+// FIX: Updated Macro for Constructor and Data Access
 #define OMP_SIMD_UNARY_D64(FUNC_NAME, STD_FUNC) \
 Tensor FUNC_NAME(const Tensor& a) { \
-    Tensor out(a.shape(), a.device(), DType::Double64); \
-    const double* pa = (const double*)a.data(); \
-    double* pout = (double*)out.data(); \
+    Tensor out(a.shape(), DType::Double64); \
+    const double* pa = (const double*)a.impl->data->data.get(); \
+    double* pout = (double*)out.impl->data->data.get(); \
     size_t n = a.numel(); \
     _Pragma("omp parallel for simd") \
     for (size_t i = 0; i < n; ++i) { \
@@ -339,9 +347,10 @@ OMP_SIMD_UNARY_D64(tanh_avx512_d64, std::tanh)
 
 // Sigmoid: 1 / (1 + exp(-x))
 Tensor sigmoid_avx512_d64(const Tensor& a) {
-    Tensor out(a.shape(), a.device(), DType::Double64);
-    const double* pa = (const double*)a.data();
-    double* pout = (double*)out.data();
+    // FIX: Constructor and data access
+    Tensor out(a.shape(), DType::Double64);
+    const double* pa = (const double*)a.impl->data->data.get();
+    double* pout = (double*)out.impl->data->data.get();
     size_t n = a.numel();
     _Pragma("omp parallel for simd")
     for (size_t i = 0; i < n; ++i) {
@@ -352,9 +361,10 @@ Tensor sigmoid_avx512_d64(const Tensor& a) {
 
 // Softplus: log(1 + exp(x))
 Tensor softplus_avx512_d64(const Tensor& a) {
-    Tensor out(a.shape(), a.device(), DType::Double64);
-    const double* pa = (const double*)a.data();
-    double* pout = (double*)out.data();
+    // FIX: Constructor and data access
+    Tensor out(a.shape(), DType::Double64);
+    const double* pa = (const double*)a.impl->data->data.get();
+    double* pout = (double*)out.impl->data->data.get();
     size_t n = a.numel();
     _Pragma("omp parallel for simd")
     for (size_t i = 0; i < n; ++i) {
@@ -368,7 +378,8 @@ Tensor softplus_avx512_d64(const Tensor& a) {
 Tensor sum_avx512_d64(const Tensor& t, int dim) {
     if (dim != -1) throw std::runtime_error("sum_avx512_d64: only dim=-1");
     size_t n = t.numel();
-    const double* data = (const double*)t.data();
+    // FIX: data access
+    const double* data = (const double*)t.impl->data->data.get();
     double global_sum = 0.0;
 
     #pragma omp parallel
@@ -385,21 +396,24 @@ Tensor sum_avx512_d64(const Tensor& t, int dim) {
         #pragma omp atomic
         global_sum += local_sum;
     }
-    Tensor out({1}, t.device(), DType::Double64);
-    ((double*)out.data())[0] = global_sum;
+    // FIX: Constructor (removed device, auto-defaults to CPU)
+    Tensor out({1}, DType::Double64);
+    ((double*)out.impl->data->data.get())[0] = global_sum;
     return out;
 }
 
 Tensor mean_avx512_d64(const Tensor& t, int dim) {
     Tensor s = sum_avx512_d64(t, dim);
     double n = static_cast<double>(t.numel());
-    ((double*)s.data())[0] /= n;
+    // FIX: data access
+    ((double*)s.impl->data->data.get())[0] /= n;
     return s;
 }
 
 Tensor max_avx512_d64(const Tensor& t, int dim) {
     if (dim != -1) throw std::runtime_error("max_avx512_d64: only dim=-1");
-    const double* data = (const double*)t.data();
+    // FIX: data access
+    const double* data = (const double*)t.impl->data->data.get();
     size_t n = t.numel();
     double global_max = -std::numeric_limits<double>::infinity();
 
@@ -421,14 +435,16 @@ Tensor max_avx512_d64(const Tensor& t, int dim) {
             if(local_max > global_max) global_max = local_max;
         }
     }
-    Tensor out({1}, t.device(), DType::Double64);
-    ((double*)out.data())[0] = global_max;
+    // FIX: Constructor
+    Tensor out({1}, DType::Double64);
+    ((double*)out.impl->data->data.get())[0] = global_max;
     return out;
 }
 
 Tensor min_avx512_d64(const Tensor& t, int dim) {
     if (dim != -1) throw std::runtime_error("min_avx512_d64: only dim=-1");
-    const double* data = (const double*)t.data();
+    // FIX: data access
+    const double* data = (const double*)t.impl->data->data.get();
     size_t n = t.numel();
     double global_min = std::numeric_limits<double>::infinity();
 
@@ -449,9 +465,10 @@ Tensor min_avx512_d64(const Tensor& t, int dim) {
             if(local_min < global_min) global_min = local_min;
         }
     }
-    Tensor out({1}, t.device(), DType::Double64);
-    ((double*)out.data())[0] = global_min;
+    // FIX: Constructor
+    Tensor out({1}, DType::Double64);
+    ((double*)out.impl->data->data.get())[0] = global_min;
     return out;
 }
 
-#endif 
+#endif
