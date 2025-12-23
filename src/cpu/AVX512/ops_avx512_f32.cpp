@@ -38,7 +38,7 @@ inline __mmask16 tail_mask(size_t n) {
 }
 
 // --- Abs ---
-inline __m512 _mm512_abs_ps(__m512 x) {
+inline __m512 abs_ps(__m512 x) {
     __m512i mask = _mm512_set1_epi32(0x7FFFFFFF);
     return _mm512_castsi512_ps(_mm512_and_si512(_mm512_castps_si512(x), mask));
 }
@@ -428,7 +428,7 @@ Tensor eq_avx512_f32(const Tensor& a, const Tensor& b) { return cmp_avx512_f32_i
 Tensor ne_avx512_f32(const Tensor& a, const Tensor& b) { return cmp_avx512_f32_impl<_CMP_NEQ_OQ>(a,b); }
 
 // Unary
-Tensor abs_avx512_f32(const Tensor& a) { return unary_op_512(a, [](__m512 x){ return _mm512_abs_ps(x); }); }
+Tensor abs_avx512_f32(const Tensor& a) { return unary_op_512(a, [](__m512 x){ return abs_ps(x); }); }
 Tensor sqrt_avx512_f32(const Tensor& a) { return unary_op_512(a, [](__m512 x){ return _mm512_sqrt_ps(x); }); }
 Tensor relu_avx512_f32(const Tensor& a) { return unary_op_512(a, [](__m512 x){ return _mm512_max_ps(x, _zmm_0); }); }
 Tensor ln_avx512_f32(const Tensor& a) { return unary_op_512(a, [](__m512 x){ return log512_ps(x); }); }
