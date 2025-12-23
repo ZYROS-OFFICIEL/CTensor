@@ -5,10 +5,23 @@
 #include <omp.h>
 #include <limits>
 #include <cstring>
+#include <functional> // Added missing include
 
 #if defined(__AVX512F__)
 
 namespace {
+
+// ========================================================================
+//                     Helpers for Tensor Access
+// ========================================================================
+
+// Helper to get raw pointer from Tensor since .data() is not exposed in tensor.h
+template <typename T>
+inline T* get_ptr(const Tensor& t) {
+    if (!t.impl || !t.impl->data) return nullptr;
+    // (void*) storage -> cast to T* -> add offset
+    return (T*)t.impl->data->data.get() + t.impl->offset;
+}
 
 // ========================================================================
 //                     Internal AVX-512 Math Constants & Helpers
@@ -26,15 +39,11 @@ inline __mmask16 tail_mask(size_t n) {
 
 // --- Abs ---
 inline __m512 _mm512_abs_ps(__m512 x) {
-    // Clear sign bit using integer casting (requires AVX512DQ usually, but we can do AND with mask)
-    // AVX512F has bitwise ops on registers.
-    // 0x7FFFFFFF mask
     __m512i mask = _mm512_set1_epi32(0x7FFFFFFF);
     return _mm512_castsi512_ps(_mm512_and_si512(_mm512_castps_si512(x), mask));
 }
 
 // --- Exponential (Exp) for AVX-512 ---
-// Ported Cephes approximation for ZMM
 inline __m512 exp512_ps(__m512 x) {
     __m512 fx, one = _zmm_1;
     
@@ -59,7 +68,6 @@ inline __m512 exp512_ps(__m512 x) {
     y = _mm512_fmadd_ps(y, z, x);
     y = _mm512_add_ps(y, one);
 
-    // Build 2^n
     __m512i emm0 = _mm512_cvttps_epi32(fx);
     emm0 = _mm512_add_epi32(emm0, _mm512_set1_epi32(0x7f));
     emm0 = _mm512_slli_epi32(emm0, 23);
@@ -76,7 +84,6 @@ inline __m512 log512_ps(__m512 x) {
 
     __m512i emm0 = _mm512_srli_epi32(_mm512_castps_si512(x), 23);
     
-    // keep mantissa
     x = _mm512_and_ps(x, _mm512_castsi512_ps(_mm512_set1_epi32(0x7fffff)));
     x = _mm512_or_ps(x, _zmm_05);
 
@@ -85,7 +92,9 @@ inline __m512 log512_ps(__m512 x) {
     e = _mm512_add_ps(e, one);
 
     __mmask16 mask = _mm512_cmp_ps_mask(x, _mm512_set1_ps(0.707106781186547524f), _CMP_LT_OQ);
-    __m512 tmp = _mm512_mask_z_mov_ps(mask, x); // zero out where not mask if needed, but logic below handles it
+    
+    // FIX: Typo _mm512_mask_z_mov_ps -> _mm512_maskz_mov_ps
+    __m512 tmp = _mm512_maskz_mov_ps(mask, x); 
     
     x = _mm512_mask_sub_ps(x, mask, x, one);
     e = _mm512_mask_sub_ps(e, mask, e, one);
@@ -105,15 +114,13 @@ inline __m512 log512_ps(__m512 x) {
     y = _mm512_mul_ps(y, z);
 
     y = _mm512_fmadd_ps(e, _mm512_set1_ps(-2.12194440e-4f), y);
-    y = _mm512_fnmadd_ps(z, _zmm_05, y); // y = y - z*0.5
+    y = _mm512_fnmadd_ps(z, _zmm_05, y); 
     
     x = _mm512_add_ps(x, y);
     x = _mm512_fmadd_ps(e, _mm512_set1_ps(0.693359375f), x);
 
-    // NaNs
     return _mm512_mask_blend_ps(invalid_mask, x, _zmm_nan); 
 }
-
 
 // --- Sine (Sin) for AVX-512 ---
 inline __m512 sin512_ps(__m512 x) {
@@ -122,7 +129,7 @@ inline __m512 sin512_ps(__m512 x) {
     sign_bit = x;
     x = _mm512_abs_ps(x);
 
-    xmm1 = _mm512_mul_ps(x, _mm512_set1_ps(0.63661977236758134308f)); // 2/pi
+    xmm1 = _mm512_mul_ps(x, _mm512_set1_ps(0.63661977236758134308f)); 
     emm2 = _mm512_cvttps_epi32(xmm1);
     emm2 = _mm512_add_epi32(emm2, _mm512_set1_epi32(1));
     emm2 = _mm512_and_si512(emm2, _mm512_set1_epi32(~1));
@@ -130,17 +137,7 @@ inline __m512 sin512_ps(__m512 x) {
 
     __mmask16 poly_mask = _mm512_cmpeq_epi32_mask(_mm512_and_si512(emm2, _mm512_set1_epi32(4)), _mm512_setzero_si512());
     
-    // sign bit logic
     __m512 sign_mask = _mm512_castsi512_ps(_mm512_set1_epi32(0x80000000));
-    // If poly_mask is true, we keep original sign. If false, we flip. 
-    // Wait, standard Cephes logic:
-    // swap_sign_bit = (emm2 & 4) != 0
-    // if swap, sign = ^sign
-    __m512 swap_sign = _mm512_and_ps(sign_mask, _mm512_mask_blend_ps(poly_mask, _zmm_1, _zmm_0)); // Logic slightly complex to port 1:1 visually, simplifying:
-    
-    // Correct logic: if (emm2 & 4) == 0 (poly_mask=1), no swap.
-    // If (emm2 & 4) != 0 (poly_mask=0), swap.
-    // We want to XOR with 0x80000000 if poly_mask is 0.
     __m512 xor_mask = _mm512_mask_blend_ps(poly_mask, sign_mask, _zmm_0); 
     sign_bit = _mm512_xor_ps(sign_bit, xor_mask);
 
@@ -154,7 +151,7 @@ inline __m512 sin512_ps(__m512 x) {
     y = _mm512_fmadd_ps(y, z, _mm512_set1_ps(4.166664568298827E-002f));
     y = _mm512_mul_ps(y, z);
     y = _mm512_mul_ps(y, z);
-    y = _mm512_fnmadd_ps(z, _zmm_05, y); // y - 0.5*z
+    y = _mm512_fnmadd_ps(z, _zmm_05, y); 
     y = _mm512_add_ps(y, _zmm_1);
     y = _mm512_mul_ps(y, x);
 
@@ -187,15 +184,12 @@ inline __m512 pow512_ps(__m512 a, __m512 b) {
 
 // Horizontal Sum for ZMM
 inline float hsum512_ps(__m512 v) {
-    // reduce to 256
     __m256 vlow = _mm512_castps512_ps256(v);
     __m256 vhigh = _mm512_extractf32x8_ps(v, 1);
     vlow = _mm256_add_ps(vlow, vhigh);
-    // reduce to 128
     __m128 xlow = _mm256_castps256_ps128(vlow);
     __m128 xhigh = _mm256_extractf128_ps(vlow, 1);
     xlow = _mm_add_ps(xlow, xhigh);
-    // reduce 128
     __m128 shuf = _mm_movehdup_ps(xlow);
     __m128 sums = _mm_add_ps(xlow, shuf);
     shuf = _mm_movehl_ps(shuf, sums);
@@ -256,17 +250,22 @@ static inline int32_t compute_offset_bytes(size_t lin_idx, const std::vector<siz
 
 // ----------------------Binary Broadcast Template (AVX-512)----------------------
 
-Tensor binary_op_broadcast_512(const Tensor& A, const Tensor& B, std::function<__m512(__m512,__m512)> op) {
+// FIX: Changed std::function to Template generic to fix compiler conversion errors and overhead
+template <typename Func>
+Tensor binary_op_broadcast_512(const Tensor& A, const Tensor& B, Func op) {
     std::vector<size_t> a_shape = A.shape();
     std::vector<size_t> b_shape = B.shape();
     std::vector<size_t> out_shape = broadcast_shape(a_shape, b_shape);
     size_t out_numel = 1;
     for (auto s : out_shape) out_numel *= s;
 
-    Tensor out(out_shape, A.device(), DType::Float32);
-    const float* a_ptr = (const float*)A.data();
-    const float* b_ptr = (const float*)B.data();
-    float* out_ptr = (float*)out.data();
+    // FIX: Removed A.device() from constructor, Tensor defaults to CPU.
+    Tensor out(out_shape, DType::Float32);
+    
+    // FIX: Use helper to get raw pointers
+    const float* a_ptr = get_ptr<float>(A);
+    const float* b_ptr = get_ptr<float>(B);
+    float* out_ptr = get_ptr<float>(out);
 
     auto out_mult = build_index_multipliers(out_shape);
     auto a_strides = shape_to_strides_bytes(a_shape);
@@ -277,9 +276,6 @@ Tensor binary_op_broadcast_512(const Tensor& A, const Tensor& B, std::function<_
     bool a_scalar = A.numel() == 1;
     bool b_scalar = B.numel() == 1;
 
-    // We process blocks of 16 (512 bits / 32 bits)
-    // Masking handles the tail automatically.
-    
     #pragma omp parallel for
     for (size_t i = 0; i < out_numel; i += 16) {
         size_t rem = out_numel - i;
@@ -292,16 +288,13 @@ Tensor binary_op_broadcast_512(const Tensor& A, const Tensor& B, std::function<_
         } else if (a_scalar) {
             va = _mm512_set1_ps(a_ptr[0]);
         } else {
-            // Scatter/Gather indices calculation
-            // We calculate 16 offsets
             int32_t idx_buf[16];
             for (int l = 0; l < 16; ++l) {
-                if ((k >> l) & 1) { // Only compute if mask bit set
+                if ((k >> l) & 1) { 
                     idx_buf[l] = compute_offset_bytes(i + l, out_shape, out_mult, a_shape, a_strides);
                 }
             }
             __m512i vidx = _mm512_loadu_si512(idx_buf);
-            // Gather: scale=1 because offsets are in bytes
             va = _mm512_mask_i32gather_ps(_zmm_0, k, vidx, a_ptr, 1);
         }
 
@@ -320,7 +313,7 @@ Tensor binary_op_broadcast_512(const Tensor& A, const Tensor& B, std::function<_
             vb = _mm512_mask_i32gather_ps(_zmm_0, k, vidx, b_ptr, 1);
         }
 
-        // Op
+        // Op (Inlined via template)
         __m512 vr = op(va, vb);
 
         // Store
@@ -331,10 +324,15 @@ Tensor binary_op_broadcast_512(const Tensor& A, const Tensor& B, std::function<_
 
 //-----------------------Unary Template (AVX-512)----------------------
 
-Tensor unary_op_512(const Tensor& A, std::function<__m512(__m512)> op) {
-    Tensor out(A.shape(), A.device(), DType::Float32);
-    const float* a_ptr = (const float*)A.data();
-    float* out_ptr = (float*)out.data();
+// FIX: Templated Func
+template <typename Func>
+Tensor unary_op_512(const Tensor& A, Func op) {
+    // FIX: Removed A.device()
+    Tensor out(A.shape(), DType::Float32);
+    
+    // FIX: Use helper
+    const float* a_ptr = get_ptr<float>(A);
+    float* out_ptr = get_ptr<float>(out);
     size_t n = A.numel();
 
     #pragma omp parallel for
@@ -378,15 +376,16 @@ Tensor matmul_avx512_f32(const Tensor& A, const Tensor& B) {
     size_t N = B.shape()[1];
     if (K != B.shape()[0]) throw std::runtime_error("matmul_avx512: shape mismatch");
 
-    Tensor C({M, N}, A.device(), DType::Float32);
-    const float* a_ptr = (const float*)A.data();
-    const float* b_ptr = (const float*)B.data();
-    float* c_ptr = (float*)C.data();
+    // FIX: Removed Device arg
+    Tensor C({M, N}, DType::Float32);
+    
+    // FIX: Use helper
+    const float* a_ptr = get_ptr<float>(A);
+    const float* b_ptr = get_ptr<float>(B);
+    float* c_ptr = get_ptr<float>(C);
+    
     std::memset(c_ptr, 0, M * N * sizeof(float));
 
-    // Simple but effective blocking for AVX-512
-    // We unroll inner loop by 16 floats (one ZMM)
-    
     #pragma omp parallel for
     for (size_t i = 0; i < M; ++i) {
         for (size_t k = 0; k < K; ++k) {
@@ -399,7 +398,6 @@ Tensor matmul_avx512_f32(const Tensor& A, const Tensor& B) {
                 vc = _mm512_fmadd_ps(va, vb, vc);
                 _mm512_storeu_ps(c_ptr + i*N + j, vc);
             }
-            // Tail
             if (j < N) {
                 __mmask16 mask = tail_mask(N - j);
                 __m512 vc = _mm512_maskz_loadu_ps(mask, c_ptr + i*N + j);
@@ -415,11 +413,9 @@ Tensor matmul_avx512_f32(const Tensor& A, const Tensor& B) {
 // Comparisons
 template<int CMP_PRED>
 Tensor cmp_avx512_f32_impl(const Tensor& a, const Tensor& b) {
-    return binary_op_broadcast_512(a, b, [](__m512 x, __m512 y){
-        // AVX-512 comparison returns a mask register (k), not a vector of floats.
+    return binary_op_broadcast_512(a, b, []( __m512 x, __m512 y){
+        // We capture CMP_PRED via template arg
         __mmask16 k = _mm512_cmp_ps_mask(x, y, CMP_PRED);
-        // We need to convert mask back to 0.0f/1.0f floats.
-        // _mm512_mask_blend_ps(k, src_false, src_true)
         return _mm512_mask_blend_ps(k, _zmm_0, _zmm_1);
     });
 }
@@ -443,16 +439,15 @@ Tensor tanh_avx512_f32(const Tensor& a) { return unary_op_512(a, [](__m512 x){ r
 Tensor sigmoid_avx512_f32(const Tensor& a) { return unary_op_512(a, [](__m512 x){ return sigmoid512_ps(x); }); }
 Tensor softplus_avx512_f32(const Tensor& a) { 
     return unary_op_512(a, [](__m512 x){ 
-        // log(1 + exp(x))
         return log512_ps(_mm512_add_ps(_zmm_1, exp512_ps(x))); 
     }); 
 }
 
 #define OMP_SIMD_UNARY_512(FUNC_NAME, STD_FUNC) \
 Tensor FUNC_NAME(const Tensor& a) { \
-    Tensor out(a.shape(), a.device(), DType::Float32); \
-    const float* pa = (const float*)a.data(); \
-    float* pout = (float*)out.data(); \
+    Tensor out(a.shape(), DType::Float32); \
+    const float* pa = get_ptr<float>(a); \
+    float* pout = get_ptr<float>(out); \
     size_t n = a.numel(); \
     _Pragma("omp parallel for simd") \
     for (size_t i = 0; i < n; ++i) { \
@@ -472,7 +467,7 @@ OMP_SIMD_UNARY_512(cosh_avx512_f32, std::cosh)
 Tensor sum_avx512_f32(const Tensor& t, int dim) {
     if (dim != -1) throw std::runtime_error("sum_avx512: only dim=-1");
     size_t n = t.numel();
-    const float* data = (const float*)t.data();
+    const float* data = get_ptr<float>(t);
     float global_sum = 0.0f;
 
     #pragma omp parallel
@@ -482,7 +477,6 @@ Tensor sum_avx512_f32(const Tensor& t, int dim) {
         for (size_t i=0; i < n; i+=16) {
             size_t rem = n - i;
             __mmask16 k = (rem >= 16) ? 0xFFFF : tail_mask(rem);
-            // masked load
             __m512 v = _mm512_maskz_loadu_ps(k, data + i);
             vsum = _mm512_add_ps(vsum, v);
         }
@@ -490,21 +484,21 @@ Tensor sum_avx512_f32(const Tensor& t, int dim) {
         #pragma omp atomic
         global_sum += local_sum;
     }
-    Tensor out({1}, t.device(), DType::Float32);
-    ((float*)out.data())[0] = global_sum;
+    Tensor out({1}, DType::Float32);
+    ((float*)get_ptr<float>(out))[0] = global_sum;
     return out;
 }
 
 Tensor mean_avx512_f32(const Tensor& t, int dim) {
     Tensor s = sum_avx512_f32(t, dim);
     float n = static_cast<float>(t.numel());
-    ((float*)s.data())[0] /= n;
+    ((float*)get_ptr<float>(s))[0] /= n;
     return s;
 }
 
 Tensor max_avx512_f32(const Tensor& t, int dim) {
     if (dim != -1) throw std::runtime_error("max_avx512: only dim=-1");
-    const float* data = (const float*)t.data();
+    const float* data = get_ptr<float>(t);
     size_t n = t.numel();
     float global_max = -std::numeric_limits<float>::infinity();
 
@@ -518,7 +512,6 @@ Tensor max_avx512_f32(const Tensor& t, int dim) {
             __m512 v = _mm512_mask_loadu_ps(_mm512_set1_ps(-std::numeric_limits<float>::infinity()), k, data+i);
             vmax = _mm512_max_ps(vmax, v);
         }
-        // Horizontal max reduction
         float local_max = _mm512_reduce_max_ps(vmax);
         
         #pragma omp critical
@@ -526,14 +519,14 @@ Tensor max_avx512_f32(const Tensor& t, int dim) {
             if(local_max > global_max) global_max = local_max;
         }
     }
-    Tensor out({1}, t.device(), DType::Float32);
-    ((float*)out.data())[0] = global_max;
+    Tensor out({1}, DType::Float32);
+    ((float*)get_ptr<float>(out))[0] = global_max;
     return out;
 }
 
 Tensor min_avx512_f32(const Tensor& t, int dim) {
     if (dim != -1) throw std::runtime_error("min_avx512: only dim=-1");
-    const float* data = (const float*)t.data();
+    const float* data = get_ptr<float>(t);
     size_t n = t.numel();
     float global_min = std::numeric_limits<float>::infinity();
 
@@ -554,10 +547,9 @@ Tensor min_avx512_f32(const Tensor& t, int dim) {
             if(local_min < global_min) global_min = local_min;
         }
     }
-    Tensor out({1}, t.device(), DType::Float32);
-    ((float*)out.data())[0] = global_min;
+    Tensor out({1}, DType::Float32);
+    ((float*)get_ptr<float>(out))[0] = global_min;
     return out;
 }
-
 
 #endif // __AVX512F__
