@@ -301,9 +301,9 @@ Tensor binary_op_broadcast(const Tensor& A, const Tensor& B, std::function<__m25
 
     Tensor out(out_shape, A.device(), DType::Float32);
 
-    const float* a_ptr = (const float*)A.data();
-    const float* b_ptr = (const float*)B.data();
-    float* out_ptr = (float*)out.data();
+    const float* a_ptr = (const float*)A.impl->data->data.get();
+    const float* b_ptr = (const float*)B.impl->data->data.get();
+    float* out_ptr = (float*)out.impl->data->data.get();
 
     // build index multipliers and strides (bytes)
     auto out_mult = build_index_multipliers(out_shape);
@@ -421,8 +421,8 @@ Tensor unary_op_broadcast(const Tensor& A, std::function<__m256(__m256)> avx_fun
     std::vector<size_t> a_shape = A.shape();
     size_t n = A.numel();
     Tensor out(a_shape, A.device(), DType::Float32);
-    const float* a_ptr = (const float*)A.data();
-    float* out_ptr = (float*)out.data();
+    const float* a_ptr = (const float*)A.impl->data->data.get();
+    float* out_ptr = (float*)out.impl->data->data.get();
 
     size_t vec_end = (n / 8) * 8;
     int32_t tail_maskbits[8]; build_tail_mask(tail_maskbits, n - vec_end);
