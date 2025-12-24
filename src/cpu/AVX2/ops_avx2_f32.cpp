@@ -4,53 +4,55 @@
 #include <algorithm>
 #include <omp.h>
 #include <limits>
-#include <functional>
+#include <cstring>
 
 #if defined(__AVX2__)
 
-// ========================================================================
-//                     Internal AVX2 Math Library
-// ========================================================================
-// High-performance polynomial approximations for transcendental functions
-// Adapted for single-file, self-contained AVX2 usage.
-
-
-
 namespace {
 
-// --- Constants ---
+// ========================================================================
+//                     Helpers for Tensor Access
+// ========================================================================
+
+template <typename T>
+inline T* get_ptr(const Tensor& t) {
+    if (!t.impl || !t.impl->data) return nullptr;
+    return (T*)t.impl->data->data.get() + t.impl->offset;
+}
+
+// ========================================================================
+//                     Internal AVX2 Math Constants & Helpers
+// ========================================================================
+
 const __m256 _ps_1  = _mm256_set1_ps(1.0f);
 const __m256 _ps_05 = _mm256_set1_ps(0.5f);
 const __m256 _ps_0  = _mm256_setzero_ps();
 const __m256 _ps_nan= _mm256_set1_ps(NAN);
 const __m256i _pi32_0x7f = _mm256_set1_epi32(0x7f);
 
-// --- Helpers ---
-inline __m256 _mm256_abs_ps(__m256 x) {
-    static const __m256i abs_mask = _mm256_set1_epi32(0x7FFFFFFF);
-    return _mm256_and_ps(x, _mm256_castsi256_ps(abs_mask));
-}
+// --- Masked Load/Store Helpers ---
+// Using manual loop for tails is often safer/simpler than _mm256_maskload_ps 
+// near page boundaries if mask generation is complex.
 
-inline __m256 _mm256_neg_ps(__m256 x) {
-    return _mm256_xor_ps(x, _mm256_set1_ps(-0.0f));
-}
-static inline __m256 masked_loadu_ps(const float* ptr, int valid)
-{
+static inline __m256 masked_loadu_ps(const float* ptr, size_t valid_count) {
     alignas(32) float tmp[8] = {0.0f};
-    for (int i = 0; i < valid; ++i)
-        tmp[i] = ptr[i];
+    for (size_t i = 0; i < valid_count; ++i) tmp[i] = ptr[i];
     return _mm256_load_ps(tmp);
 }
 
-static inline void masked_storeu_ps(float* ptr, __m256 v, int valid)
-{
+static inline void masked_storeu_ps(float* ptr, __m256 v, size_t valid_count) {
     alignas(32) float tmp[8];
     _mm256_store_ps(tmp, v);
-    for (int i = 0; i < valid; ++i)
-        ptr[i] = tmp[i];
+    for (size_t i = 0; i < valid_count; ++i) ptr[i] = tmp[i];
 }
+
+// --- Abs ---
+inline __m256 _mm256_abs_ps(__m256 x) {
+    const __m256i abs_mask = _mm256_set1_epi32(0x7FFFFFFF);
+    return _mm256_and_ps(x, _mm256_castsi256_ps(abs_mask));
+}
+
 // --- Exponential (Exp) ---
-// Cephes-style approximation
 inline __m256 exp256_ps(__m256 x) {
     __m256 tmp = _mm256_setzero_ps();
     __m256 fx;
@@ -100,17 +102,15 @@ inline __m256 log256_ps(__m256 x) {
     __m256 one = _ps_1;
     __m256 invalid_mask = _mm256_cmp_ps(x, _mm256_setzero_ps(), _CMP_LE_OQ);
 
-    x = _mm256_max_ps(x, _mm256_set1_ps(1.17549435e-38f)); // avoid denormal/zero
+    x = _mm256_max_ps(x, _mm256_set1_ps(1.17549435e-38f)); 
 
     __m256i emm0 = _mm256_srli_epi32(_mm256_castps_si256(x), 23);
     
-    // keep only the fractional part
     x = _mm256_and_ps(x, _mm256_castsi256_ps(_mm256_set1_epi32(0x7fffff)));
     x = _mm256_or_ps(x, _ps_05);
 
     emm0 = _mm256_sub_epi32(emm0, _pi32_0x7f);
     __m256 e = _mm256_cvtepi32_ps(emm0);
-
     e = _mm256_add_ps(e, one);
 
     __m256 mask = _mm256_cmp_ps(x, _mm256_set1_ps(0.707106781186547524f), _CMP_LT_OQ);
@@ -151,14 +151,14 @@ inline __m256 log256_ps(__m256 x) {
     x = _mm256_add_ps(x, y);
     x = _mm256_add_ps(x, tmp);
     
-    x = _mm256_or_ps(x, invalid_mask); // propagate NaNs
+    x = _mm256_or_ps(x, invalid_mask);
     return x;
 }
 
 // --- Sine (Sin) ---
 inline __m256 sin256_ps(__m256 x) {
-    __m256 xmm1, xmm2, xmm3, sign_bit, y;
-    __m256i emm0, emm2;
+    __m256 xmm1, sign_bit, y;
+    __m256i emm2;
     sign_bit = x;
     x = _mm256_abs_ps(x);
 
@@ -169,11 +169,11 @@ inline __m256 sin256_ps(__m256 x) {
     y = _mm256_cvtepi32_ps(emm2);
 
     __m256 poly_mask = _mm256_castsi256_ps(_mm256_cmpeq_epi32(_mm256_and_si256(emm2, _mm256_set1_epi32(4)), _mm256_setzero_si256()));
-    sign_bit = _mm256_xor_ps(sign_bit, _mm256_and_ps(_mm256_castsi256_ps(_mm256_set1_epi32(0x80000000)), poly_mask)); // swap sign if needed
+    sign_bit = _mm256_xor_ps(sign_bit, _mm256_and_ps(_mm256_castsi256_ps(_mm256_set1_epi32(0x80000000)), poly_mask));
 
-    __m256 m1 = _mm256_mul_ps(y, _mm256_set1_ps(-1.5703125f)); // -PI/2 1
-    __m256 m2 = _mm256_mul_ps(y, _mm256_set1_ps(-4.837512969970703125e-4f)); // -PI/2 2
-    __m256 m3 = _mm256_mul_ps(y, _mm256_set1_ps(-7.549789948768648e-8f)); // -PI/2 3
+    __m256 m1 = _mm256_mul_ps(y, _mm256_set1_ps(-1.5703125f));
+    __m256 m2 = _mm256_mul_ps(y, _mm256_set1_ps(-4.837512969970703125e-4f));
+    __m256 m3 = _mm256_mul_ps(y, _mm256_set1_ps(-7.549789948768648e-8f));
     
     x = _mm256_add_ps(x, m1);
     x = _mm256_add_ps(x, m2);
@@ -197,14 +197,12 @@ inline __m256 sin256_ps(__m256 x) {
 
 // --- Cosine (Cos) ---
 inline __m256 cos256_ps(__m256 x) {
-    // cos(x) = sin(x + pi/2)
     x = _mm256_add_ps(x, _mm256_set1_ps(1.57079632679489661923f));
     return sin256_ps(x);
 }
 
 // --- Tanh ---
 inline __m256 tanh256_ps(__m256 x) {
-    // tanh(x) = (e^(2x) - 1) / (e^(2x) + 1)
     __m256 two_x = _mm256_mul_ps(x, _mm256_set1_ps(2.0f));
     __m256 exp_2x = exp256_ps(two_x);
     __m256 num = _mm256_sub_ps(exp_2x, _ps_1);
@@ -214,18 +212,17 @@ inline __m256 tanh256_ps(__m256 x) {
 
 // --- Sigmoid ---
 inline __m256 sigmoid256_ps(__m256 x) {
-    // 1 / (1 + exp(-x))
     __m256 neg_x = _mm256_xor_ps(x, _mm256_set1_ps(-0.0f));
     __m256 e = exp256_ps(neg_x);
     __m256 den = _mm256_add_ps(_ps_1, e);
     return _mm256_div_ps(_ps_1, den);
 }
+
 // --- Pow ---
 inline __m256 pow256_ps(__m256 a, __m256 b) {
-    // a^b = exp(b * ln(a))
-    // Note: this implementation propagates NaNs if a <= 0
     return exp256_ps(_mm256_mul_ps(b, log256_ps(a)));
 }
+
 // --- Horizontal Sum ---
 inline float hsum256_ps(__m256 v) {
     __m128 vlow = _mm256_castps256_ps128(v);
@@ -238,12 +235,12 @@ inline float hsum256_ps(__m256 v) {
     return _mm_cvtss_f32(sums);
 }
 
-} 
+} // namespace
+
 // ---------------------------
 // Broadcasting helpers
 // ---------------------------
 
-// Convert shape vector to strides in bytes
 static inline std::vector<int64_t> shape_to_strides_bytes(const std::vector<size_t>& shape) {
     std::vector<int64_t> strides(shape.size());
     if (shape.empty()) return strides;
@@ -254,7 +251,6 @@ static inline std::vector<int64_t> shape_to_strides_bytes(const std::vector<size
     return strides;
 }
 
-// Compute broadcasted output shape for two shapes
 static std::vector<size_t> broadcast_shape(const std::vector<size_t>& a, const std::vector<size_t>& b) {
     size_t na = a.size(), nb = b.size();
     size_t n = std::max(na, nb);
@@ -268,7 +264,6 @@ static std::vector<size_t> broadcast_shape(const std::vector<size_t>& a, const s
     return out;
 }
 
-// Build per-dimension index multipliers for linear index -> offset
 static std::vector<int64_t> build_index_multipliers(const std::vector<size_t>& shape) {
     std::vector<int64_t> mult(shape.size());
     if (shape.empty()) return mult;
@@ -277,40 +272,26 @@ static std::vector<int64_t> build_index_multipliers(const std::vector<size_t>& s
     return mult;
 }
 
-// Given linear index, produce offset in bytes using shape/strides (strides in bytes)
 static inline int32_t compute_offset_bytes(size_t lin_idx, const std::vector<size_t>& out_shape, const std::vector<int64_t>& out_mult, const std::vector<size_t>& in_shape, const std::vector<int64_t>& in_strides_bytes) {
     int32_t offset = 0;
     size_t nd = out_shape.size();
     size_t offset_dim = nd - in_shape.size();
     for (size_t d = 0; d < nd; ++d) {
         size_t coord = (lin_idx / out_mult[d]) % out_shape[d];
-        // map to input coord
         size_t in_coord = 0;
-        if (d < offset_dim) {
-            in_coord = 0; // leading dims are broadcast
-        } else {
-            size_t idx = d - offset_dim;
-            if (in_shape[idx] == 1) in_coord = 0;
-            else in_coord = coord;
-        }
         if (d >= offset_dim) {
             size_t idx = d - offset_dim;
-            offset += (int32_t)(in_coord * (in_strides_bytes[idx]));
+            if (in_shape[idx] != 1) in_coord = coord;
+            offset += (int32_t)(in_coord * in_strides_bytes[idx]);
         }
     }
     return offset;
 }
 
-// ---------------------------
-// Core templates using broadcasting and gathers/masked loads
-// No scalar fallback (caller handles any special-cases)
-// ---------------------------
+// ----------------------Binary Broadcast Template (AVX2)----------------------
 
-// Binary op with broadcasting. avx_func takes (__m256 a, __m256 b) and returns __m256.
-// scalar_func is provided only for correctness reference (not used here because caller has dispatcher) but kept for signature compat.
-using avx_binop_t = __m256 (*)(__m256, __m256);
-Tensor binary_op_broadcast(const Tensor& A, const Tensor& B, avx_binop_t avx_func) {
-    // Extract shapes and compute broadcasted shape
+template <typename Func>
+Tensor binary_op_broadcast(const Tensor& A, const Tensor& B, Func op) {
     std::vector<size_t> a_shape = A.shape();
     std::vector<size_t> b_shape = B.shape();
     std::vector<size_t> out_shape = broadcast_shape(a_shape, b_shape);
@@ -319,152 +300,121 @@ Tensor binary_op_broadcast(const Tensor& A, const Tensor& B, avx_binop_t avx_fun
 
     Tensor out(out_shape, DType::Float32);
 
-    const float* a_ptr = (const float*)A.impl->data->data.get();
-    const float* b_ptr = (const float*)B.impl->data->data.get();
-    float* out_ptr = (float*)out.impl->data->data.get();
+    const float* a_ptr = get_ptr<float>(A);
+    const float* b_ptr = get_ptr<float>(B);
+    float* out_ptr = get_ptr<float>(out);
 
-    // build index multipliers and strides (bytes)
     auto out_mult = build_index_multipliers(out_shape);
     auto a_strides = shape_to_strides_bytes(a_shape);
     auto b_strides = shape_to_strides_bytes(b_shape);
-    auto a_nd = a_shape.size();
-    auto b_nd = b_shape.size();
-    size_t nd = out_shape.size();
 
-    // precompute whether a/b are contiguous with element stride == sizeof(float) and not broadcasted
-    bool a_contig = (A.is_contiguous());
-    bool b_contig = (B.is_contiguous());
+    bool a_contig = A.is_contiguous() && a_shape == out_shape;
+    bool b_contig = B.is_contiguous() && b_shape == out_shape;
+    bool a_is_scalar = (a_shape.empty() || (a_shape.size() == 1 && a_shape[0] == 1));
+    bool b_is_scalar = (b_shape.empty() || (b_shape.size() == 1 && b_shape[0] == 1));
 
-    // We'll iterate in blocks of 8 and use gathers for non-unit stride cases
     size_t vec_end = (out_numel / 8) * 8;
-    int32_t tail_maskbits[8];
-    build_tail_mask(tail_maskbits, out_numel - vec_end);
 
-    // Parallel loop
     #pragma omp parallel
     {
-        // thread-local gather index buffer
         int32_t gather_idx[8];
 
         #pragma omp for
         for (size_t i = 0; i < vec_end; i += 8) {
-            // for each lane compute byte offsets for a and b
-            for (int lane = 0; lane < 8; ++lane) {
-                size_t lin = i + lane;
-                gather_idx[lane] = compute_offset_bytes(lin, out_shape, out_mult, a_shape, a_strides);
-            }
-            // decide load method for A
             __m256 va;
-            bool a_is_broadcast = (a_shape.size()==1 && a_shape[0]==1) || (a_shape.size()==0);
-            if (a_contig && a_shape == out_shape) {
+            if (a_contig) {
                 va = _mm256_loadu_ps(a_ptr + i);
-            } else if (a_is_broadcast) {
-                // scalar broadcast
-                float aval = *((const float*)a_ptr);
-                va = _mm256_set1_ps(aval);
+            } else if (a_is_scalar) {
+                va = _mm256_set1_ps(a_ptr[0]);
             } else {
-                // gather
-                // gather expects offsets in bytes; use i32 offsets
-                va = _mm256_i32gather_ps((const float*)a_ptr, _mm256_loadu_si256((const __m256i*)gather_idx), 1);
+                for (int lane = 0; lane < 8; ++lane)
+                    gather_idx[lane] = compute_offset_bytes(i + lane, out_shape, out_mult, a_shape, a_strides);
+                va = _mm256_i32gather_ps(a_ptr, _mm256_loadu_si256((const __m256i*)gather_idx), 1);
             }
 
-            // compute offsets for B
-            for (int lane = 0; lane < 8; ++lane) {
-                size_t lin = i + lane;
-                gather_idx[lane] = compute_offset_bytes(lin, out_shape, out_mult, b_shape, b_strides);
-            }
             __m256 vb;
-            bool b_is_broadcast = (b_shape.size()==1 && b_shape[0]==1) || (b_shape.size()==0);
-            if (b_contig && b_shape == out_shape) {
+            if (b_contig) {
                 vb = _mm256_loadu_ps(b_ptr + i);
-            } else if (b_is_broadcast) {
-                float bval = *((const float*)b_ptr);
-                vb = _mm256_set1_ps(bval);
+            } else if (b_is_scalar) {
+                vb = _mm256_set1_ps(b_ptr[0]);
             } else {
-                vb = _mm256_i32gather_ps((const float*)b_ptr, _mm256_loadu_si256((const __m256i*)gather_idx), 1);
+                for (int lane = 0; lane < 8; ++lane)
+                    gather_idx[lane] = compute_offset_bytes(i + lane, out_shape, out_mult, b_shape, b_strides);
+                vb = _mm256_i32gather_ps(b_ptr, _mm256_loadu_si256((const __m256i*)gather_idx), 1);
             }
 
-            __m256 vr = avx_func(va, vb);
+            __m256 vr = op(va, vb);
             _mm256_storeu_ps(out_ptr + i, vr);
         }
 
-        // handle tail if any (masked store)
-        size_t tail_start = vec_end;
+        // Tail handling (single thread usually fine for tail, but we do it inside parallel if needed, or after)
+    }
+    
+    // Tail loop (scalar/masked)
+    if (vec_end < out_numel) {
         size_t tail = out_numel - vec_end;
-        if (tail) {
-            // compute gather offsets for tail lanes
-            int32_t tail_idx[8];
-            for (size_t lane = 0; lane < tail; ++lane) tail_idx[lane] = compute_offset_bytes(vec_end + lane, out_shape, out_mult, a_shape, a_strides);
-            // load a (use gather or broadcast)
-            __m256 va;
-            if (a_contig && a_shape == out_shape) {
-                // load first tail elements into vector with masked load
-                int32_t maskbits[8]; build_tail_mask(maskbits, tail);
-                va = masked_loadu_ps(a_ptr + vec_end, maskbits);
-            } else if ((a_shape.size()==1 && a_shape[0]==1) || (a_shape.size()==0)) {
-                va = _mm256_set1_ps(*((const float*)a_ptr));
-            } else {
-                // build gather idx bytes for tail
-                int32_t gidx[8]; for (size_t lane=0; lane<tail; ++lane) gidx[lane] = tail_idx[lane]; for (size_t lane=tail; lane<8; ++lane) gidx[lane]=0;
-                va = _mm256_i32gather_ps((const float*)a_ptr, _mm256_loadu_si256((const __m256i*)gidx), 1);
-            }
-            // similarly for B
-            if (b_contig && b_shape == out_shape) {
-                int32_t maskbits[8]; build_tail_mask(maskbits, tail);
-                __m256 vb = masked_loadu_ps(b_ptr + vec_end, maskbits);
-                __m256 vr = avx_func(va, vb);
-                int32_t maskbits_store[8]; build_tail_mask(maskbits_store, tail);
-                masked_storeu_ps(out_ptr + vec_end, vr, maskbits_store);
-            } else if ((b_shape.size()==1 && b_shape[0]==1) || (b_shape.size()==0)) {
-                __m256 vb = _mm256_set1_ps(*((const float*)b_ptr));
-                __m256 vr = avx_func(va, vb);
-                int32_t maskbits_store[8]; build_tail_mask(maskbits_store, tail);
-                masked_storeu_ps(out_ptr + vec_end, vr, maskbits_store);
-            } else {
-                int32_t gidxb[8]; for (size_t lane=0; lane<tail; ++lane) gidxb[lane] = compute_offset_bytes(vec_end + lane, out_shape, out_mult, b_shape, b_strides); for (size_t lane=tail; lane<8; ++lane) gidxb[lane]=0;
-                __m256 vb = _mm256_i32gather_ps((const float*)b_ptr, _mm256_loadu_si256((const __m256i*)gidxb), 1);
-                __m256 vr = avx_func(va, vb);
-                int32_t maskbits_store[8]; build_tail_mask(maskbits_store, tail);
-                masked_storeu_ps(out_ptr + vec_end, vr, maskbits_store);
-            }
+        
+        // A Load
+        __m256 va;
+        if (a_contig) {
+            va = masked_loadu_ps(a_ptr + vec_end, tail);
+        } else if (a_is_scalar) {
+            va = _mm256_set1_ps(a_ptr[0]);
+        } else {
+            int32_t gidx[8] = {0};
+            for (size_t j=0; j<tail; ++j) 
+                gidx[j] = compute_offset_bytes(vec_end + j, out_shape, out_mult, a_shape, a_strides);
+            va = _mm256_i32gather_ps(a_ptr, _mm256_loadu_si256((const __m256i*)gidx), 1);
         }
+
+        // B Load
+        __m256 vb;
+        if (b_contig) {
+            vb = masked_loadu_ps(b_ptr + vec_end, tail);
+        } else if (b_is_scalar) {
+            vb = _mm256_set1_ps(b_ptr[0]);
+        } else {
+            int32_t gidx[8] = {0};
+            for (size_t j=0; j<tail; ++j) 
+                gidx[j] = compute_offset_bytes(vec_end + j, out_shape, out_mult, b_shape, b_strides);
+            vb = _mm256_i32gather_ps(b_ptr, _mm256_loadu_si256((const __m256i*)gidx), 1);
+        }
+
+        __m256 vr = op(va, vb);
+        masked_storeu_ps(out_ptr + vec_end, vr, tail);
     }
 
     return out;
 }
 
+//-----------------------Unary Template (AVX2)----------------------
 
-// Simple unary op with broadcasting (mostly for broadcasting scalar -> tensor or same shape)
-using avx_unop_t = __m256 (*)(__m256);
-Tensor unary_op_broadcast(const Tensor& A, avx_unop_t avx_func) {
-    std::vector<size_t> a_shape = A.shape();
+template <typename Func>
+Tensor unary_op_broadcast(const Tensor& A, Func op) {
+    Tensor out(A.shape(), DType::Float32);
+    const float* a_ptr = get_ptr<float>(A);
+    float* out_ptr = get_ptr<float>(out);
     size_t n = A.numel();
-    Tensor out(a_shape, DType::Float32);
-    const float* a_ptr = (const float*)A.impl->data->data.get();
-    float* out_ptr = (float*)out.impl->data->data.get();
-
     size_t vec_end = (n / 8) * 8;
-    int32_t tail_maskbits[8]; build_tail_mask(tail_maskbits, n - vec_end);
 
     #pragma omp parallel for
     for (size_t i = 0; i < vec_end; i += 8) {
         __m256 va = _mm256_loadu_ps(a_ptr + i);
-        __m256 vr = avx_func(va);
+        __m256 vr = op(va);
         _mm256_storeu_ps(out_ptr + i, vr);
     }
-    if (n != vec_end) {
-        int tail = (int)(n - vec_end);
-        int32_t maskbits[8]; build_tail_mask(maskbits, tail);
-        __m256 va = masked_loadu_ps(a_ptr + vec_end, maskbits);
-        __m256 vr = avx_func(va);
-        masked_storeu_ps(out_ptr + vec_end, vr, maskbits);
+    if (n > vec_end) {
+        size_t tail = n - vec_end;
+        __m256 va = masked_loadu_ps(a_ptr + vec_end, tail);
+        __m256 vr = op(va);
+        masked_storeu_ps(out_ptr + vec_end, vr, tail);
     }
     return out;
 }
 
-// ---------------------------
-// Public API wrappers (vectorized)
-// ---------------------------
+// ========================================================================
+//                        Implementations
+// ========================================================================
 
 Tensor add_avx2_f32(const Tensor& a, const Tensor& b) {
     return binary_op_broadcast(a, b, [](__m256 x, __m256 y){ return _mm256_add_ps(x, y); });
@@ -482,13 +432,11 @@ Tensor pow_avx2_f32(const Tensor& a, const Tensor& b) {
     return binary_op_broadcast(a, b, [](__m256 x, __m256 y){ return pow256_ps(x, y); });
 }
 
-
-// comparisons: convert mask -> 0.0f / 1.0f
+// Comparisons
 template<int CMP_FLAG>
 Tensor cmp_avx2_f32(const Tensor& a, const Tensor& b) {
     return binary_op_broadcast(a, b, []( __m256 x, __m256 y){
         __m256 m = _mm256_cmp_ps(x, y, CMP_FLAG);
-        // mask bits are 0xFFFFFFFF for true; convert to 1.0f by ANDing with 1.0
         return _mm256_and_ps(m, _ps_1);
     });
 }
@@ -500,4 +448,186 @@ Tensor ge_avx2_f32(const Tensor& a, const Tensor& b) { return cmp_avx2_f32<_CMP_
 Tensor eq_avx2_f32(const Tensor& a, const Tensor& b) { return cmp_avx2_f32<_CMP_EQ_OQ>(a,b); }
 Tensor ne_avx2_f32(const Tensor& a, const Tensor& b) { return cmp_avx2_f32<_CMP_NEQ_OQ>(a,b); }
 
-#endif
+// Unary
+Tensor abs_avx2_f32(const Tensor& a) { return unary_op_broadcast(a, [](__m256 x){ return _mm256_abs_ps(x); }); }
+Tensor sqrt_avx2_f32(const Tensor& a) { return unary_op_broadcast(a, [](__m256 x){ return _mm256_sqrt_ps(x); }); }
+Tensor relu_avx2_f32(const Tensor& a) { return unary_op_broadcast(a, [](__m256 x){ return _mm256_max_ps(x, _ps_0); }); }
+Tensor ln_avx2_f32(const Tensor& a) { return unary_op_broadcast(a, [](__m256 x){ return log256_ps(x); }); }
+Tensor exp_avx2_f32(const Tensor& a) { return unary_op_broadcast(a, [](__m256 x){ return exp256_ps(x); }); }
+Tensor sin_avx2_f32(const Tensor& a) { return unary_op_broadcast(a, [](__m256 x){ return sin256_ps(x); }); }
+Tensor cos_avx2_f32(const Tensor& a) { return unary_op_broadcast(a, [](__m256 x){ return cos256_ps(x); }); }
+Tensor tanh_avx2_f32(const Tensor& a) { return unary_op_broadcast(a, [](__m256 x){ return tanh256_ps(x); }); }
+Tensor sigmoid_avx2_f32(const Tensor& a) { return unary_op_broadcast(a, [](__m256 x){ return sigmoid256_ps(x); }); }
+Tensor softplus_avx2_f32(const Tensor& a) { 
+    return unary_op_broadcast(a, [](__m256 x){ 
+        return log256_ps(_mm256_add_ps(_ps_1, exp256_ps(x))); 
+    }); 
+}
+
+#define OMP_SIMD_UNARY_AVX2(FUNC_NAME, STD_FUNC) \
+Tensor FUNC_NAME(const Tensor& a) { \
+    Tensor out(a.shape(), DType::Float32); \
+    const float* pa = get_ptr<float>(a); \
+    float* pout = get_ptr<float>(out); \
+    size_t n = a.numel(); \
+    _Pragma("omp parallel for simd") \
+    for (size_t i = 0; i < n; ++i) { \
+        pout[i] = STD_FUNC(pa[i]); \
+    } \
+    return out; \
+}
+
+OMP_SIMD_UNARY_AVX2(asin_avx2_f32, std::asin)
+OMP_SIMD_UNARY_AVX2(acos_avx2_f32, std::acos)
+OMP_SIMD_UNARY_AVX2(tan_avx2_f32, std::tan)
+OMP_SIMD_UNARY_AVX2(atan_avx2_f32, std::atan)
+OMP_SIMD_UNARY_AVX2(sinh_avx2_f32, std::sinh)
+OMP_SIMD_UNARY_AVX2(cosh_avx2_f32, std::cosh)
+
+// Matmul (Simple blocked AVX2)
+Tensor matmul_avx2_f32(const Tensor& A, const Tensor& B) {
+    if (A.shape().size() != 2 || B.shape().size() != 2) throw std::runtime_error("matmul_avx2: only 2D");
+    size_t M = A.shape()[0];
+    size_t K = A.shape()[1];
+    size_t N = B.shape()[1];
+    if (K != B.shape()[0]) throw std::runtime_error("matmul_avx2: shape mismatch");
+
+    Tensor C({M, N}, DType::Float32);
+    const float* a_ptr = get_ptr<float>(A);
+    const float* b_ptr = get_ptr<float>(B);
+    float* c_ptr = get_ptr<float>(C);
+    
+    std::memset(c_ptr, 0, M * N * sizeof(float));
+
+    #pragma omp parallel for
+    for (size_t i = 0; i < M; ++i) {
+        for (size_t k = 0; k < K; ++k) {
+            __m256 va = _mm256_set1_ps(a_ptr[i*K + k]);
+            size_t j = 0;
+            for (; j + 8 <= N; j += 8) {
+                __m256 vc = _mm256_loadu_ps(c_ptr + i*N + j);
+                __m256 vb = _mm256_loadu_ps(b_ptr + k*N + j);
+                vc = _mm256_fmadd_ps(va, vb, vc);
+                _mm256_storeu_ps(c_ptr + i*N + j, vc);
+            }
+            if (j < N) {
+                size_t tail = N - j;
+                __m256 vc = masked_loadu_ps(c_ptr + i*N + j, tail);
+                __m256 vb = masked_loadu_ps(b_ptr + k*N + j, tail);
+                vc = _mm256_fmadd_ps(va, vb, vc);
+                masked_storeu_ps(c_ptr + i*N + j, vc, tail);
+            }
+        }
+    }
+    return C;
+}
+
+// Reductions
+Tensor sum_avx2_f32(const Tensor& t, int dim) {
+    if (dim != -1) throw std::runtime_error("sum_avx2: only dim=-1");
+    size_t n = t.numel();
+    const float* data = get_ptr<float>(t);
+    float global_sum = 0.0f;
+
+    #pragma omp parallel
+    {
+        __m256 vsum = _ps_0;
+        #pragma omp for nowait
+        for (size_t i=0; i < n; i+=8) {
+            size_t tail = (n - i < 8) ? (n - i) : 8;
+            __m256 v;
+            if (tail == 8) v = _mm256_loadu_ps(data + i);
+            else v = masked_loadu_ps(data + i, tail);
+            vsum = _mm256_add_ps(vsum, v);
+        }
+        float local_sum = hsum256_ps(vsum);
+        #pragma omp atomic
+        global_sum += local_sum;
+    }
+    Tensor out({1}, DType::Float32);
+    ((float*)get_ptr<float>(out))[0] = global_sum;
+    return out;
+}
+
+Tensor mean_avx2_f32(const Tensor& t, int dim) {
+    Tensor s = sum_avx2_f32(t, dim);
+    float n = static_cast<float>(t.numel());
+    ((float*)get_ptr<float>(s))[0] /= n;
+    return s;
+}
+
+Tensor max_avx2_f32(const Tensor& t, int dim) {
+    if (dim != -1) throw std::runtime_error("max_avx2: only dim=-1");
+    const float* data = get_ptr<float>(t);
+    size_t n = t.numel();
+    float global_max = -std::numeric_limits<float>::infinity();
+
+    #pragma omp parallel
+    {
+        __m256 vmax = _mm256_set1_ps(-std::numeric_limits<float>::infinity());
+        #pragma omp for nowait
+        for(size_t i=0; i<n; i+=8) {
+            size_t tail = (n - i < 8) ? (n - i) : 8;
+            __m256 v;
+            if (tail == 8) v = _mm256_loadu_ps(data + i);
+            else v = masked_loadu_ps(data + i, tail);
+            vmax = _mm256_max_ps(vmax, v);
+        }
+        // Horizontal max
+        __m128 vlow = _mm256_castps256_ps128(vmax);
+        __m128 vhigh = _mm256_extractf128_ps(vmax, 1);
+        vlow = _mm_max_ps(vlow, vhigh);
+        __m128 shuf = _mm_movehdup_ps(vlow);
+        vlow = _mm_max_ps(vlow, shuf);
+        shuf = _mm_movehl_ps(shuf, vlow);
+        vlow = _mm_max_ss(vlow, shuf);
+        float local_max = _mm_cvtss_f32(vlow);
+        
+        #pragma omp critical
+        {
+            if(local_max > global_max) global_max = local_max;
+        }
+    }
+    Tensor out({1}, DType::Float32);
+    ((float*)get_ptr<float>(out))[0] = global_max;
+    return out;
+}
+
+Tensor min_avx2_f32(const Tensor& t, int dim) {
+    if (dim != -1) throw std::runtime_error("min_avx2: only dim=-1");
+    const float* data = get_ptr<float>(t);
+    size_t n = t.numel();
+    float global_min = std::numeric_limits<float>::infinity();
+
+    #pragma omp parallel
+    {
+        __m256 vmin = _mm256_set1_ps(std::numeric_limits<float>::infinity());
+        #pragma omp for nowait
+        for(size_t i=0; i<n; i+=8) {
+            size_t tail = (n - i < 8) ? (n - i) : 8;
+            __m256 v;
+            if (tail == 8) v = _mm256_loadu_ps(data + i);
+            else v = masked_loadu_ps(data + i, tail);
+            vmin = _mm256_min_ps(vmin, v);
+        }
+        // Horizontal min
+        __m128 vlow = _mm256_castps256_ps128(vmin);
+        __m128 vhigh = _mm256_extractf128_ps(vmin, 1);
+        vlow = _mm_min_ps(vlow, vhigh);
+        __m128 shuf = _mm_movehdup_ps(vlow);
+        vlow = _mm_min_ps(vlow, shuf);
+        shuf = _mm_movehl_ps(shuf, vlow);
+        vlow = _mm_min_ss(vlow, shuf);
+        float local_min = _mm_cvtss_f32(vlow);
+        
+        #pragma omp critical
+        {
+            if(local_min < global_min) global_min = local_min;
+        }
+    }
+    Tensor out({1}, DType::Float32);
+    ((float*)get_ptr<float>(out))[0] = global_min;
+    return out;
+}
+
+#endif // __AVX2__
