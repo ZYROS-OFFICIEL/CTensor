@@ -477,8 +477,8 @@ Tensor pow_avx2_d64(const Tensor& A, const Tensor& B) {
 #define OMP_SIMD_UNARY_D64(FUNC_NAME, STD_FUNC) \
 Tensor FUNC_NAME(const Tensor& a) { \
     Tensor out(a.shape(), a.device(), DType::Double64); \
-    const double* pa = (const double*)a.data(); \
-    double* pout = (double*)out.data(); \
+    const double* pa = (const double*)a.impl->data->data.get(); \
+    double* pout = (double*)out.impl->data->data.get(); \
     size_t n = a.numel(); \
     _Pragma("omp parallel for simd") \
     for (size_t i = 0; i < n; ++i) { \
@@ -491,8 +491,8 @@ Tensor FUNC_NAME(const Tensor& a) { \
 Tensor abs_avx2_d64(const Tensor& a) {
     static const __m256i abs_mask = _mm256_set1_epi64x(0x7FFFFFFFFFFFFFFF);
     Tensor out(a.shape(), a.device(), DType::Double64);
-    const double* pa = (const double*)a.data();
-    double* pout = (double*)out.data();
+    const double* pa = (const double*)a.impl->data->data.get();
+    double* pout = (double*)out.impl->data->data.get();
     size_t n = a.numel();
     size_t vec_end = (n/4)*4;
 
@@ -509,8 +509,8 @@ Tensor abs_avx2_d64(const Tensor& a) {
 
 Tensor sqrt_avx2_d64(const Tensor& a) {
     Tensor out(a.shape(), a.device(), DType::Double64);
-    const double* pa = (const double*)a.data();
-    double* pout = (double*)out.data();
+    const double* pa = (const double*)a.impl->data->data.get();
+    double* pout = (double*)out.impl->data->data.get();
     size_t n = a.numel();
     size_t vec_end = (n/4)*4;
 
@@ -524,8 +524,8 @@ Tensor sqrt_avx2_d64(const Tensor& a) {
 
 Tensor relu_avx2_d64(const Tensor& a) {
     Tensor out(a.shape(), a.device(), DType::Double64);
-    const double* pa = (const double*)a.data();
-    double* pout = (double*)out.data();
+    const double* pa = (const double*)a.impl->data->data.get();
+    double* pout = (double*)out.impl->data->data.get();
     size_t n = a.numel();
     size_t vec_end = (n/4)*4;
     __m256d zero = _mm256_setzero_pd();
