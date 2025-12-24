@@ -292,7 +292,8 @@ static inline int32_t compute_offset_bytes(size_t lin_idx, const std::vector<siz
 
 // Binary op with broadcasting. avx_func takes (__m256 a, __m256 b) and returns __m256.
 // scalar_func is provided only for correctness reference (not used here because caller has dispatcher) but kept for signature compat.
-Tensor binary_op_broadcast(const Tensor& A, const Tensor& B, std::function<__m256(__m256,__m256)> avx_func) {
+using avx_binop_t = __m256 (*)(__m256, __m256);
+Tensor binary_op_broadcast(const Tensor& A, const Tensor& B, avx_binop_t avx_func) {
     // Extract shapes and compute broadcasted shape
     std::vector<size_t> a_shape = A.shape();
     std::vector<size_t> b_shape = B.shape();
@@ -418,7 +419,8 @@ Tensor binary_op_broadcast(const Tensor& A, const Tensor& B, std::function<__m25
 
 
 // Simple unary op with broadcasting (mostly for broadcasting scalar -> tensor or same shape)
-Tensor unary_op_broadcast(const Tensor& A, std::function<__m256(__m256)> avx_func) {
+using avx_unop_t = __m256 (*)(__m256);
+Tensor unary_op_broadcast(const Tensor& A, avx_unop_t avx_func) {
     std::vector<size_t> a_shape = A.shape();
     size_t n = A.numel();
     Tensor out(a_shape, DType::Float32);
