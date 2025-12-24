@@ -264,7 +264,7 @@ Tensor matmul_avx2_d64(const Tensor& A, const Tensor& B) {
 Tensor sum_avx2_d64(const Tensor& t, int dim) {
     if (dim != -1) throw std::runtime_error("sum_avx2_d64: only dim=-1");
     size_t n = t.numel();
-    const double* data = (const double*)t.data();
+    const double* data = (const double*)t.impl->data->data.get();
     double global_sum = 0.0;
     size_t vec_end = (n/4)*4;
 
@@ -282,20 +282,20 @@ Tensor sum_avx2_d64(const Tensor& t, int dim) {
     for (size_t i=vec_end; i<n; ++i) global_sum += data[i];
 
     Tensor out({1}, t.device(), DType::Double64);
-    ((double*)out.data())[0] = global_sum;
+    ((double*)out.impl->data->data.get())[0] = global_sum;
     return out;
 }
 
 Tensor mean_avx2_d64(const Tensor& t, int dim) {
     Tensor s = sum_avx2_d64(t, dim);
     double n = static_cast<double>(t.numel());
-    ((double*)s.data())[0] /= n;
+    ((double*)s.impl->data->data.get())[0] /= n;
     return s;
 }
 
 Tensor max_avx2_d64(const Tensor& t, int dim) {
     if (dim != -1) throw std::runtime_error("max_avx2_d64: only dim=-1");
-    const double* data = (const double*)t.data();
+    const double* data = (const double*)t.impl->data->data.get();
     size_t n = t.numel();
     double global_max = -std::numeric_limits<double>::infinity();
     size_t vec_end = (n/4)*4;
@@ -326,13 +326,13 @@ Tensor max_avx2_d64(const Tensor& t, int dim) {
     }
 
     Tensor out({1}, t.device(), DType::Double64);
-    ((double*)out.data())[0] = global_max;
+    ((double*)out.impl->data->data.get())[0] = global_max;
     return out;
 }
 
 Tensor min_avx2_d64(const Tensor& t, int dim) {
     if (dim != -1) throw std::runtime_error("min_avx2_d64: only dim=-1");
-    const double* data = (const double*)t.data();
+    const double* data = (const double*)t.impl->data->data.get();
     size_t n = t.numel();
     double global_min = std::numeric_limits<double>::infinity();
     size_t vec_end = (n/4)*4;
@@ -361,7 +361,7 @@ Tensor min_avx2_d64(const Tensor& t, int dim) {
     }
 
     Tensor out({1}, t.device(), DType::Double64);
-    ((double*)out.data())[0] = global_min;
+    ((double*)out.impl->data->data.get())[0] = global_min;
     return out;
 }
 
@@ -388,9 +388,9 @@ Tensor pow_avx2_d64(const Tensor& A, const Tensor& B) {
     size_t out_numel = 1; for (auto s : out_shape) out_numel *= s;
     Tensor out(out_shape, A.device(), DType::Double64);
 
-    const double* a_ptr = (const double*)A.data();
-    const double* b_ptr = (const double*)B.data();
-    double* out_ptr = (double*)out.data();
+    const double* a_ptr = (const double*)A.impl->data->data.get();
+    const double* b_ptr = (const double*)B.impl->data->data.get();
+    double* out_ptr = (double*)out.impl->data->data.get();
 
     bool a_contig = (A.is_contiguous()) && (a_shape == out_shape);
     bool b_contig = (B.is_contiguous()) && (b_shape == out_shape);
@@ -440,9 +440,9 @@ Tensor pow_avx2_d64(const Tensor& A, const Tensor& B) {
     size_t out_numel = 1; for (auto s : out_shape) out_numel *= s;
     Tensor out(out_shape, A.device(), DType::Double64);
 
-    const double* a_ptr = (const double*)A.data();
-    const double* b_ptr = (const double*)B.data();
-    double* out_ptr = (double*)out.data();
+    const double* a_ptr = (const double*)A.impl->data->data.get();
+    const double* b_ptr = (const double*)B.impl->data->data.get();
+    double* out_ptr = (double*)out.impl->data->data.get();
 
     bool a_contig = (A.is_contiguous()) && (a_shape == out_shape);
     bool b_contig = (B.is_contiguous()) && (b_shape == out_shape);
