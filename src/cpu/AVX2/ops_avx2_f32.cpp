@@ -14,6 +14,8 @@
 // High-performance polynomial approximations for transcendental functions
 // Adapted for single-file, self-contained AVX2 usage.
 
+
+
 namespace {
 
 // --- Constants ---
@@ -32,7 +34,21 @@ inline __m256 _mm256_abs_ps(__m256 x) {
 inline __m256 _mm256_neg_ps(__m256 x) {
     return _mm256_xor_ps(x, _mm256_set1_ps(-0.0f));
 }
+static inline __m256 masked_loadu_ps(const float* ptr, int valid)
+{
+    alignas(32) float tmp[8] = {0.0f};
+    for (int i = 0; i < valid; ++i)
+        tmp[i] = ptr[i];
+    return _mm256_load_ps(tmp);
+}
 
+static inline void masked_storeu_ps(float* ptr, __m256 v, int valid)
+{
+    alignas(32) float tmp[8];
+    _mm256_store_ps(tmp, v);
+    for (int i = 0; i < valid; ++i)
+        ptr[i] = tmp[i];
+}
 // --- Exponential (Exp) ---
 // Cephes-style approximation
 inline __m256 exp256_ps(__m256 x) {
