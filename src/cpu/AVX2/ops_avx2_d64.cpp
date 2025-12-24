@@ -105,9 +105,9 @@ Tensor binary_op_broadcast_d64(const Tensor& A, const Tensor& B, std::function<_
 
     Tensor out(out_shape, A.device(), DType::Double64);
 
-    const double* a_ptr = (const double*)A.data();
-    const double* b_ptr = (const double*)B.data();
-    double* out_ptr = (double*)out.data();
+    const double* a_ptr = (const double*)A.impl->data->data.get();
+    const double* b_ptr = (const double*)B.impl->data->data.get();
+    double* out_ptr = (double*)out.impl->data->data.get();
 
     auto out_mult = build_index_multipliers(out_shape);
     auto a_strides = shape_to_strides_bytes(a_shape);
@@ -229,9 +229,9 @@ Tensor matmul_avx2_d64(const Tensor& A, const Tensor& B) {
     if (K != B.shape()[0]) throw std::runtime_error("matmul_avx2_d64: shape mismatch");
 
     Tensor C({M, N}, A.device(), DType::Double64);
-    const double* a_ptr = (const double*)A.data();
-    const double* b_ptr = (const double*)B.data();
-    double* c_ptr = (double*)C.data();
+    const double* a_ptr = (const double*)A.impl->data->data.get();
+    const double* b_ptr = (const double*)B.impl->data->data.get();
+    double* c_ptr = (double*)C.impl->data->data.get();
     std::memset(c_ptr, 0, M * N * sizeof(double));
 
     #pragma omp parallel for
