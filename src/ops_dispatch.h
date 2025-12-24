@@ -131,7 +131,7 @@ Tensor div(const Tensor &a, const Tensor &b) {
                 if (cpu_has_avx2())    return div_avx2_f32(a,b);
                 return div_mp(a,b);
             }
-            case DType::Int32: return div_scalar_mp(a,b);
+            case DType::Int32: return div_mp(a,b);
             case DType::Double64: {
                 if (cpu_has_avx512f()) return div_avx512_d64(a,b);
                 if (cpu_has_avx2())    return div_avx2_d64(a,b);
