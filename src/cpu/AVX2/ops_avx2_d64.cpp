@@ -476,7 +476,7 @@ Tensor pow_avx2_d64(const Tensor& A, const Tensor& B) {
 
 #define OMP_SIMD_UNARY_D64(FUNC_NAME, STD_FUNC) \
 Tensor FUNC_NAME(const Tensor& a) { \
-    Tensor out(a.shape(), a.device(), DType::Double64); \
+    Tensor out(a.shape(), DType::Double64); \
     const double* pa = (const double*)a.impl->data->data.get(); \
     double* pout = (double*)out.impl->data->data.get(); \
     size_t n = a.numel(); \
