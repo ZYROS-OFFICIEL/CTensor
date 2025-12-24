@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <omp.h>
 #include <limits>
+#include <functional>
 
 #if defined(__AVX2__)
 
