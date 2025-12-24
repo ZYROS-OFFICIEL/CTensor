@@ -300,7 +300,7 @@ Tensor binary_op_broadcast(const Tensor& A, const Tensor& B, std::function<__m25
     size_t out_numel = 1;
     for (auto s : out_shape) out_numel *= s;
 
-    Tensor out(out_shape, A.device(), DType::Float32);
+    Tensor out(out_shape, DType::Float32);
 
     const float* a_ptr = (const float*)A.impl->data->data.get();
     const float* b_ptr = (const float*)B.impl->data->data.get();
