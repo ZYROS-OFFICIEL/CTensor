@@ -107,7 +107,7 @@ Tensor mul(const Tensor &a, const Tensor &b) {
                 if (cpu_has_avx2())    return mul_avx2_f32(a,b);
                 return mult_mp(a,b);
             }
-            case DType::Int32: return mul_scalar_i32(a,b);
+            case DType::Int32: return mult_mp(a,b);
             case DType::Double64: {
                 if (cpu_has_avx512f()) return mul_avx512_d64(a,b);
                 if (cpu_has_avx2())    return mul_avx2_d64(a,b);
