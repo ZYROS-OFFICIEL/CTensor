@@ -110,9 +110,10 @@ static inline int32_t compute_offset_bytes(size_t lin_idx, const std::vector<siz
     return offset;
 }
 
-/*----------------------Generic Binary Template (Double)---------------------------*/
+// ----------------------Binary Broadcast Template (Double)----------------------
 
-Tensor binary_op_broadcast_d64(const Tensor& A, const Tensor& B, std::function<__m256d(__m256d,__m256d)> avx_func) {
+template <typename Func>
+Tensor binary_op_broadcast_d64(const Tensor& A, const Tensor& B, Func op) {
     std::vector<size_t> a_shape = A.shape();
     std::vector<size_t> b_shape = B.shape();
     std::vector<size_t> out_shape = broadcast_shape(a_shape, b_shape);
@@ -120,11 +121,12 @@ Tensor binary_op_broadcast_d64(const Tensor& A, const Tensor& B, std::function<_
     size_t out_numel = 1;
     for (auto s : out_shape) out_numel *= s;
 
-    Tensor out(out_shape, A.device(), DType::Double64);
+    // FIX: Removed A.device()
+    Tensor out(out_shape, DType::Double64);
 
-    const double* a_ptr = (const double*)A.impl->data->data.get();
-    const double* b_ptr = (const double*)B.impl->data->data.get();
-    double* out_ptr = (double*)out.impl->data->data.get();
+    const double* a_ptr = get_ptr<double>(A);
+    const double* b_ptr = get_ptr<double>(B);
+    double* out_ptr = get_ptr<double>(out);
 
     auto out_mult = build_index_multipliers(out_shape);
     auto a_strides = shape_to_strides_bytes(a_shape);
@@ -140,7 +142,7 @@ Tensor binary_op_broadcast_d64(const Tensor& A, const Tensor& B, std::function<_
 
     #pragma omp parallel
     {
-        int32_t gather_idx[4]; // buffer for 4 offsets
+        int32_t gather_idx[4]; 
 
         #pragma omp for
         for (size_t i = 0; i < vec_end; i += 4) {
@@ -154,11 +156,7 @@ Tensor binary_op_broadcast_d64(const Tensor& A, const Tensor& B, std::function<_
             } else {
                 for (int lane = 0; lane < 4; ++lane)
                     gather_idx[lane] = compute_offset_bytes(i + lane, out_shape, out_mult, a_shape, a_strides);
-                // i32gather_pd gathers doubles using int32 indices * scale. 
-                // Since our offsets are bytes, we can't use scale=8 unless indices were element indices.
-                // But i32gather_pd takes indices as Bytes if scale=1. 
-                // _mm256_i32gather_pd(double const * base_addr, __m128i vindex, const int scale)
-                // vindex is 4 integers (XMM register).
+                // _mm256_i32gather_pd requires 128-bit integer index vector
                 __m128i vidx = _mm_loadu_si128((const __m128i*)gather_idx);
                 va = _mm256_i32gather_pd(a_ptr, vidx, 1);
             }
@@ -176,56 +174,51 @@ Tensor binary_op_broadcast_d64(const Tensor& A, const Tensor& B, std::function<_
             }
 
             // Op
-            __m256d vr = avx_func(va, vb);
+            __m256d vr = op(va, vb);
             _mm256_storeu_pd(out_ptr + i, vr);
         }
+    }
 
-        // Tail
-        size_t tail_start = vec_end;
-        size_t tail_count = out_numel - tail_start;
-        if (tail_count > 0) {
-            int64_t mask[4];
-            build_tail_mask_d64(mask, tail_count);
-
-            __m256d va_tail, vb_tail;
-            
-            // Tail Load A
-            if (a_contig) {
-                va_tail = masked_loadu_pd(a_ptr + tail_start, mask);
-            } else if (a_is_scalar) {
-                va_tail = _mm256_set1_pd(a_ptr[0]);
-            } else {
-                double tmp[4] = {0};
-                for(size_t j=0; j<tail_count; ++j) {
-                    size_t offset = compute_offset_bytes(tail_start + j, out_shape, out_mult, a_shape, a_strides);
-                    // offset is in bytes
-                    tmp[j] = *(const double*)((const char*)a_ptr + offset);
-                }
-                va_tail = _mm256_loadu_pd(tmp);
+    // Tail
+    if (vec_end < out_numel) {
+        size_t tail_count = out_numel - vec_end;
+        
+        // Tail Load A
+        __m256d va_tail;
+        if (a_contig) {
+            va_tail = masked_loadu_pd(a_ptr + vec_end, tail_count);
+        } else if (a_is_scalar) {
+            va_tail = _mm256_set1_pd(a_ptr[0]);
+        } else {
+            alignas(32) double tmp[4];
+            for(size_t j=0; j<tail_count; ++j) {
+                size_t offset = compute_offset_bytes(vec_end + j, out_shape, out_mult, a_shape, a_strides);
+                tmp[j] = *(const double*)((const char*)a_ptr + offset);
             }
-
-            // Tail Load B
-            if (b_contig) {
-                vb_tail = masked_loadu_pd(b_ptr + tail_start, mask);
-            } else if (b_is_scalar) {
-                vb_tail = _mm256_set1_pd(b_ptr[0]);
-            } else {
-                double tmp[4] = {0};
-                for(size_t j=0; j<tail_count; ++j) {
-                    size_t offset = compute_offset_bytes(tail_start + j, out_shape, out_mult, b_shape, b_strides);
-                    tmp[j] = *(const double*)((const char*)b_ptr + offset);
-                }
-                vb_tail = _mm256_loadu_pd(tmp);
-            }
-
-            __m256d vr_tail = avx_func(va_tail, vb_tail);
-            masked_storeu_pd(out_ptr + tail_start, vr_tail, mask);
+            va_tail = _mm256_load_pd(tmp);
         }
+
+        // Tail Load B
+        __m256d vb_tail;
+        if (b_contig) {
+            vb_tail = masked_loadu_pd(b_ptr + vec_end, tail_count);
+        } else if (b_is_scalar) {
+            vb_tail = _mm256_set1_pd(b_ptr[0]);
+        } else {
+            alignas(32) double tmp[4];
+            for(size_t j=0; j<tail_count; ++j) {
+                size_t offset = compute_offset_bytes(vec_end + j, out_shape, out_mult, b_shape, b_strides);
+                tmp[j] = *(const double*)((const char*)b_ptr + offset);
+            }
+            vb_tail = _mm256_load_pd(tmp);
+        }
+
+        __m256d vr_tail = op(va_tail, vb_tail);
+        masked_storeu_pd(out_ptr + vec_end, vr_tail, tail_count);
     }
 
     return out;
 }
-
 /*----------------------Comparing ops template---------------------------*/
 template<int CMP_FLAG>
 Tensor cmp_avx2_d64_impl(const Tensor& a, const Tensor& b) {
