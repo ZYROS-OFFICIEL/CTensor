@@ -88,6 +88,12 @@ void vector_init_kernel(void* data, size_t n, const std::vector<double>& vals) {
 //                                  TENSOR METHODS
 // ======================================================================================
 
+Device Tensor::device() const {
+    if (!impl) throw std::runtime_error("Tensor is empty/undefined");
+    return impl->data->device;
+}
+
+
 bool Tensor::is_contiguous() const {
     if (!impl) return false;
     if (impl->ndim == 0) return true;
