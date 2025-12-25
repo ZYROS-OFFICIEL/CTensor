@@ -1,5 +1,4 @@
-#include "autograd.h"
-#include "ops.h"       
+#include "autograd.h" 
 #include "tensor.h"
 #include <algorithm>
 #include <cstring>
@@ -82,7 +81,7 @@ void accumulate_grad(Tensor& target, const Tensor& grad_src) {
     Tensor grad_aligned = grad_src;
     if (!axes_to_reduce.empty()) {
         for (int ax : axes_to_reduce) {
-            grad_aligned = Ops::sum(grad_aligned, ax);
+            grad_aligned = sum(grad_aligned, ax);
         }
     }
 
@@ -159,24 +158,24 @@ void GradAdd::backward(const Tensor& self) {
 void GradSub::backward(const Tensor& self) {
     Tensor grad = tensor_from_grad(self);
     if (a.requires_grad()) accumulate_grad(a, grad);
-    if (b.requires_grad()) accumulate_grad(b, Ops::mul_scalar(grad, -1.0));
+    if (b.requires_grad()) accumulate_grad(b, mul_scalar(grad, -1.0));
 }
 
 void GradMul::backward(const Tensor& self) {
     Tensor grad = tensor_from_grad(self);
-    if (a.requires_grad()) accumulate_grad(a, Ops::mul(grad, b)); 
-    if (b.requires_grad()) accumulate_grad(b, Ops::mul(grad, a));
+    if (a.requires_grad()) accumulate_grad(a, mul(grad, b)); 
+    if (b.requires_grad()) accumulate_grad(b, mul(grad, a));
 }
 void GradDiv::backward(const Tensor& self) {
     Tensor grad = tensor_from_grad(self);
     if (a.requires_grad()) {
-        accumulate_grad(a, Ops::div(grad, b));
+        accumulate_grad(a, div(grad, b));
     }
     if (b.requires_grad()) {
-        Tensor num = Ops::mul(grad, a); 
-        Tensor den = Ops::mul(b, b);    
-        Tensor res = Ops::div(num, den);
-        accumulate_grad(b, Ops::mul_scalar(res, -1.0));
+        Tensor num = mul(grad, a); 
+        Tensor den = mul(b, b);    
+        Tensor res = div(num, den);
+        accumulate_grad(b, mul_scalar(res, -1.0));
     }
 }
 
@@ -193,25 +192,25 @@ void GradMatMul::backward(const Tensor& self) {
     };
 
     if (a.requires_grad()) {
-        accumulate_grad(a, Ops::matmul(grad, T(b)));
+        accumulate_grad(a, matmul(grad, T(b)));
     }
     if (b.requires_grad()) {
-        accumulate_grad(b, Ops::matmul(T(a), grad));
+        accumulate_grad(b, matmul(T(a), grad));
     }
 }
 
 void GradPow::backward(const Tensor& self) {
     Tensor grad = tensor_from_grad(self);
     if (a.requires_grad()) {
-        Tensor t1 = Ops::pow(a, Ops::sub_scalar(b, 1.0));
-        Tensor t2 = Ops::mul(t1, b);
-        accumulate_grad(a, Ops::mul(grad, t2));
+        Tensor t1 = pow(a, sub_scalar(b, 1.0));
+        Tensor t2 = mul(t1, b);
+        accumulate_grad(a, mul(grad, t2));
     }
     if (b.requires_grad()) {
-        Tensor t1 = Ops::pow(a, b);
-        Tensor t2 = Ops::log(a);
-        Tensor t3 = Ops::mul(t1, t2);
-        accumulate_grad(b, Ops::mul(grad, t3));
+        Tensor t1 = pow(a, b);
+        Tensor t2 = log(a);
+        Tensor t3 = mul(t1, t2);
+        accumulate_grad(b, mul(grad, t3));
     }
 }
 
@@ -223,23 +222,23 @@ void GradSubScalar::backward(const Tensor& self) {
     if (a.requires_grad()) accumulate_grad(a, tensor_from_grad(self));
 }
 void GradSubAfterScalar::backward(const Tensor& self) {
-    if (a.requires_grad()) accumulate_grad(a, Ops::mul_scalar(tensor_from_grad(self), -1.0));
+    if (a.requires_grad()) accumulate_grad(a, mul_scalar(tensor_from_grad(self), -1.0));
 }
 void GradMulScalar::backward(const Tensor& self) {
     // FIXED: Use 'scalar' member instead of 's'
-    if (a.requires_grad()) accumulate_grad(a, Ops::mul_scalar(tensor_from_grad(self), scalar));
+    if (a.requires_grad()) accumulate_grad(a, mul_scalar(tensor_from_grad(self), scalar));
 }
 void GradDivScalar::backward(const Tensor& self) {
-    if (a.requires_grad()) accumulate_grad(a, Ops::div_scalar(tensor_from_grad(self), s));
+    if (a.requires_grad()) accumulate_grad(a, div_scalar(tensor_from_grad(self), s));
 }
 
 void GradScalarDiv::backward(const Tensor& self) {
     if (a.requires_grad()) {
         Tensor grad = tensor_from_grad(self);
-        Tensor den = Ops::mul(a, a);
-        Tensor val = Ops::div_scalar_rev(s, den); // s / a^2
-        Tensor res = Ops::mul(grad, val);
-        accumulate_grad(a, Ops::mul_scalar(res, -1.0));
+        Tensor den = mul(a, a);
+        Tensor val = div_scalar_rev(s, den); // s / a^2
+        Tensor res = mul(grad, val);
+        accumulate_grad(a, mul_scalar(res, -1.0));
     }
 }
 
@@ -248,9 +247,9 @@ void GradPowScalar::backward(const Tensor& self) {
     if (a.requires_grad()) {
         // y = a^s -> dy/da = s * a^(s-1)
         Tensor grad = tensor_from_grad(self);
-        Tensor p = Ops::pow_scalar(a, s - 1.0);
-        Tensor res = Ops::mul_scalar(p, s);
-        accumulate_grad(a, Ops::mul(grad, res));
+        Tensor p = pow_scalar(a, s - 1.0);
+        Tensor res = mul_scalar(p, s);
+        accumulate_grad(a, mul(grad, res));
     }
 }
 
@@ -259,9 +258,9 @@ void GradScalarPow::backward(const Tensor& self) {
     if (a.requires_grad()) {
         // y = s^a -> dy/da = s^a * ln(s)
         Tensor grad = tensor_from_grad(self);
-        Tensor p = Ops::pow_scalar_rev(scalar, a);
-        Tensor res = Ops::mul_scalar(p, std::log(scalar));
-        accumulate_grad(a, Ops::mul(grad, res));
+        Tensor p = pow_scalar_rev(scalar, a);
+        Tensor res = mul_scalar(p, std::log(scalar));
+        accumulate_grad(a, mul(grad, res));
     }
 }
 
@@ -270,40 +269,40 @@ void GradAbs::backward(const Tensor& self) {
     if (t.requires_grad()) {
         Tensor grad = tensor_from_grad(self);
         // sign(t) * grad.  (Using ge(0) - lt(0))
-        Tensor pos = Ops::gt(t, 0.0);
-        Tensor neg = Ops::lt(t, 0.0);
-        Tensor sign = Ops::sub(pos, neg); // 1 if >0, -1 if <0
-        accumulate_grad(t, Ops::mul(grad, sign));
+        Tensor pos = gt(t, 0.0);
+        Tensor neg = lt(t, 0.0);
+        Tensor sign = sub(pos, neg); // 1 if >0, -1 if <0
+        accumulate_grad(t, mul(grad, sign));
     }
 }
 void GradLn::backward(const Tensor& self) {
     if (t.requires_grad()) {
         // 1/t * grad
         Tensor grad = tensor_from_grad(self);
-        accumulate_grad(t, Ops::div(grad, t));
+        accumulate_grad(t, div(grad, t));
     }
 }
 void GradExp::backward(const Tensor& self) {
     if (t.requires_grad()) {
         Tensor grad = tensor_from_grad(self);
-        accumulate_grad(t, Ops::mul(grad, Ops::exp(t)));
+        accumulate_grad(t, mul(grad, exp(t)));
     }
 }
 void GradSqrt::backward(const Tensor& self) {
     if (t.requires_grad()) {
         // 1/(2*sqrt(t)) * grad
         Tensor grad = tensor_from_grad(self);
-        Tensor two_sqrt = Ops::mul_scalar(Ops::sqrt(t), 2.0);
-        accumulate_grad(t, Ops::div(grad, two_sqrt));
+        Tensor two_sqrt = mul_scalar(sqrt(t), 2.0);
+        accumulate_grad(t, div(grad, two_sqrt));
     }
 }
 void GradSin::backward(const Tensor& self) {
-    if (t.requires_grad()) accumulate_grad(t, Ops::mul(tensor_from_grad(self), Ops::cos(t)));
+    if (t.requires_grad()) accumulate_grad(t, mul(tensor_from_grad(self), cos(t)));
 }
 void GradCos::backward(const Tensor& self) {
     if (t.requires_grad()) {
-        Tensor res = Ops::mul(tensor_from_grad(self), Ops::sin(t));
-        accumulate_grad(t, Ops::mul_scalar(res, -1.0));
+        Tensor res = mul(tensor_from_grad(self), sin(t));
+        accumulate_grad(t, mul_scalar(res, -1.0));
     }
 }
 
@@ -311,27 +310,27 @@ void GradCos::backward(const Tensor& self) {
 void GradTan::backward(const Tensor& self) {
     if (t.requires_grad()) {
         // sec^2(t) = 1/cos^2(t)
-        Tensor c = Ops::cos(t);
-        Tensor c2 = Ops::mul(c, c);
-        Tensor deriv = Ops::div_scalar_rev(1.0, c2);
-        accumulate_grad(t, Ops::mul(tensor_from_grad(self), deriv));
+        Tensor c = cos(t);
+        Tensor c2 = mul(c, c);
+        Tensor deriv = div_scalar_rev(1.0, c2);
+        accumulate_grad(t, mul(tensor_from_grad(self), deriv));
     }
 }
 
 void GradSigmoid::backward(const Tensor& self) {
     if (t.requires_grad()) {
         Tensor grad = tensor_from_grad(self);
-        Tensor one_minus = Ops::sub_scalar_rev(1.0, self); // 1 - y
-        Tensor deriv = Ops::mul(self, one_minus);
-        accumulate_grad(t, Ops::mul(grad, deriv));
+        Tensor one_minus = sub_scalar_rev(1.0, self); // 1 - y
+        Tensor deriv = mul(self, one_minus);
+        accumulate_grad(t, mul(grad, deriv));
     }
 }
 
 void GradRelu::backward(const Tensor& self) {
     if (t.requires_grad()) {
         Tensor grad = tensor_from_grad(self);
-        Tensor mask = Ops::gt(t, 0.0);
-        accumulate_grad(t, Ops::mul(grad, mask));
+        Tensor mask = gt(t, 0.0);
+        accumulate_grad(t, mul(grad, mask));
     }
 }
 
@@ -340,8 +339,8 @@ void GradSoftplus::backward(const Tensor& self) {
     if (t.requires_grad()) {
         // sigmoid(x)
         Tensor grad = tensor_from_grad(self);
-        Tensor sig = Ops::sigmoid(t);
-        accumulate_grad(t, Ops::mul(grad, sig));
+        Tensor sig = sigmoid(t);
+        accumulate_grad(t, mul(grad, sig));
     }
 }
 //--------------------Reduction backward --------------------
@@ -360,7 +359,7 @@ void GradMean::backward(const Tensor& self) {
         if (dim == -1) N = (double)t.numel();
         else N = (double)t.impl->shape[dim];
         
-        accumulate_grad(t, Ops::div_scalar(grad, N));
+        accumulate_grad(t, div_scalar(grad, N));
     }
 }
 
@@ -389,35 +388,35 @@ void GradReshape::backward(const Tensor& self) {
 }
 void GradASin::backward(const Tensor& s){ 
     if(t.requires_grad()) {
-        accumulate_grad(t, Ops::mul(tensor_from_grad(s), Ops::pow_scalar(Ops::sub_scalar_rev(1.0, Ops::mul(t,t)), -0.5))); 
+        accumulate_grad(t, mul(tensor_from_grad(s), pow_scalar(sub_scalar_rev(1.0, mul(t,t)), -0.5))); 
     }
 }
 void GradACos::backward(const Tensor& s){ 
     if(t.requires_grad()) {
-        accumulate_grad(t, Ops::mul_scalar(Ops::mul(tensor_from_grad(s), Ops::pow_scalar(Ops::sub_scalar_rev(1.0, Ops::mul(t,t)), -0.5)), -1.0)); 
+        accumulate_grad(t, mul_scalar(mul(tensor_from_grad(s), pow_scalar(sub_scalar_rev(1.0, mul(t,t)), -0.5)), -1.0)); 
     }
 }
 void GradATan::backward(const Tensor& s){
     if(t.requires_grad()) {
-        accumulate_grad(t, Ops::div(tensor_from_grad(s), Ops::add_scalar(Ops::mul(t,t), 1.0))); 
+        accumulate_grad(t, div(tensor_from_grad(s), add_scalar(mul(t,t), 1.0))); 
     }
 }
 // FIXED: Renamed GradSinh
 void GradSinh::backward(const Tensor& s){ 
     if(t.requires_grad()) {
-        accumulate_grad(t, Ops::mul(tensor_from_grad(s), Ops::cosh(t))); 
+        accumulate_grad(t, mul(tensor_from_grad(s), cosh(t))); 
     }
 }
 // FIXED: Renamed GradCosh
 void GradCosh::backward(const Tensor& s){ 
     if(t.requires_grad()) {
-        accumulate_grad(t, Ops::mul(tensor_from_grad(s), Ops::sinh(t))); 
+        accumulate_grad(t, mul(tensor_from_grad(s), sinh(t))); 
     }
 }
 // FIXED: Renamed GradTanh
 void GradTanh::backward(const Tensor& s){ 
     if(t.requires_grad()) {
-        accumulate_grad(t, Ops::mul(tensor_from_grad(s), Ops::div_scalar_rev(1.0, Ops::mul(Ops::cosh(t), Ops::cosh(t))))); 
+        accumulate_grad(t, mul(tensor_from_grad(s), div_scalar_rev(1.0, mul(cosh(t), cosh(t))))); 
     }
 }
 
