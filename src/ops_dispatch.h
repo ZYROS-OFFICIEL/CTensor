@@ -21,6 +21,13 @@ Tensor ge(const Tensor &a, const Tensor &b);
 Tensor eq(const Tensor &a, const Tensor &b);
 Tensor ne(const Tensor &a, const Tensor &b);
 
+Tensor lt(const Tensor &a, double b);
+Tensor le(const Tensor &a, double b);
+Tensor gt(const Tensor &a, double b);
+Tensor ge(const Tensor &a, double b);
+Tensor eq(const Tensor &a, double b);
+Tensor ne(const Tensor &a, double b);
+
 // Unary Ops
 Tensor abs(const Tensor &a);
 Tensor log(const Tensor &a);
