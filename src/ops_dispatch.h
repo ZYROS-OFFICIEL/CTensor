@@ -13,6 +13,7 @@ Tensor div(const Tensor &a, const Tensor &b);
 Tensor pow(const Tensor &a, const Tensor &b);
 Tensor matmul(const Tensor &a, const Tensor &b);
 
+Tensor add_scalar(const Tensor &a, double scalar);
 Tensor sub_scalar(const Tensor &a, double scalar);
 Tensor sub_scalar_rev(double scalar, const Tensor &a);
 Tensor mul_scalar(const Tensor &a, double scalar);
