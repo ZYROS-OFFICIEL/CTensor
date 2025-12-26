@@ -265,6 +265,12 @@ IMPLEMENT_COMPARE_OP(ge, ge_mp, ge_avx2, ge_avx512)
 IMPLEMENT_COMPARE_OP(eq, eq_mp, eq_avx2, eq_avx512)
 IMPLEMENT_COMPARE_OP(ne, ne_mp, ne_avx2, ne_avx512)
 
+Tensor lt(const Tensor &a, double b) { return lt_mp(a, b); }
+Tensor le(const Tensor &a, double b) { return le_mp(a, b); }
+Tensor gt(const Tensor &a, double b) { return gt_mp(a, b); }
+Tensor ge(const Tensor &a, double b) { return ge_mp(a, b); }
+Tensor eq(const Tensor &a, double b) { return eq_mp(a, b); }
+Tensor ne(const Tensor &a, double b) { return neq_mp(a, b); }
 // ========================================================================
 //                           Reductions
 // ========================================================================
