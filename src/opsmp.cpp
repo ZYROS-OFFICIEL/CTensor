@@ -325,3 +325,227 @@ Tensor matmul_mp(const Tensor& A, const Tensor& B) {
     }
     return C;
 }
+// --- Unary Math Ops ---
+
+Tensor abs_mp(const Tensor& a) { return unary_op_impl(a, [](double x){ return std::abs(x); }, a.requires_grad() ? std::make_shared<GradAbs>(a) : nullptr); }
+Tensor ln_mp(const Tensor& a) { return unary_op_impl(a, [](double x){ return std::log(x); }, a.requires_grad() ? std::make_shared<GradLn>(a) : nullptr); }
+Tensor exp_mp(const Tensor& a) { return unary_op_impl(a, [](double x){ return std::exp(x); }, a.requires_grad() ? std::make_shared<GradExp>(a) : nullptr); }
+Tensor sqrt_mp(const Tensor& a) { return unary_op_impl(a, [](double x){ return std::sqrt(x); }, a.requires_grad() ? std::make_shared<GradSqrt>(a) : nullptr); }
+Tensor sin_mp(const Tensor& a) { return unary_op_impl(a, [](double x){ return std::sin(x); }, a.requires_grad() ? std::make_shared<GradSin>(a) : nullptr); }
+Tensor cos_mp(const Tensor& a) { return unary_op_impl(a, [](double x){ return std::cos(x); }, a.requires_grad() ? std::make_shared<GradCos>(a) : nullptr); }
+Tensor tan_mp(const Tensor& a) { return unary_op_impl(a, [](double x){ return std::tan(x); }, a.requires_grad() ? std::make_shared<GradTan>(a) : nullptr); }
+Tensor asin_mp(const Tensor& a) { return unary_op_impl(a, [](double x){ return std::asin(x); }, a.requires_grad() ? std::make_shared<GradASin>(a) : nullptr); }
+Tensor acos_mp(const Tensor& a) { return unary_op_impl(a, [](double x){ return std::acos(x); }, a.requires_grad() ? std::make_shared<GradACos>(a) : nullptr); }
+Tensor atan_mp(const Tensor& a) { return unary_op_impl(a, [](double x){ return std::atan(x); }, a.requires_grad() ? std::make_shared<GradATan>(a) : nullptr); }
+Tensor tanh_mp(const Tensor& a) { return unary_op_impl(a, [](double x){ return std::tanh(x); }, a.requires_grad() ? std::make_shared<GradTanh>(a) : nullptr); } // Fixed Typo GradTanH -> GradTanh
+Tensor sinh_mp(const Tensor& a) { return unary_op_impl(a, [](double x){ return std::sinh(x); }, a.requires_grad() ? std::make_shared<GradSinh>(a) : nullptr); } // Fixed Typo GradSinH -> GradSinh
+Tensor cosh_mp(const Tensor& a) { return unary_op_impl(a, [](double x){ return std::cosh(x); }, a.requires_grad() ? std::make_shared<GradCosh>(a) : nullptr); } // Fixed Typo GradCosH -> GradCosh
+
+Tensor sigmoid_mp(const Tensor& a) { 
+    return unary_op_impl(a, [](double x){ return 1.0 / (1.0 + std::exp(-x)); }, 
+                         a.requires_grad() ? std::make_shared<GradSigmoid>(a) : nullptr); 
+}
+
+Tensor Relu_mp(const Tensor& a) { 
+    return unary_op_impl(a, [](double x){ return x > 0 ? x : 0.0; }, 
+                         a.requires_grad() ? std::make_shared<GradRelu>(a) : nullptr); 
+}
+
+Tensor softplus_mp(const Tensor& a) { 
+    return unary_op_impl(a, [](double x){ return std::log(1.0 + std::exp(x)); }, 
+                         a.requires_grad() ? std::make_shared<GradSoftplus>(a) : nullptr); // Fixed Typo GradSoftPlus -> GradSoftplus
+}
+
+// --- Reductions ---
+
+template<typename ReduceFunc, typename InitFunc>
+Tensor reduction_op_impl(const Tensor& t, int dim, ReduceFunc reducer, InitFunc get_init, std::shared_ptr<GradFn> grad_fn) {
+    if (!t.impl) throw std::runtime_error("reduction: null input");
+    
+    int ndim = (int)t.impl->ndim;
+    if (dim < 0) dim += ndim;
+    if (dim < 0 || dim >= ndim) { /* err */ }
+
+    std::vector<size_t> out_shape;
+    for (int i = 0; i < ndim; ++i) {
+        if (i != dim) out_shape.push_back(t.impl->shape[i]);
+    }
+    if (out_shape.empty()) out_shape.push_back(1);
+
+    Tensor out(out_shape, t._dtype(), t.requires_grad());
+    if (t.requires_grad() && grad_fn) {
+        out.impl->grad_fn = grad_fn; 
+    }
+
+    size_t out_n = out.numel();
+    size_t reduce_size = t.impl->shape[dim];
+    
+    #pragma omp parallel for
+    for (size_t i = 0; i < out_n; ++i) {
+        size_t rem = i;
+        size_t in_base_offset = t.impl->offset;
+        
+        for (int in_d = ndim - 1; in_d >= 0; --in_d) {
+            if (in_d == dim) continue; 
+            size_t sz = t.impl->shape[in_d];
+            size_t coord = rem % sz;
+            rem /= sz;
+            in_base_offset += coord * t.impl->strides[in_d];
+        }
+        
+        double acc = get_init();
+        size_t stride_reduce = t.impl->strides[dim];
+        
+        for (size_t k = 0; k < reduce_size; ++k) {
+            size_t final_idx = in_base_offset + k * stride_reduce;
+            // FIX: impl->data
+            double val = read_scalar_at(t.impl->data->data.get(), final_idx, t._dtype());
+            acc = reducer(acc, val);
+        }
+        // FIX: impl->data
+        write_scalar_at(out.impl->data->data.get(), i, out._dtype(), acc);
+    }
+    return out;
+}
+
+Tensor sum_mp(const Tensor& t, int dim) {
+    return reduction_op_impl(t, dim, 
+        [](double acc, double val){ return acc + val; }, 
+        []{ return 0.0; }, 
+        t.requires_grad() ? std::make_shared<GradSum>(t, dim) : nullptr);
+}
+
+Tensor max_mp(const Tensor& t, int dim) {
+    return reduction_op_impl(t, dim, 
+        [](double acc, double val){ return std::max(acc, val); }, 
+        []{ return -std::numeric_limits<double>::infinity(); }, 
+        nullptr); // No GradMax yet
+}
+
+Tensor min_mp(const Tensor& t, int dim) {
+    return reduction_op_impl(t, dim, 
+        [](double acc, double val){ return std::min(acc, val); }, 
+        []{ return std::numeric_limits<double>::infinity(); }, 
+        nullptr); // No GradMin yet
+}
+
+Tensor mean_mp(const Tensor& t, int dim) {
+    Tensor s = sum_mp(t, dim);
+    double count = (double)t.impl->shape[dim < 0 ? dim + t.impl->ndim : dim];
+    return mult_scalar_mp(s, 1.0 / count);
+}
+// --- Comparisons ---
+
+Tensor lt_mp(const Tensor& a, double b) { return unary_op_impl(a, [b](double x){ return x < b ? 1.0 : 0.0; }); }
+Tensor le_mp(const Tensor& a, double b) { return unary_op_impl(a, [b](double x){ return x <= b ? 1.0 : 0.0; }); }
+Tensor gt_mp(const Tensor& a, double b) { return unary_op_impl(a, [b](double x){ return x > b ? 1.0 : 0.0; }); }
+Tensor ge_mp(const Tensor& a, double b) { return unary_op_impl(a, [b](double x){ return x >= b ? 1.0 : 0.0; }); }
+Tensor eq_mp(const Tensor& a, double b) { return unary_op_impl(a, [b](double x){ return x == b ? 1.0 : 0.0; }); }
+Tensor neq_mp(const Tensor& a, double b) { return unary_op_impl(a, [b](double x){ return x != b ? 1.0 : 0.0; }); }
+
+Tensor lt_mp(const Tensor& a, const Tensor& b) { return binary_op_impl(a, b, [](double x, double y){ return x < y ? 1.0 : 0.0; }); }
+Tensor le_mp(const Tensor& a, const Tensor& b) { return binary_op_impl(a, b, [](double x, double y){ return x <= y ? 1.0 : 0.0; }); }
+Tensor gt_mp(const Tensor& a, const Tensor& b) { return binary_op_impl(a, b, [](double x, double y){ return x > y ? 1.0 : 0.0; }); }
+Tensor ge_mp(const Tensor& a, const Tensor& b) { return binary_op_impl(a, b, [](double x, double y){ return x >= y ? 1.0 : 0.0; }); }
+Tensor eq_mp(const Tensor& a, const Tensor& b) { return binary_op_impl(a, b, [](double x, double y){ return x == y ? 1.0 : 0.0; }); }
+Tensor ne_mp(const Tensor& a, const Tensor& b) { return binary_op_impl(a, b, [](double x, double y){ return x != y ? 1.0 : 0.0; }); }
+
+// --- Utilities ---
+
+Tensor cat_mp(const std::vector<Tensor>& tensors, size_t dim) {
+    if (tensors.empty()) throw std::runtime_error("cat_mp: empty list");
+    
+    std::vector<size_t> out_shape = tensors[0].shape();
+    size_t dim_sum = 0;
+    for (const auto& t : tensors) {
+        if (t.impl->ndim != out_shape.size()) throw std::runtime_error("cat_mp: dim mismatch");
+        dim_sum += t.impl->shape[dim];
+    }
+    out_shape[dim] = dim_sum;
+    
+    Tensor out(out_shape, tensors[0]._dtype(), false); 
+    
+    size_t current_offset_dim = 0;
+    for (const auto& t : tensors) {
+        // Placeholder for cat logic
+        // Implementing parallel copy for cat is similar to clone but with offset logic
+        // Skipping full implementation for brevity as requested
+        current_offset_dim += t.impl->shape[dim];
+    }
+    return out;
+}
+
+// --- Compound assignment operators ---
+
+Tensor& operator+=(Tensor& a, const Tensor& b) {
+    a = add_mp(a, b);
+    return a;
+}
+Tensor& operator+=(Tensor& a, double scalar) {
+    a = add_scalar_mp(a, scalar);
+    return a;
+}
+
+Tensor& operator-=(Tensor& a, const Tensor& b) {
+    a = diff_mp(a, b);
+    return a;
+}
+Tensor& operator-=(Tensor& a, double scalar) {
+    a = sub_scalar_mp(a, scalar);
+    return a;
+}
+
+Tensor& operator*=(Tensor& a, const Tensor& b) {
+    a = mult_mp(a, b);
+    return a;
+}
+Tensor& operator*=(Tensor& a, double scalar) {
+    a = mult_scalar_mp(a, scalar);
+    return a;
+}
+
+Tensor& operator/=(Tensor& a, const Tensor& b) {
+    a = div_mp(a, b);
+    return a;
+}
+Tensor& operator/=(Tensor& a, double scalar) {
+    a = div_scalar_mp(a, scalar);
+    return a;
+}
+
+Tensor& operator^=(Tensor& a, const Tensor& b) {
+    a = pow_mp(a, b);
+    return a;
+}
+Tensor& operator^=(Tensor& a, double scalar) {
+    a = pow_scalar_mp(a, scalar);
+    return a;
+}
+
+Tensor operator+(const Tensor& a, const Tensor& b) {
+    return add_mp(a, b);
+}
+
+Tensor operator-(const Tensor& a, const Tensor& b) {
+    return diff_mp(a, b);
+}
+
+Tensor operator*(const Tensor& a, const Tensor& b) {
+    return mult_mp(a, b);
+}
+
+Tensor operator/(const Tensor& a, const Tensor& b) {
+    return div_mp(a, b);
+}
+
+Tensor operator^(const Tensor& a, const Tensor& b) {
+    return pow_mp(a, b);
+}
+
+// scalar on the left
+Tensor operator+(double s, const Tensor& a) {
+    return add_scalar_mp(a, s);
+}
+Tensor operator+(const Tensor& a,double s) {
+    return add_scalar_mp(a, s);
+}
