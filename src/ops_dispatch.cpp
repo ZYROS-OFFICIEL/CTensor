@@ -186,7 +186,14 @@ Tensor matmul(const Tensor &a, const Tensor &b) {
     throw std::runtime_error("matmul: unsupported device");
 }
 
-
+Tensor add_scalar(const Tensor &a, double scalar) { return add_scalar_mp(a, scalar); }
+Tensor sub_scalar(const Tensor &a, double scalar) { return sub_scalar_mp(a, scalar); }
+Tensor sub_scalar_rev(double scalar, const Tensor &a) { return sub_afterscalar_mp(scalar, a); }
+Tensor mul_scalar(const Tensor &a, double scalar) { return mult_scalar_mp(a, scalar); }
+Tensor div_scalar(const Tensor &a, double scalar) { return div_scalar_mp(a, scalar); }
+Tensor div_scalar_rev(double scalar, const Tensor &a) { return scalar_div_mp(scalar, a); }
+Tensor pow_scalar(const Tensor &a, double scalar) { return pow_scalar_mp(a, scalar); }
+Tensor pow_scalar_rev(double scalar, const Tensor &a) { return scalar_pow_mp(scalar, a); }
 // ========================================================================
 //                           Unary Operations
 // ========================================================================
