@@ -25,10 +25,11 @@ inline T* get_ptr(const Tensor& t) {
 //                     AVX-512 Math Helpers (AVX512F Compatible)
 // ========================================================================
 
-#define ZMM_1_PS  _mm512_set1_ps(1.0f);
-#define ZMM_05_PS _mm512_set1_ps(0.5f);
-#define ZMM_0_PS  _mm512_setzero_ps();
-#define ZMM_NAN_PS _mm512_set1_ps(NAN);
+// FIX: Macros without semicolons to prevent SIGILL at startup and syntax errors
+#define ZMM_1_PS   _mm512_set1_ps(1.0f)
+#define ZMM_05_PS  _mm512_set1_ps(0.5f)
+#define ZMM_0_PS   _mm512_setzero_ps()
+#define ZMM_NAN_PS _mm512_set1_ps(NAN)
 
 // --- Bitwise Ops for AVX512F ---
 // AVX512F does not have _mm512_and_ps (requires AVX512DQ). 
@@ -60,12 +61,12 @@ inline __m512 abs_ps(__m512 x) {
 
 // --- Exponential (Exp) ---
 inline __m512 exp512_ps(__m512 x) {
-    __m512 fx, one = _zmm_1;
+    __m512 fx, one = ZMM_1_PS;
     
     x = _mm512_min_ps(x, _mm512_set1_ps(88.3762626647949f));
     x = _mm512_max_ps(x, _mm512_set1_ps(-88.3762626647949f));
 
-    fx = _mm512_fmadd_ps(x, _mm512_set1_ps(1.44269504088896341f), _zmm_05);
+    fx = _mm512_fmadd_ps(x, _mm512_set1_ps(1.44269504088896341f), ZMM_05_PS);
     fx = _mm512_floor_ps(fx);
     
     __m512 tmp = _mm512_mul_ps(fx, _mm512_set1_ps(0.693359375f));
@@ -79,7 +80,7 @@ inline __m512 exp512_ps(__m512 x) {
     y = _mm512_fmadd_ps(y, x, _mm512_set1_ps(8.3334519073E-3f));
     y = _mm512_fmadd_ps(y, x, _mm512_set1_ps(4.1665795894E-2f));
     y = _mm512_fmadd_ps(y, x, _mm512_set1_ps(1.6666665459E-1f));
-    y = _mm512_fmadd_ps(y, x, _zmm_05);
+    y = _mm512_fmadd_ps(y, x, ZMM_05_PS);
     y = _mm512_fmadd_ps(y, z, x);
     y = _mm512_add_ps(y, one);
 
@@ -92,8 +93,8 @@ inline __m512 exp512_ps(__m512 x) {
 
 // --- Logarithm (Ln) ---
 inline __m512 log512_ps(__m512 x) {
-    __m512 one = _zmm_1;
-    __mmask16 invalid_mask = _mm512_cmp_ps_mask(x, _zmm_0, _CMP_LE_OQ);
+    __m512 one = ZMM_1_PS;
+    __mmask16 invalid_mask = _mm512_cmp_ps_mask(x, ZMM_0_PS, _CMP_LE_OQ);
     
     x = _mm512_max_ps(x, _mm512_set1_ps(1.17549435e-38f));
 
@@ -102,7 +103,7 @@ inline __m512 log512_ps(__m512 x) {
     // FIX: Replaced _mm512_and_ps with bitwise_and
     x = bitwise_and(x, _mm512_castsi512_ps(_mm512_set1_epi32(0x7fffff)));
     // FIX: Replaced _mm512_or_ps with bitwise_or
-    x = bitwise_or(x, _zmm_05);
+    x = bitwise_or(x, ZMM_05_PS);
 
     emm0 = _mm512_sub_epi32(emm0, _mm512_set1_epi32(0x7f));
     __m512 e = _mm512_cvtepi32_ps(emm0);
@@ -130,12 +131,12 @@ inline __m512 log512_ps(__m512 x) {
     y = _mm512_mul_ps(y, z);
 
     y = _mm512_fmadd_ps(e, _mm512_set1_ps(-2.12194440e-4f), y);
-    y = _mm512_fnmadd_ps(z, _zmm_05, y); 
+    y = _mm512_fnmadd_ps(z, ZMM_05_PS, y); 
     
     x = _mm512_add_ps(x, y);
     x = _mm512_fmadd_ps(e, _mm512_set1_ps(0.693359375f), x);
 
-    return _mm512_mask_blend_ps(invalid_mask, x, _zmm_nan); 
+    return _mm512_mask_blend_ps(invalid_mask, x, ZMM_NAN_PS); 
 }
 
 // --- Sine (Sin) ---
@@ -154,7 +155,7 @@ inline __m512 sin512_ps(__m512 x) {
     __mmask16 poly_mask = _mm512_cmpeq_epi32_mask(_mm512_and_si512(emm2, _mm512_set1_epi32(4)), _mm512_setzero_si512());
     
     __m512 sign_mask = _mm512_castsi512_ps(_mm512_set1_epi32(0x80000000));
-    __m512 xor_mask = _mm512_mask_blend_ps(poly_mask, sign_mask, _zmm_0); 
+    __m512 xor_mask = _mm512_mask_blend_ps(poly_mask, sign_mask, ZMM_0_PS); 
     
     // FIX: Replaced _mm512_xor_ps with bitwise_xor
     sign_bit = bitwise_xor(sign_bit, xor_mask);
@@ -169,8 +170,8 @@ inline __m512 sin512_ps(__m512 x) {
     y = _mm512_fmadd_ps(y, z, _mm512_set1_ps(4.166664568298827E-002f));
     y = _mm512_mul_ps(y, z);
     y = _mm512_mul_ps(y, z);
-    y = _mm512_fnmadd_ps(z, _zmm_05, y); 
-    y = _mm512_add_ps(y, _zmm_1);
+    y = _mm512_fnmadd_ps(z, ZMM_05_PS, y); 
+    y = _mm512_add_ps(y, ZMM_1_PS);
     y = _mm512_mul_ps(y, x);
 
     // FIX: Replaced _mm512_xor_ps with bitwise_xor
@@ -186,8 +187,8 @@ inline __m512 cos512_ps(__m512 x) {
 inline __m512 tanh512_ps(__m512 x) {
     __m512 two_x = _mm512_mul_ps(x, _mm512_set1_ps(2.0f));
     __m512 exp_2x = exp512_ps(two_x);
-    __m512 num = _mm512_sub_ps(exp_2x, _zmm_1);
-    __m512 den = _mm512_add_ps(exp_2x, _zmm_1);
+    __m512 num = _mm512_sub_ps(exp_2x, ZMM_1_PS);
+    __m512 den = _mm512_add_ps(exp_2x, ZMM_1_PS);
     return _mm512_div_ps(num, den);
 }
 
@@ -195,8 +196,8 @@ inline __m512 sigmoid512_ps(__m512 x) {
     // FIX: Replaced _mm512_xor_ps with bitwise_xor
     __m512 neg_x = bitwise_xor(x, _mm512_set1_ps(-0.0f));
     __m512 e = exp512_ps(neg_x);
-    __m512 den = _mm512_add_ps(_zmm_1, e);
-    return _mm512_div_ps(_zmm_1, den);
+    __m512 den = _mm512_add_ps(ZMM_1_PS, e);
+    return _mm512_div_ps(ZMM_1_PS, den);
 }
 
 inline __m512 pow512_ps(__m512 a, __m512 b) {
@@ -313,7 +314,7 @@ Tensor binary_op_broadcast_512(const Tensor& A, const Tensor& B, Func op) {
                 }
             }
             __m512i vidx = _mm512_loadu_si512(idx_buf);
-            va = _mm512_mask_i32gather_ps(_zmm_0, k, vidx, a_ptr, 1);
+            va = _mm512_mask_i32gather_ps(ZMM_0_PS, k, vidx, a_ptr, 1);
         }
 
         // Load B
@@ -328,7 +329,7 @@ Tensor binary_op_broadcast_512(const Tensor& A, const Tensor& B, Func op) {
                 if ((k >> l) & 1) idx_buf[l] = compute_offset_bytes(i + l, out_shape, out_mult, b_shape, b_strides);
             }
             __m512i vidx = _mm512_loadu_si512(idx_buf);
-            vb = _mm512_mask_i32gather_ps(_zmm_0, k, vidx, b_ptr, 1);
+            vb = _mm512_mask_i32gather_ps(ZMM_0_PS, k, vidx, b_ptr, 1);
         }
 
         // Op
@@ -428,7 +429,7 @@ template<int CMP_PRED>
 Tensor cmp_avx512_f32_impl(const Tensor& a, const Tensor& b) {
     return binary_op_broadcast_512(a, b, []( __m512 x, __m512 y){
         __mmask16 k = _mm512_cmp_ps_mask(x, y, CMP_PRED);
-        return _mm512_mask_blend_ps(k, _zmm_0, _zmm_1);
+        return _mm512_mask_blend_ps(k, ZMM_0_PS, ZMM_1_PS);
     });
 }
 
@@ -442,7 +443,7 @@ Tensor ne_avx512_f32(const Tensor& a, const Tensor& b) { return cmp_avx512_f32_i
 // Unary
 Tensor abs_avx512_f32(const Tensor& a) { return unary_op_512(a, [](__m512 x){ return abs_ps(x); }); }
 Tensor sqrt_avx512_f32(const Tensor& a) { return unary_op_512(a, [](__m512 x){ return _mm512_sqrt_ps(x); }); }
-Tensor relu_avx512_f32(const Tensor& a) { return unary_op_512(a, [](__m512 x){ return _mm512_max_ps(x, _zmm_0); }); }
+Tensor relu_avx512_f32(const Tensor& a) { return unary_op_512(a, [](__m512 x){ return _mm512_max_ps(x, ZMM_0_PS); }); }
 Tensor ln_avx512_f32(const Tensor& a) { return unary_op_512(a, [](__m512 x){ return log512_ps(x); }); }
 Tensor exp_avx512_f32(const Tensor& a) { return unary_op_512(a, [](__m512 x){ return exp512_ps(x); }); }
 Tensor sin_avx512_f32(const Tensor& a) { return unary_op_512(a, [](__m512 x){ return sin512_ps(x); }); }
@@ -451,7 +452,7 @@ Tensor tanh_avx512_f32(const Tensor& a) { return unary_op_512(a, [](__m512 x){ r
 Tensor sigmoid_avx512_f32(const Tensor& a) { return unary_op_512(a, [](__m512 x){ return sigmoid512_ps(x); }); }
 Tensor softplus_avx512_f32(const Tensor& a) { 
     return unary_op_512(a, [](__m512 x){ 
-        return log512_ps(_mm512_add_ps(_zmm_1, exp512_ps(x))); 
+        return log512_ps(_mm512_add_ps(ZMM_1_PS, exp512_ps(x))); 
     }); 
 }
 
@@ -484,7 +485,7 @@ Tensor sum_avx512_f32(const Tensor& t, int dim) {
 
     #pragma omp parallel
     {
-        __m512 vsum = _zmm_0;
+        __m512 vsum = ZMM_0_PS;
         #pragma omp for nowait
         for (size_t i=0; i < n; i+=16) {
             size_t rem = n - i;
