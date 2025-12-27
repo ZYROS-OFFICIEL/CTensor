@@ -25,10 +25,10 @@ inline T* get_ptr(const Tensor& t) {
 //                     AVX-512 Math Helpers (AVX512F Compatible)
 // ========================================================================
 
-const __m512 _zmm_1  = _mm512_set1_ps(1.0f);
-const __m512 _zmm_05 = _mm512_set1_ps(0.5f);
-const __m512 _zmm_0  = _mm512_setzero_ps();
-const __m512 _zmm_nan= _mm512_set1_ps(NAN);
+#define ZMM_1_PS  _mm512_set1_ps(1.0f);
+#define ZMM_05_PS _mm512_set1_ps(0.5f);
+#define ZMM_0_PS  _mm512_setzero_ps();
+#define ZMM_NAN_PS _mm512_set1_ps(NAN);
 
 // --- Bitwise Ops for AVX512F ---
 // AVX512F does not have _mm512_and_ps (requires AVX512DQ). 

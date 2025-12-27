@@ -12,7 +12,6 @@
 namespace {
 //                     Internal AVX-512 Constants & Helpers
 
-
 #define ZMM_1_PD  _mm512_set1_pd(1.0)
 #define ZMM_0_PD  _mm512_setzero_pd()
 #define ZMM_NAN_PD _mm512_set1_pd(NAN)
