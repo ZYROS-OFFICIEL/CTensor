@@ -276,18 +276,18 @@ Tensor ne(const Tensor &a, double b) { return neq_mp(a, b); }
 // ========================================================================
 
 #define Reduction_Op(NAME, FUNC_MP, FUNC_AVX2, FUNC_AVX512) \
-Tensor NAME(const Tensor &a) { \
+Tensor NAME(const Tensor &a,int dim) { \
     if (a.device().is_cpu()) { \
         switch (a._dtype()) { \
             case DType::Float32: \
-                if (cpu_has_avx512f()) return FUNC_AVX512 ## _f32(a); \
-                if (cpu_has_avx2())    return FUNC_AVX2 ## _f32(a); \
-                return FUNC_MP(a); \
+                if (cpu_has_avx512f()) return FUNC_AVX512 ## _f32(a,dim); \
+                if (cpu_has_avx2())    return FUNC_AVX2 ## _f32(a,dim); \
+                return FUNC_MP(a,dim); \
             case DType::Double64: \
-                if (cpu_has_avx512f()) return FUNC_AVX512 ## _d64(a); \
-                if (cpu_has_avx2())    return FUNC_AVX2 ## _d64(a); \
-                return FUNC_MP(a); \
-            default: return FUNC_MP(a); \
+                if (cpu_has_avx512f()) return FUNC_AVX512 ## _d64(a,dim); \
+                if (cpu_has_avx2())    return FUNC_AVX2 ## _d64(a,dim); \
+                return FUNC_MP(a,dim); \
+            default: return FUNC_MP(a,dim); \
         } \
     } \
     throw std::runtime_error(std::string(#NAME) + ": unsupported device"); \
