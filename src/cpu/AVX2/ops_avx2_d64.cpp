@@ -24,10 +24,11 @@ inline T* get_ptr(const Tensor& t) {
 // ========================================================================
 //                     Internal AVX2 Double Constants & Helpers
 // ========================================================================
-#define ZMM_1_PD  _mm256_set1_pd(1.0)
-#define ZMM_0_PD  _mm256_setzero_pd()
-#define ZMM_INF_PD _mm256_set1_pd(std::numeric_limits<double>::infinity())
-#define ZMM_NEG_INF_PD _mm256_set1_pd(-std::numeric_limits<double>::infinity())
+// Using YMM prefix for AVX2 (256-bit)
+#define YMM_1_PD  _mm256_set1_pd(1.0)
+#define YMM_0_PD  _mm256_setzero_pd()
+#define YMM_INF_PD _mm256_set1_pd(std::numeric_limits<double>::infinity())
+#define YMM_NEG_INF_PD _mm256_set1_pd(-std::numeric_limits<double>::infinity())
 
 // --- Masked Load/Store Helpers (Manual Stack Buffer) ---
 // Safer near page boundaries and cleaner API than intrinsics for simple tails.
@@ -40,8 +41,6 @@ static inline __m256d masked_loadu_pd(const double* ptr, size_t valid_count) {
 
 static inline void masked_storeu_pd(double* ptr, __m256d v, size_t valid_count) {
     alignas(32) double tmp[4];
-    _mm256_store_ps((float*)tmp, _mm256_castpd_ps(v)); // cast to ps for store, data is same
-    // Standard store
     _mm256_store_pd(tmp, v);
     for (size_t i = 0; i < valid_count; ++i) ptr[i] = tmp[i];
 }
@@ -120,7 +119,6 @@ Tensor binary_op_broadcast_d64(const Tensor& A, const Tensor& B, Func op) {
     size_t out_numel = 1;
     for (auto s : out_shape) out_numel *= s;
 
-    // FIX: Removed A.device()
     Tensor out(out_shape, DType::Double64);
 
     const double* a_ptr = get_ptr<double>(A);
@@ -136,7 +134,6 @@ Tensor binary_op_broadcast_d64(const Tensor& A, const Tensor& B, Func op) {
     bool a_is_scalar = (A.numel() == 1);
     bool b_is_scalar = (B.numel() == 1);
 
-    // Vector width for double is 4
     size_t vec_end = (out_numel / 4) * 4;
 
     #pragma omp parallel
@@ -147,7 +144,6 @@ Tensor binary_op_broadcast_d64(const Tensor& A, const Tensor& B, Func op) {
         for (size_t i = 0; i < vec_end; i += 4) {
             __m256d va, vb;
 
-            // Load A
             if (a_contig) {
                 va = _mm256_loadu_pd(a_ptr + i);
             } else if (a_is_scalar) {
@@ -155,12 +151,10 @@ Tensor binary_op_broadcast_d64(const Tensor& A, const Tensor& B, Func op) {
             } else {
                 for (int lane = 0; lane < 4; ++lane)
                     gather_idx[lane] = compute_offset_bytes(i + lane, out_shape, out_mult, a_shape, a_strides);
-                // _mm256_i32gather_pd requires 128-bit integer index vector
                 __m128i vidx = _mm_loadu_si128((const __m128i*)gather_idx);
                 va = _mm256_i32gather_pd(a_ptr, vidx, 1);
             }
 
-            // Load B
             if (b_contig) {
                 vb = _mm256_loadu_pd(b_ptr + i);
             } else if (b_is_scalar) {
@@ -172,17 +166,14 @@ Tensor binary_op_broadcast_d64(const Tensor& A, const Tensor& B, Func op) {
                 vb = _mm256_i32gather_pd(b_ptr, vidx, 1);
             }
 
-            // Op
             __m256d vr = op(va, vb);
             _mm256_storeu_pd(out_ptr + i, vr);
         }
     }
 
-    // Tail
     if (vec_end < out_numel) {
         size_t tail_count = out_numel - vec_end;
         
-        // Tail Load A
         __m256d va_tail;
         if (a_contig) {
             va_tail = masked_loadu_pd(a_ptr + vec_end, tail_count);
@@ -197,7 +188,6 @@ Tensor binary_op_broadcast_d64(const Tensor& A, const Tensor& B, Func op) {
             va_tail = _mm256_load_pd(tmp);
         }
 
-        // Tail Load B
         __m256d vb_tail;
         if (b_contig) {
             vb_tail = masked_loadu_pd(b_ptr + vec_end, tail_count);
@@ -260,7 +250,6 @@ Tensor div_avx2_d64(const Tensor& a, const Tensor& b) {
     return binary_op_broadcast_d64(a, b, [](__m256d x, __m256d y){ return _mm256_div_pd(x, y); });
 }
 
-// Pow: Use OMP SIMD instead of raw AVX for double precision power (no AVX2 intrinsic for pow)
 Tensor pow_avx2_d64(const Tensor& A, const Tensor& B) {
     std::vector<size_t> a_shape = A.shape();
     std::vector<size_t> b_shape = B.shape();
@@ -303,9 +292,7 @@ template<int CMP_FLAG>
 Tensor cmp_avx2_d64_impl(const Tensor& a, const Tensor& b) {
     return binary_op_broadcast_d64(a, b, []( __m256d x, __m256d y){
         __m256d m = _mm256_cmp_pd(x, y, CMP_FLAG);
-        // mask bits are 0xFFFFFFFFFFFFFFFF for true.
-        // AND with 1.0 to get 1.0 for true, 0.0 for false.
-        return _mm256_and_pd(m, ZMM_1_PD);
+        return _mm256_and_pd(m, YMM_1_PD);
     });
 }
 
@@ -405,7 +392,7 @@ Tensor max_avx2_d64(const Tensor& t, int dim) {
 
     #pragma omp parallel
     {
-        __m256d vmax = ZMM_NEG_INF_PD;
+        __m256d vmax = YMM_NEG_INF_PD;
         #pragma omp for nowait
         for (size_t i=0; i<vec_end; i+=4) {
             vmax = _mm256_max_pd(vmax, _mm256_loadu_pd(data+i));
@@ -441,7 +428,7 @@ Tensor min_avx2_d64(const Tensor& t, int dim) {
 
     #pragma omp parallel
     {
-        __m256d vmin = ZMM_INF_PD;
+        __m256d vmin = YMM_INF_PD;
         #pragma omp for nowait
         for (size_t i=0; i<vec_end; i+=4) {
             vmin = _mm256_min_pd(vmin, _mm256_loadu_pd(data+i));
@@ -482,7 +469,7 @@ Tensor sqrt_avx2_d64(const Tensor& a) {
 }
 
 Tensor relu_avx2_d64(const Tensor& a) {
-    return unary_op_d64_impl(a, []( __m256d x){ return _mm256_max_pd(x, ZMM_0_PD); });
+    return unary_op_d64_impl(a, []( __m256d x){ return _mm256_max_pd(x, YMM_0_PD); });
 }
 
 // Complex unary ops use OMP SIMD
