@@ -23,12 +23,11 @@ inline T* get_ptr(const Tensor& t) {
 // ========================================================================
 //                     Internal AVX2 Math Constants & Helpers
 // ========================================================================
-
-const __m256 _ps_1  = _mm256_set1_ps(1.0f);
-const __m256 _ps_05 = _mm256_set1_ps(0.5f);
-const __m256 _ps_0  = _mm256_setzero_ps();
-const __m256 _ps_nan= _mm256_set1_ps(NAN);
-const __m256i _pi32_0x7f = _mm256_set1_epi32(0x7f);
+#define ZMM_1_PS   _mm256_set1_ps(1.0f)
+#define ZMM_05_PS  _mm256_set1_ps(0.5f)
+#define ZMM_0_PS   _mm256_setzero_ps()
+#define ZMM_NAN_PS _mm256_set1_ps(NAN)
+#define ZMM_PI32_0x7f _mm256_set1_epi32(0x7f)
 
 // --- Masked Load/Store Helpers ---
 // Using manual loop for tails is often safer/simpler than _mm256_maskload_ps 
@@ -57,13 +56,13 @@ inline __m256 exp256_ps(__m256 x) {
     __m256 tmp = _mm256_setzero_ps();
     __m256 fx;
     __m256i emm0;
-    __m256 one = _ps_1;
+    __m256 one = ZMM_1_PS;
 
     x = _mm256_min_ps(x, _mm256_set1_ps(88.3762626647949f));
     x = _mm256_max_ps(x, _mm256_set1_ps(-88.3762626647949f));
 
     fx = _mm256_mul_ps(x, _mm256_set1_ps(1.44269504088896341f));
-    fx = _mm256_add_ps(fx, _ps_05);
+    fx = _mm256_add_ps(fx, ZMM_05_PS);
     fx = _mm256_floor_ps(fx);
     
     tmp = _mm256_mul_ps(fx, _mm256_set1_ps(0.693359375f));
@@ -83,13 +82,13 @@ inline __m256 exp256_ps(__m256 x) {
     y = _mm256_mul_ps(y, x);
     y = _mm256_add_ps(y, _mm256_set1_ps(1.6666665459E-1f));
     y = _mm256_mul_ps(y, x);
-    y = _mm256_add_ps(y, _ps_05);
+    y = _mm256_add_ps(y, ZMM_05_PS);
     y = _mm256_mul_ps(y, z);
     y = _mm256_add_ps(y, x);
     y = _mm256_add_ps(y, one);
 
     emm0 = _mm256_cvttps_epi32(fx);
-    emm0 = _mm256_add_epi32(emm0, _pi32_0x7f);
+    emm0 = _mm256_add_epi32(emm0, ZMM_PI32_0x7f);
     emm0 = _mm256_slli_epi32(emm0, 23);
     
     __m256 pow2n = _mm256_castsi256_ps(emm0);
@@ -99,7 +98,7 @@ inline __m256 exp256_ps(__m256 x) {
 
 // --- Natural Logarithm (Ln) ---
 inline __m256 log256_ps(__m256 x) {
-    __m256 one = _ps_1;
+    __m256 one = ZMM_1_PS;
     __m256 invalid_mask = _mm256_cmp_ps(x, _mm256_setzero_ps(), _CMP_LE_OQ);
 
     x = _mm256_max_ps(x, _mm256_set1_ps(1.17549435e-38f)); 
@@ -107,9 +106,9 @@ inline __m256 log256_ps(__m256 x) {
     __m256i emm0 = _mm256_srli_epi32(_mm256_castps_si256(x), 23);
     
     x = _mm256_and_ps(x, _mm256_castsi256_ps(_mm256_set1_epi32(0x7fffff)));
-    x = _mm256_or_ps(x, _ps_05);
+    x = _mm256_or_ps(x, ZMM_05_PS);
 
-    emm0 = _mm256_sub_epi32(emm0, _pi32_0x7f);
+    emm0 = _mm256_sub_epi32(emm0, ZMM_PI32_0x7f);
     __m256 e = _mm256_cvtepi32_ps(emm0);
     e = _mm256_add_ps(e, one);
 
@@ -144,7 +143,7 @@ inline __m256 log256_ps(__m256 x) {
     tmp = _mm256_mul_ps(e, _mm256_set1_ps(-2.12194440e-4f));
     y = _mm256_add_ps(y, tmp);
 
-    tmp = _mm256_mul_ps(z, _ps_05);
+    tmp = _mm256_mul_ps(z, ZMM_05_PS);
     y = _mm256_sub_ps(y, tmp);
 
     tmp = _mm256_mul_ps(e, _mm256_set1_ps(0.693359375f));
@@ -187,9 +186,9 @@ inline __m256 sin256_ps(__m256 x) {
     y = _mm256_add_ps(y, _mm256_set1_ps(4.166664568298827E-002f));
     y = _mm256_mul_ps(y, z);
     y = _mm256_mul_ps(y, z);
-    __m256 tmp = _mm256_mul_ps(z, _ps_05);
+    __m256 tmp = _mm256_mul_ps(z, ZMM_05_PS);
     y = _mm256_sub_ps(y, tmp);
-    y = _mm256_add_ps(y, _ps_1);
+    y = _mm256_add_ps(y, ZMM_1_PS);
     y = _mm256_mul_ps(y, x);
 
     return _mm256_xor_ps(y, _mm256_and_ps(sign_bit, _mm256_castsi256_ps(_mm256_set1_epi32(0x80000000))));
@@ -205,8 +204,8 @@ inline __m256 cos256_ps(__m256 x) {
 inline __m256 tanh256_ps(__m256 x) {
     __m256 two_x = _mm256_mul_ps(x, _mm256_set1_ps(2.0f));
     __m256 exp_2x = exp256_ps(two_x);
-    __m256 num = _mm256_sub_ps(exp_2x, _ps_1);
-    __m256 den = _mm256_add_ps(exp_2x, _ps_1);
+    __m256 num = _mm256_sub_ps(exp_2x, ZMM_1_PS);
+    __m256 den = _mm256_add_ps(exp_2x, ZMM_1_PS);
     return _mm256_div_ps(num, den);
 }
 
@@ -214,8 +213,8 @@ inline __m256 tanh256_ps(__m256 x) {
 inline __m256 sigmoid256_ps(__m256 x) {
     __m256 neg_x = _mm256_xor_ps(x, _mm256_set1_ps(-0.0f));
     __m256 e = exp256_ps(neg_x);
-    __m256 den = _mm256_add_ps(_ps_1, e);
-    return _mm256_div_ps(_ps_1, den);
+    __m256 den = _mm256_add_ps(ZMM_1_PS, e);
+    return _mm256_div_ps(ZMM_1_PS, den);
 }
 
 // --- Pow ---
@@ -437,7 +436,7 @@ template<int CMP_FLAG>
 Tensor cmp_avx2_f32(const Tensor& a, const Tensor& b) {
     return binary_op_broadcast(a, b, []( __m256 x, __m256 y){
         __m256 m = _mm256_cmp_ps(x, y, CMP_FLAG);
-        return _mm256_and_ps(m, _ps_1);
+        return _mm256_and_ps(m, ZMM_1_PS);
     });
 }
 
@@ -451,7 +450,7 @@ Tensor ne_avx2_f32(const Tensor& a, const Tensor& b) { return cmp_avx2_f32<_CMP_
 // Unary
 Tensor abs_avx2_f32(const Tensor& a) { return unary_op_broadcast(a, [](__m256 x){ return _mm256_abs_ps(x); }); }
 Tensor sqrt_avx2_f32(const Tensor& a) { return unary_op_broadcast(a, [](__m256 x){ return _mm256_sqrt_ps(x); }); }
-Tensor relu_avx2_f32(const Tensor& a) { return unary_op_broadcast(a, [](__m256 x){ return _mm256_max_ps(x, _ps_0); }); }
+Tensor relu_avx2_f32(const Tensor& a) { return unary_op_broadcast(a, [](__m256 x){ return _mm256_max_ps(x, ZMM_0_PS); }); }
 Tensor ln_avx2_f32(const Tensor& a) { return unary_op_broadcast(a, [](__m256 x){ return log256_ps(x); }); }
 Tensor exp_avx2_f32(const Tensor& a) { return unary_op_broadcast(a, [](__m256 x){ return exp256_ps(x); }); }
 Tensor sin_avx2_f32(const Tensor& a) { return unary_op_broadcast(a, [](__m256 x){ return sin256_ps(x); }); }
@@ -460,7 +459,7 @@ Tensor tanh_avx2_f32(const Tensor& a) { return unary_op_broadcast(a, [](__m256 x
 Tensor sigmoid_avx2_f32(const Tensor& a) { return unary_op_broadcast(a, [](__m256 x){ return sigmoid256_ps(x); }); }
 Tensor softplus_avx2_f32(const Tensor& a) { 
     return unary_op_broadcast(a, [](__m256 x){ 
-        return log256_ps(_mm256_add_ps(_ps_1, exp256_ps(x))); 
+        return log256_ps(_mm256_add_ps(ZMM_1_PS, exp256_ps(x))); 
     }); 
 }
 
@@ -531,7 +530,7 @@ Tensor sum_avx2_f32(const Tensor& t, int dim) {
 
     #pragma omp parallel
     {
-        __m256 vsum = _ps_0;
+        __m256 vsum = ZMM_0_PS;
         #pragma omp for nowait
         for (size_t i=0; i < n; i+=8) {
             size_t tail = (n - i < 8) ? (n - i) : 8;
