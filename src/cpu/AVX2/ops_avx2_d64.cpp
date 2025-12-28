@@ -29,11 +29,6 @@ inline T* get_ptr(const Tensor& t) {
 #define ZMM_INF_PD _mm256_set1_pd(std::numeric_limits<double>::infinity())
 #define ZMM_NEG_INF_PD _mm256_set1_pd(-std::numeric_limits<double>::infinity())
 
-const __m256d _pd_1  = _mm256_set1_pd(1.0);
-const __m256d _pd_0  = _mm256_setzero_pd();
-const __m256d _pd_inf= _mm256_set1_pd(std::numeric_limits<double>::infinity());
-const __m256d _pd_neg_inf= _mm256_set1_pd(-std::numeric_limits<double>::infinity());
-
 // --- Masked Load/Store Helpers (Manual Stack Buffer) ---
 // Safer near page boundaries and cleaner API than intrinsics for simple tails.
 
@@ -310,7 +305,7 @@ Tensor cmp_avx2_d64_impl(const Tensor& a, const Tensor& b) {
         __m256d m = _mm256_cmp_pd(x, y, CMP_FLAG);
         // mask bits are 0xFFFFFFFFFFFFFFFF for true.
         // AND with 1.0 to get 1.0 for true, 0.0 for false.
-        return _mm256_and_pd(m, _pd_1);
+        return _mm256_and_pd(m, ZMM_1_PD);
     });
 }
 
@@ -410,7 +405,7 @@ Tensor max_avx2_d64(const Tensor& t, int dim) {
 
     #pragma omp parallel
     {
-        __m256d vmax = _pd_neg_inf;
+        __m256d vmax = ZMM_NEG_INF_PD;
         #pragma omp for nowait
         for (size_t i=0; i<vec_end; i+=4) {
             vmax = _mm256_max_pd(vmax, _mm256_loadu_pd(data+i));
@@ -446,7 +441,7 @@ Tensor min_avx2_d64(const Tensor& t, int dim) {
 
     #pragma omp parallel
     {
-        __m256d vmin = _pd_inf;
+        __m256d vmin = ZMM_INF_PD;
         #pragma omp for nowait
         for (size_t i=0; i<vec_end; i+=4) {
             vmin = _mm256_min_pd(vmin, _mm256_loadu_pd(data+i));
@@ -487,7 +482,7 @@ Tensor sqrt_avx2_d64(const Tensor& a) {
 }
 
 Tensor relu_avx2_d64(const Tensor& a) {
-    return unary_op_d64_impl(a, []( __m256d x){ return _mm256_max_pd(x, _pd_0); });
+    return unary_op_d64_impl(a, []( __m256d x){ return _mm256_max_pd(x, ZMM_0_PD); });
 }
 
 // Complex unary ops use OMP SIMD
