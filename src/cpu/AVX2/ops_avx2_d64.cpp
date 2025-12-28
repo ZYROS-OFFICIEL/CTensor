@@ -24,6 +24,10 @@ inline T* get_ptr(const Tensor& t) {
 // ========================================================================
 //                     Internal AVX2 Double Constants & Helpers
 // ========================================================================
+#define ZMM_1_PD  _mm256_set1_pd(1.0)
+#define ZMM_0_PD  _mm256_setzero_pd()
+#define ZMM_INF_PD _mm256_set1_pd(std::numeric_limits<double>::infinity())
+#define ZMM_NEG_INF_PD _mm256_set1_pd(-std::numeric_limits<double>::infinity())
 
 const __m256d _pd_1  = _mm256_set1_pd(1.0);
 const __m256d _pd_0  = _mm256_setzero_pd();
