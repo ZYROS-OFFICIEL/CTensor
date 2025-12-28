@@ -205,16 +205,34 @@ struct Tensor {
         operator double() const {
             if (!impl) throw std::runtime_error("Invalid tensor");
             if (depth != impl->ndim) throw std::out_of_range("Not at leaf index");
-            // FIXED: Access impl->data (Storage) -> data (void*)
             return read_scalar_at(impl->data->data.get(), offset, impl->dtype);
+        }
+
+        // Helper to recursively fill a sub-tensor
+        void recursive_fill(size_t current_depth, size_t current_offset, double val) {
+            if (current_depth == impl->ndim) {
+                write_scalar_at(impl->data->data.get(), current_offset, impl->dtype, val);
+                return;
+            }
+            
+            size_t len = impl->shape[current_depth];
+            size_t stride = impl->strides[current_depth];
+            for (size_t i = 0; i < len; ++i) {
+                recursive_fill(current_depth + 1, current_offset + i * stride, val);
+            }
         }
 
         template <bool W = Writable, typename = std::enable_if_t<W>>
         ProxyBase& operator=(double val) {
             if (!impl) throw std::runtime_error("Invalid tensor");
-            if (depth != impl->ndim) throw std::out_of_range("Not at leaf index");
-            // FIXED: Access impl->data (Storage) -> data (void*)
-            write_scalar_at(impl->data->data.get(), offset, impl->dtype, val);
+            
+            if (depth == impl->ndim) {
+                // Leaf assignment
+                write_scalar_at(impl->data->data.get(), offset, impl->dtype, val);
+            } else {
+                // Slice assignment (Broadcast fill)
+                recursive_fill(depth, offset, val);
+            }
             return *this;
         }
 
