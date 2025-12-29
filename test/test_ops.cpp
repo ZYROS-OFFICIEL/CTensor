@@ -44,7 +44,6 @@ void test_initialization() {
     // Test Ones
     Tensor a = Tensor::ones({2, 3});
     ASSERT_TRUE(a.numel() == 6);
-    // FIXED: Use chained indexing [0][0] instead of comma operator [0, 0]
     ASSERT_CLOSE(a[0][0], 1.0, 1e-5);
     ASSERT_CLOSE(a[1][2], 1.0, 1e-5);
 
