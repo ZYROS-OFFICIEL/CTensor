@@ -204,7 +204,7 @@ struct Tensor {
 
         operator double() const {
             if (!impl) throw std::runtime_error("Invalid tensor");
-            if (depth != impl->ndim) throw std::out_of_range("Not at leaf index");
+            if (depth != impl->ndim) throw std::out_of_range("Not at leaf index"); 
             return read_scalar_at(impl->data->data.get(), offset, impl->dtype);
         }
 
