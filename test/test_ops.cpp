@@ -6,14 +6,16 @@
 #include <cstdlib>
 #include "tensor.h"
 #include "ops_dispatch.h"
-#include "autograd.h" // Required if you are testing backward()
+#include "autograd.h" 
 
 // --- Simple Test Framework ---
 #define ASSERT_CLOSE(a, b, eps) \
     do { \
-        if (std::abs((a) - (b)) > (eps)) { \
-            std::cerr << "Assertion failed: " << (a) << " != " << (b) \
-                      << " (diff: " << std::abs((a)-(b)) << ") at line " \
+        double val_a = static_cast<double>(a); \
+        double val_b = static_cast<double>(b); \
+        if (std::abs(val_a - val_b) > (eps)) { \
+            std::cerr << "Assertion failed: " << val_a << " != " << val_b \
+                      << " (diff: " << std::abs(val_a - val_b) << ") at line " \
                       << __LINE__ << std::endl; \
             std::exit(1); \
         } \
@@ -26,12 +28,14 @@
             std::exit(1); \
         } \
     } while(0)
+
 void log_test(const std::string& name) {
     std::cout << "[TEST] " << name << "..." << std::endl;
 }
 void passed() {
     std::cout << " -> PASSED\n" << std::endl;
 }
+
 // --- Test Cases ---
 
 void test_initialization() {
@@ -40,21 +44,23 @@ void test_initialization() {
     // Test Ones
     Tensor a = Tensor::ones({2, 3});
     ASSERT_TRUE(a.numel() == 6);
-    ASSERT_CLOSE((a[0, 0]), 1.0, 1e-5);
-    ASSERT_CLOSE((a[1, 2]), 1.0, 1e-5);
+    // FIXED: Use chained indexing [0][0] instead of comma operator [0, 0]
+    ASSERT_CLOSE(a[0][0], 1.0, 1e-5);
+    ASSERT_CLOSE(a[1][2], 1.0, 1e-5);
 
     // Test Full
     Tensor b = Tensor::full({2, 2}, 3.14);
-    ASSERT_CLOSE((b[0, 0]), 3.14, 1e-5);
-    ASSERT_CLOSE((b[1, 1]), 3.14, 1e-5);
+    ASSERT_CLOSE(b[0][0], 3.14, 1e-5);
+    ASSERT_CLOSE(b[1][1], 3.14, 1e-5);
 
     // Test Range
     Tensor c = Tensor::arange(0, 5, 1, DType::Float32);
     ASSERT_TRUE(c.numel() == 5);
-    ASSERT_CLOSE((c[4]), 4.0, 1e-5);
+    ASSERT_CLOSE(c[4], 4.0, 1e-5);
 
     passed();
 }
+
 void test_arithmetic() {
     log_test("Basic Arithmetic (Add, Sub, Mul, Div)");
 
@@ -63,20 +69,22 @@ void test_arithmetic() {
 
     // Add
     Tensor c = add(a, b);
-    ASSERT_CLOSE((c[0, 0]), 5.0, 1e-5);
+    ASSERT_CLOSE(c[0][0], 5.0, 1e-5);
 
     // Sub
     Tensor d = sub(b, a);
-    ASSERT_CLOSE((d[0, 0]), 1.0, 1e-5);
+    ASSERT_CLOSE(d[0][0], 1.0, 1e-5);
+    
     // Mul
     Tensor e = mul(a, b);
-    ASSERT_CLOSE((e[0, 0]), 6.0, 1e-5);
+    ASSERT_CLOSE(e[0][0], 6.0, 1e-5);
 
     // Div
     Tensor f = div(a, b);
-    ASSERT_CLOSE((f[0, 0]), 2.0/3.0, 1e-5);
+    ASSERT_CLOSE(f[0][0], 2.0/3.0, 1e-5);
     passed();
 }
+
 void test_matmul() {
     log_test("Matrix Multiplication");
 
@@ -88,10 +96,10 @@ void test_matmul() {
 
     Tensor C = matmul(A, B);
 
-    ASSERT_CLOSE((C[0, 0]), 1.0, 1e-5);
-    ASSERT_CLOSE((C[0, 1]), 2.0, 1e-5);
-    ASSERT_CLOSE((C[1, 0]), 3.0, 1e-5);
-    ASSERT_CLOSE((C[1, 1]), 4.0, 1e-5);
+    ASSERT_CLOSE(C[0][0], 1.0, 1e-5);
+    ASSERT_CLOSE(C[0][1], 2.0, 1e-5);
+    ASSERT_CLOSE(C[1][0], 3.0, 1e-5);
+    ASSERT_CLOSE(C[1][1], 4.0, 1e-5);
 
     // Dot product style: [1, 2] @ [2, 1]^T -> 1*2 + 2*1 = 4
     Tensor v1 = Tensor::from_vector({1, 2}, {1, 2});
@@ -99,10 +107,11 @@ void test_matmul() {
     Tensor D = matmul(v1, v2);
     
     ASSERT_TRUE(D.numel() == 1);
-    ASSERT_CLOSE((D[0]), 4.0, 1e-5);
+    ASSERT_CLOSE(D[0], 4.0, 1e-5);
 
     passed();
 }
+
 void test_reductions() {
     log_test("Reductions (Sum, Mean, Max)");
 
@@ -119,34 +128,24 @@ void test_reductions() {
 
     passed();
 }
+
 void test_broadcasting_manual() {
-    // Note: If your dispatcher handles broadcasting automatically, this tests it.
-    // If not, this tests manual broadcasting logic if implemented in opsmp.
     log_test("Broadcasting (via Ops)");
 
     Tensor A = Tensor::ones({2, 2});       // 2x2
     Tensor B = Tensor::full({1, 2}, 2.0);  // 1x2
 
-    // If your opsmp logic supports broadcasting, A + B should result in:
-    // [[3, 3], [3, 3]]
     try {
         Tensor C = add(A, B); 
-        // If the implementation throws on shape mismatch (no broadcasting), catch it.
-        // Assuming simplistic broadcasting or strict shape check based on your code:
-        // Your code `ensure_same_device` checks shape!=shape -> throw.
-        // So this block expects a throw unless opsmp handles it gracefully.
-        
-        // However, standard tensor libraries broadcast here.
-        // If your add_mp implementation doesn't broadcast, this test might fail.
-        // We will just check if it ran.
-        ASSERT_CLOSE((C[0, 0]), 3.0, 1e-5);
-        ASSERT_CLOSE((C[1, 0]), 3.0, 1e-5);
+        ASSERT_CLOSE(C[0][0], 3.0, 1e-5);
+        ASSERT_CLOSE(C[1][0], 3.0, 1e-5);
     } catch (const std::exception& e) {
         std::cout << " (Skipped broadcasting test due to strict shape checks: " << e.what() << ")\n";
     }
 
     passed();
 }
+
 void test_view_ops() {
     log_test("View Operations (Reshape, Permute, Slicing)");
 
@@ -160,8 +159,8 @@ void test_view_ops() {
     //  [1, 4],
     //  [2, 5]]
 
-    ASSERT_CLOSE((p[0, 1]), 3.0, 1e-5);
-    ASSERT_CLOSE((p[2, 1]), 5.0, 1e-5);
+    ASSERT_CLOSE(p[0][1], 3.0, 1e-5);
+    ASSERT_CLOSE(p[2][1], 5.0, 1e-5);
 
     // Flatten
     Tensor f = t.flatten();
@@ -170,14 +169,13 @@ void test_view_ops() {
 
     passed();
 }
+
 void test_autograd_simple() {
     log_test("Autograd (Simple Backward)");
 
     // y = x^2, where x=3. dy/dx = 2x = 6.
     Tensor x = Tensor::from_vector({3.0}, {1}, DType::Float32, true);
     
-    // We need to implement pow in ops_dispatch or use mul
-    // y = x * x
     Tensor y = mul(x, x);
     
     // Check forward pass
@@ -189,7 +187,6 @@ void test_autograd_simple() {
     // Check grad
     Tensor grad = x.grad();
     
-    // If autograd is not fully hooked up, grad might be empty/null.
     if (grad.numel() > 0) {
         ASSERT_CLOSE(grad[0], 6.0, 1e-5);
     } else {
@@ -198,6 +195,7 @@ void test_autograd_simple() {
 
     passed();
 }
+
 void test_type_conversion() {
     log_test("Type Conversion (astype)");
 
@@ -209,6 +207,7 @@ void test_type_conversion() {
 
     passed();
 }
+
 int main() {
     std::cout << "      RUNNING OPS DISPATCH TESTS       " << std::endl;
 
