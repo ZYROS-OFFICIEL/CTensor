@@ -106,7 +106,7 @@ void test_matmul() {
     Tensor D = matmul(v1, v2);
     
     ASSERT_TRUE(D.numel() == 1);
-    ASSERT_CLOSE(D[0], 4.0, 1e-5);
+    ASSERT_CLOSE(D[0][0], 4.0, 1e-5);
 
     passed();
 }
