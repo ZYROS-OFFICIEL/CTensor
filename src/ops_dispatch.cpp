@@ -292,9 +292,14 @@ Tensor NAME(const Tensor &a,int dim) { \
     throw std::runtime_error(std::string(#NAME) + ": unsupported device"); \
 }
 Reduction_Op(sum, sum_mp, sum_avx2, sum_avx512)
-Reduction_Op(mean, mean_mp, mean_avx2, mean_avx512)
 Reduction_Op(max, max_mp, max_avx2, max_avx512)
 Reduction_Op(min, min_mp, min_avx2, min_avx512)
+
+Tensor mean(const Tensor &a, int dim) {
+    Tensor s = sum(a, dim);
+    double n = static_cast<double>(a.numel());
+    return mul_scalar(s, 1.0 / n);
+}
 
 
 //                           Utilities
