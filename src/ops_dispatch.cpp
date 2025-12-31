@@ -297,7 +297,7 @@ Reduction_Op(min, min_mp, min_avx2, min_avx512)
 
 Tensor mean(const Tensor &a, int dim) {
     Tensor s = sum(a, dim);
-    double n = static_cast<double>(a.numel());
+    double n = (dim == -1) ? a.numel() : a.size(dim);
     return mul_scalar(s, 1.0 / n);
 }
 
