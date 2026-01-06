@@ -100,9 +100,8 @@ void test_matmul() {
     ASSERT_CLOSE(C[1][0], 3.0, 1e-5);
     ASSERT_CLOSE(C[1][1], 4.0, 1e-5);
 
-    // Dot product style: [1, 2] @ [2, 1]^T -> 1*2 + 2*1 = 4
     Tensor v1 = Tensor::from_vector({1, 2}, {1, 2});
-    Tensor v2 = Tensor::from_vector({2, 1}, {2, 1}); // Transposed
+    Tensor v2 = Tensor::from_vector({2, 1}, {2, 1}); 
     Tensor D = matmul(v1, v2);
     
     ASSERT_TRUE(D.numel() == 1);
@@ -131,8 +130,8 @@ void test_reductions() {
 void test_broadcasting_manual() {
     log_test("Broadcasting (via Ops)");
 
-    Tensor A = Tensor::ones({2, 2});       // 2x2
-    Tensor B = Tensor::full({1, 2}, 2.0);  // 1x2
+    Tensor A = Tensor::ones({2, 2});       
+    Tensor B = Tensor::full({1, 2}, 2.0); 
 
     try {
         Tensor C = add(A, B); 
