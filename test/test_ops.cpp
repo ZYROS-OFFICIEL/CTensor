@@ -139,6 +139,9 @@ void test_broadcasting_manual() {
         ASSERT_CLOSE(C[1][0], 3.0, 1e-5);
     } catch (const std::exception& e) {
         std::cout << " (Skipped broadcasting test due to strict shape checks: " << e.what() << ")\n";
+        print_t(A);
+        print_t(B);
+        return;
     }
 
     passed();
@@ -189,6 +192,7 @@ void test_autograd_simple() {
         ASSERT_CLOSE(grad[0], 6.0, 1e-5);
     } else {
         std::cout << " (Skipping Grad check - Gradient not populated)\n";
+        print_t(grad);
     }
 
     passed();
