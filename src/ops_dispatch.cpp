@@ -48,7 +48,10 @@ Tensor add(const Tensor &a, const Tensor &b) {
             case DType::Float32: {
                 // dtype-level dispatch
                 if (cpu_has_avx512f()) return add_avx512_f32(a,b);
-                if (cpu_has_avx2())    return add_avx2_f32(a,b);
+                if (cpu_has_avx2()) {
+                    printf("Using AVX2 add for Float32\n");
+                    return add_avx2_f32(a,b);
+                }
                 return add_mp(a,b);
             }
             case DType::Int32: {
