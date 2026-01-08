@@ -72,6 +72,7 @@ CMakeFiles/ops_avx512.dir/codegen:
 .PHONY : CMakeFiles/ops_avx512.dir/codegen
 
 CMakeFiles/ops_avx512.dir/src/cpu/AVX512/ops_avx512_d64.cpp.obj: CMakeFiles/ops_avx512.dir/flags.make
+CMakeFiles/ops_avx512.dir/src/cpu/AVX512/ops_avx512_d64.cpp.obj: CMakeFiles/ops_avx512.dir/includes_CXX.rsp
 CMakeFiles/ops_avx512.dir/src/cpu/AVX512/ops_avx512_d64.cpp.obj: D:/C\ programs/CTensor/src/cpu/AVX512/ops_avx512_d64.cpp
 CMakeFiles/ops_avx512.dir/src/cpu/AVX512/ops_avx512_d64.cpp.obj: CMakeFiles/ops_avx512.dir/compiler_depend.ts
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/ops_avx512.dir/src/cpu/AVX512/ops_avx512_d64.cpp.obj"
@@ -86,6 +87,7 @@ CMakeFiles/ops_avx512.dir/src/cpu/AVX512/ops_avx512_d64.cpp.s: cmake_force
 	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\C programs\CTensor\src\cpu\AVX512\ops_avx512_d64.cpp" -o CMakeFiles\ops_avx512.dir\src\cpu\AVX512\ops_avx512_d64.cpp.s
 
 CMakeFiles/ops_avx512.dir/src/cpu/AVX512/ops_avx512_f32.cpp.obj: CMakeFiles/ops_avx512.dir/flags.make
+CMakeFiles/ops_avx512.dir/src/cpu/AVX512/ops_avx512_f32.cpp.obj: CMakeFiles/ops_avx512.dir/includes_CXX.rsp
 CMakeFiles/ops_avx512.dir/src/cpu/AVX512/ops_avx512_f32.cpp.obj: D:/C\ programs/CTensor/src/cpu/AVX512/ops_avx512_f32.cpp
 CMakeFiles/ops_avx512.dir/src/cpu/AVX512/ops_avx512_f32.cpp.obj: CMakeFiles/ops_avx512.dir/compiler_depend.ts
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/ops_avx512.dir/src/cpu/AVX512/ops_avx512_f32.cpp.obj"
