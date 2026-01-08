@@ -10,6 +10,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_library(opsmp OBJECT src/opsmp.cpp)
 add_library(core OBJECT src/autograd.cpp src/ops_dispatch.cpp src/tensor.cpp)
 
+
 # AVX2 code
 add_library(ops_avx2 OBJECT src/cpu/AVX2/ops_avx2_d64.cpp src/cpu/AVX2/ops_avx2_f32.cpp)
 target_compile_options(ops_avx2 PRIVATE
@@ -25,11 +26,17 @@ target_compile_options(ops_avx512 PRIVATE
 # -------------------------------
 # Final executable
 # -------------------------------
+
 add_executable(app
     test/test_ops.cpp
     $<TARGET_OBJECTS:opsmp>
     $<TARGET_OBJECTS:ops_avx2>
     $<TARGET_OBJECTS:ops_avx512>
     $<TARGET_OBJECTS:core>
+)
+target_include_directories(app PRIVATE
+    src
+    src/cpu/AVX2
+    src/cpu/AVX512
 )
 target_compile_options(app PRIVATE -O0)
