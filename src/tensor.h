@@ -344,3 +344,14 @@ inline size_t Tensor::numel() const {
     for(auto s : impl->shape) n *= s;
     return n;
 }
+inline void print_t(const Tensor& t) {
+    size_t n = t.numel_();
+    std::cout << "[";
+    for (size_t i = 0; i < n; i++) {
+        double v = read_scalar_at(t.impl->data.get(), i, t.impl->dtype);
+        std::cout << v;
+        if (i != n - 1) std::cout << ", ";
+    }
+    std::cout << "]\n";
+    
+}
