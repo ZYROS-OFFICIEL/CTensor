@@ -72,6 +72,7 @@ CMakeFiles/core.dir/codegen:
 .PHONY : CMakeFiles/core.dir/codegen
 
 CMakeFiles/core.dir/src/autograd.cpp.obj: CMakeFiles/core.dir/flags.make
+CMakeFiles/core.dir/src/autograd.cpp.obj: CMakeFiles/core.dir/includes_CXX.rsp
 CMakeFiles/core.dir/src/autograd.cpp.obj: D:/C\ programs/CTensor/src/autograd.cpp
 CMakeFiles/core.dir/src/autograd.cpp.obj: CMakeFiles/core.dir/compiler_depend.ts
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/core.dir/src/autograd.cpp.obj"
@@ -86,6 +87,7 @@ CMakeFiles/core.dir/src/autograd.cpp.s: cmake_force
 	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\C programs\CTensor\src\autograd.cpp" -o CMakeFiles\core.dir\src\autograd.cpp.s
 
 CMakeFiles/core.dir/src/ops_dispatch.cpp.obj: CMakeFiles/core.dir/flags.make
+CMakeFiles/core.dir/src/ops_dispatch.cpp.obj: CMakeFiles/core.dir/includes_CXX.rsp
 CMakeFiles/core.dir/src/ops_dispatch.cpp.obj: D:/C\ programs/CTensor/src/ops_dispatch.cpp
 CMakeFiles/core.dir/src/ops_dispatch.cpp.obj: CMakeFiles/core.dir/compiler_depend.ts
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/core.dir/src/ops_dispatch.cpp.obj"
@@ -100,6 +102,7 @@ CMakeFiles/core.dir/src/ops_dispatch.cpp.s: cmake_force
 	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\C programs\CTensor\src\ops_dispatch.cpp" -o CMakeFiles\core.dir\src\ops_dispatch.cpp.s
 
 CMakeFiles/core.dir/src/tensor.cpp.obj: CMakeFiles/core.dir/flags.make
+CMakeFiles/core.dir/src/tensor.cpp.obj: CMakeFiles/core.dir/includes_CXX.rsp
 CMakeFiles/core.dir/src/tensor.cpp.obj: D:/C\ programs/CTensor/src/tensor.cpp
 CMakeFiles/core.dir/src/tensor.cpp.obj: CMakeFiles/core.dir/compiler_depend.ts
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/core.dir/src/tensor.cpp.obj"
