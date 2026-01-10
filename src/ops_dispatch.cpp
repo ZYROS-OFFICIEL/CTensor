@@ -39,9 +39,7 @@ inline void ensure_same_device(const Tensor &a, const Tensor &b, const char* opn
 
 Tensor add(const Tensor &a, const Tensor &b) {
     ensure_same_device(a,b,"add");
-    if (a.shape() != b.shape()) throw std::runtime_error("add: shape mismatch");
 
-    // only CPU/CUDA supported; CUDA not implemented here
     if (a.device().is_cpu()) {
         DType d = a._dtype();
         switch (d) {
@@ -49,7 +47,6 @@ Tensor add(const Tensor &a, const Tensor &b) {
                 // dtype-level dispatch
                 if (cpu_has_avx512f()) return add_avx512_f32(a,b);
                 if (cpu_has_avx2()) {
-                    printf("Using AVX2 add for Float32\n");
                     return add_avx2_f32(a,b);
                 }
                 return add_mp(a,b);
@@ -74,7 +71,6 @@ Tensor add(const Tensor &a, const Tensor &b) {
 
 Tensor sub(const Tensor &a, const Tensor &b) {
     ensure_same_device(a,b,"sub");
-    if (a.shape() != b.shape()) throw std::runtime_error("sub: shape mismatch");
 
     if (a.device().is_cpu()) {
         DType d = a._dtype();
@@ -98,7 +94,6 @@ Tensor sub(const Tensor &a, const Tensor &b) {
 
 Tensor mul(const Tensor &a, const Tensor &b) {
     ensure_same_device(a,b,"mul");
-    if (a.shape() != b.shape()) throw std::runtime_error("mul: shape mismatch");
 
     if (a.device().is_cpu()) {
         DType d = a._dtype();
@@ -122,7 +117,6 @@ Tensor mul(const Tensor &a, const Tensor &b) {
 
 Tensor div(const Tensor &a, const Tensor &b) {
     ensure_same_device(a,b,"div");
-    if (a.shape() != b.shape()) throw std::runtime_error("div: shape mismatch");
 
     if (a.device().is_cpu()) {
         DType d = a._dtype();
@@ -146,7 +140,6 @@ Tensor div(const Tensor &a, const Tensor &b) {
 
 Tensor pow(const Tensor &a, const Tensor &b) {
     ensure_same_device(a,b,"pow");
-    if (a.shape() != b.shape()) throw std::runtime_error("pow: shape mismatch");
 
     if (a.device().is_cpu()) {
         DType d = a._dtype();
@@ -243,7 +236,6 @@ IMPLEMENT_UNARY_OP(softplus, softplus_mp, softplus_avx2, softplus_avx512)
 #define IMPLEMENT_COMPARE_OP(NAME, FUNC_MP, FUNC_AVX2, FUNC_AVX512) \
 Tensor NAME(const Tensor &a, const Tensor &b) { \
     ensure_same_device(a,b,#NAME); \
-    if (a.shape() != b.shape()) throw std::runtime_error(std::string(#NAME) + ": shape mismatch"); \
     if (a.device().is_cpu()) { \
         switch (a._dtype()) { \
             case DType::Float32: \
@@ -309,4 +301,3 @@ Tensor mean(const Tensor &a, int dim) {
 Tensor cat(const std::vector<Tensor>& tensors, size_t dim) {
     return cat_mp(tensors, dim);
 }
-
