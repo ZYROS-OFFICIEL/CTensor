@@ -139,6 +139,7 @@ void test_broadcasting_manual() {
         ASSERT_CLOSE(C[1][0], 3.0, 1e-5);
     } catch (const std::exception& e) {
         std::cout << " (Skipped broadcasting test due to strict shape checks: " << e.what() << ")\n";
+        std::cout << dtype_to_str(A.impl->dtype) << " " << dtype_to_str(B.impl->dtype) << "\n";
         print_t(A);
         print_t(B);
         return;
