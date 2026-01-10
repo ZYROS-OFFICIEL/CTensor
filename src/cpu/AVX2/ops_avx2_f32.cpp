@@ -237,14 +237,17 @@ inline float hsum256_ps(__m256 v) {
 // Broadcasting helpers
 // ---------------------------
 
-static inline std::vector<int64_t> shape_to_strides_bytes(const std::vector<size_t>& shape) {
-    std::vector<int64_t> strides(shape.size());
-    if (shape.empty()) return strides;
-    strides.back() = sizeof(float);
-    for (int i = (int)shape.size()-2; i >= 0; --i) {
-        strides[i] = strides[i+1] * (int64_t)shape[i+1];
+// REPLACED: Use actual strides from the Tensor object instead of calculating from shape
+static inline std::vector<int64_t> get_strides_bytes(const Tensor& t) {
+    std::vector<int64_t> strides_bytes;
+    if (!t.impl) return strides_bytes;
+    // We assume the caller knows t's dtype for element size, but here we can check t._dtype() or assume correctness.
+    size_t el_size = dtype_size(t._dtype()); 
+    strides_bytes.reserve(t.impl->ndim);
+    for (size_t s : t.impl->strides) {
+        strides_bytes.push_back(static_cast<int64_t>(s * el_size));
     }
-    return strides;
+    return strides_bytes;
 }
 
 static std::vector<size_t> broadcast_shape(const std::vector<size_t>& a, const std::vector<size_t>& b) {
@@ -301,8 +304,10 @@ Tensor binary_op_broadcast(const Tensor& A, const Tensor& B, Func op) {
     float* out_ptr = get_ptr<float>(out);
 
     auto out_mult = build_index_multipliers(out_shape);
-    auto a_strides = shape_to_strides_bytes(a_shape);
-    auto b_strides = shape_to_strides_bytes(b_shape);
+    
+    // CHANGED: Get actual strides from the tensor metadata
+    auto a_strides = get_strides_bytes(A);
+    auto b_strides = get_strides_bytes(B);
 
     bool a_contig = A.is_contiguous() && a_shape == out_shape;
     bool b_contig = B.is_contiguous() && b_shape == out_shape;
@@ -342,8 +347,6 @@ Tensor binary_op_broadcast(const Tensor& A, const Tensor& B, Func op) {
             __m256 vr = op(va, vb);
             _mm256_storeu_ps(out_ptr + i, vr);
         }
-
-        // Tail handling (single thread usually fine for tail, but we do it inside parallel if needed, or after)
     }
     
     // Tail loop (scalar/masked)
@@ -393,17 +396,35 @@ Tensor unary_op_broadcast(const Tensor& A, Func op) {
     size_t n = A.numel();
     size_t vec_end = (n / 8) * 8;
 
-    #pragma omp parallel for
-    for (size_t i = 0; i < vec_end; i += 8) {
-        __m256 va = _mm256_loadu_ps(a_ptr + i);
-        __m256 vr = op(va);
-        _mm256_storeu_ps(out_ptr + i, vr);
-    }
-    if (n > vec_end) {
-        size_t tail = n - vec_end;
-        __m256 va = masked_loadu_ps(a_ptr + vec_end, tail);
-        __m256 vr = op(va);
-        masked_storeu_ps(out_ptr + vec_end, vr, tail);
+    
+    if (A.is_contiguous()) {
+        #pragma omp parallel for
+        for (size_t i = 0; i < vec_end; i += 8) {
+            __m256 va = _mm256_loadu_ps(a_ptr + i);
+            __m256 vr = op(va);
+            _mm256_storeu_ps(out_ptr + i, vr);
+        }
+        if (n > vec_end) {
+            size_t tail = n - vec_end;
+            __m256 va = masked_loadu_ps(a_ptr + vec_end, tail);
+            __m256 vr = op(va);
+            masked_storeu_ps(out_ptr + vec_end, vr, tail);
+        }
+    } else {
+        Tensor A_contig = A.contiguous();
+        const float* ac_ptr = get_ptr<float>(A_contig);
+        #pragma omp parallel for
+        for (size_t i = 0; i < vec_end; i += 8) {
+            __m256 va = _mm256_loadu_ps(ac_ptr + i);
+            __m256 vr = op(va);
+            _mm256_storeu_ps(out_ptr + i, vr);
+        }
+        if (n > vec_end) {
+            size_t tail = n - vec_end;
+            __m256 va = masked_loadu_ps(ac_ptr + vec_end, tail);
+            __m256 vr = op(va);
+            masked_storeu_ps(out_ptr + vec_end, vr, tail);
+        }
     }
     return out;
 }
@@ -463,7 +484,9 @@ Tensor softplus_avx2_f32(const Tensor& a) {
 #define OMP_SIMD_UNARY_AVX2(FUNC_NAME, STD_FUNC) \
 Tensor FUNC_NAME(const Tensor& a) { \
     Tensor out(a.shape(), DType::Float32); \
-    const float* pa = get_ptr<float>(a); \
+    /* Ensure contiguity for SIMD loop */ \
+    Tensor a_c = a.is_contiguous() ? a : a.contiguous(); \
+    const float* pa = get_ptr<float>(a_c); \
     float* pout = get_ptr<float>(out); \
     size_t n = a.numel(); \
     _Pragma("omp parallel for simd") \
@@ -482,15 +505,19 @@ OMP_SIMD_UNARY_AVX2(cosh_avx2_f32, std::cosh)
 
 // Matmul (Simple blocked AVX2)
 Tensor matmul_avx2_f32(const Tensor& A, const Tensor& B) {
-    if (A.shape().size() != 2 || B.shape().size() != 2) throw std::runtime_error("matmul_avx2: only 2D");
-    size_t M = A.shape()[0];
-    size_t K = A.shape()[1];
-    size_t N = B.shape()[1];
-    if (K != B.shape()[0]) throw std::runtime_error("matmul_avx2: shape mismatch");
+    // Matmul optimized kernels usually require contiguous memory
+    Tensor A_contig = A.is_contiguous() ? A : A.contiguous();
+    Tensor B_contig = B.is_contiguous() ? B : B.contiguous();
+
+    if (A_contig.shape().size() != 2 || B_contig.shape().size() != 2) throw std::runtime_error("matmul_avx2: only 2D");
+    size_t M = A_contig.shape()[0];
+    size_t K = A_contig.shape()[1];
+    size_t N = B_contig.shape()[1];
+    if (K != B_contig.shape()[0]) throw std::runtime_error("matmul_avx2: shape mismatch");
 
     Tensor C({M, N}, DType::Float32);
-    const float* a_ptr = get_ptr<float>(A);
-    const float* b_ptr = get_ptr<float>(B);
+    const float* a_ptr = get_ptr<float>(A_contig);
+    const float* b_ptr = get_ptr<float>(B_contig);
     float* c_ptr = get_ptr<float>(C);
     
     std::memset(c_ptr, 0, M * N * sizeof(float));
@@ -521,8 +548,11 @@ Tensor matmul_avx2_f32(const Tensor& A, const Tensor& B) {
 // Reductions
 Tensor sum_avx2_f32(const Tensor& t, int dim) {
     if (dim != -1) throw std::runtime_error("sum_avx2: only dim=-1");
-    size_t n = t.numel();
-    const float* data = get_ptr<float>(t);
+    // Reductions typically iterate linearly over memory regardless of shape if dim=-1
+    // BUT if t is not contiguous, linear iteration is invalid.
+    Tensor t_c = t.is_contiguous() ? t : t.contiguous();
+    size_t n = t_c.numel();
+    const float* data = get_ptr<float>(t_c);
     float global_sum = 0.0f;
 
     #pragma omp parallel
@@ -554,8 +584,9 @@ Tensor mean_avx2_f32(const Tensor& t, int dim) {
 
 Tensor max_avx2_f32(const Tensor& t, int dim) {
     if (dim != -1) throw std::runtime_error("max_avx2: only dim=-1");
-    const float* data = get_ptr<float>(t);
-    size_t n = t.numel();
+    Tensor t_c = t.is_contiguous() ? t : t.contiguous();
+    const float* data = get_ptr<float>(t_c);
+    size_t n = t_c.numel();
     float global_max = -std::numeric_limits<float>::infinity();
 
     #pragma omp parallel
@@ -591,8 +622,9 @@ Tensor max_avx2_f32(const Tensor& t, int dim) {
 
 Tensor min_avx2_f32(const Tensor& t, int dim) {
     if (dim != -1) throw std::runtime_error("min_avx2: only dim=-1");
-    const float* data = get_ptr<float>(t);
-    size_t n = t.numel();
+    Tensor t_c = t.is_contiguous() ? t : t.contiguous();
+    const float* data = get_ptr<float>(t_c);
+    size_t n = t_c.numel();
     float global_min = std::numeric_limits<float>::infinity();
 
     #pragma omp parallel
