@@ -268,6 +268,7 @@ CMakeFiles/core.dir/src/ops_dispatch.cpp.obj: D:/C\ programs/CTensor/src/ops_dis
   C:/msys64/mingw64/include/c++/15.2.0/bits/cpp_type_traits.h \
   C:/msys64/mingw64/include/c++/15.2.0/bits/cxxabi_forced.h \
   C:/msys64/mingw64/include/c++/15.2.0/bits/cxxabi_init_exception.h \
+  C:/msys64/mingw64/include/c++/15.2.0/bits/deque.tcc \
   C:/msys64/mingw64/include/c++/15.2.0/bits/enable_special_members.h \
   C:/msys64/mingw64/include/c++/15.2.0/bits/erase_if.h \
   C:/msys64/mingw64/include/c++/15.2.0/bits/exception.h \
@@ -320,15 +321,20 @@ CMakeFiles/core.dir/src/ops_dispatch.cpp.obj: D:/C\ programs/CTensor/src/ops_dis
   C:/msys64/mingw64/include/c++/15.2.0/bits/stl_algobase.h \
   C:/msys64/mingw64/include/c++/15.2.0/bits/stl_bvector.h \
   C:/msys64/mingw64/include/c++/15.2.0/bits/stl_construct.h \
+  C:/msys64/mingw64/include/c++/15.2.0/bits/stl_deque.h \
   C:/msys64/mingw64/include/c++/15.2.0/bits/stl_function.h \
   C:/msys64/mingw64/include/c++/15.2.0/bits/stl_heap.h \
   C:/msys64/mingw64/include/c++/15.2.0/bits/stl_iterator.h \
   C:/msys64/mingw64/include/c++/15.2.0/bits/stl_iterator_base_funcs.h \
   C:/msys64/mingw64/include/c++/15.2.0/bits/stl_iterator_base_types.h \
+  C:/msys64/mingw64/include/c++/15.2.0/bits/stl_multiset.h \
   C:/msys64/mingw64/include/c++/15.2.0/bits/stl_numeric.h \
   C:/msys64/mingw64/include/c++/15.2.0/bits/stl_pair.h \
   C:/msys64/mingw64/include/c++/15.2.0/bits/stl_raw_storage_iter.h \
+  C:/msys64/mingw64/include/c++/15.2.0/bits/stl_set.h \
+  C:/msys64/mingw64/include/c++/15.2.0/bits/stl_stack.h \
   C:/msys64/mingw64/include/c++/15.2.0/bits/stl_tempbuf.h \
+  C:/msys64/mingw64/include/c++/15.2.0/bits/stl_tree.h \
   C:/msys64/mingw64/include/c++/15.2.0/bits/stl_uninitialized.h \
   C:/msys64/mingw64/include/c++/15.2.0/bits/stl_vector.h \
   C:/msys64/mingw64/include/c++/15.2.0/bits/streambuf.tcc \
@@ -358,6 +364,7 @@ CMakeFiles/core.dir/src/ops_dispatch.cpp.obj: D:/C\ programs/CTensor/src/ops_dis
   C:/msys64/mingw64/include/c++/15.2.0/cwctype \
   C:/msys64/mingw64/include/c++/15.2.0/debug/assertions.h \
   C:/msys64/mingw64/include/c++/15.2.0/debug/debug.h \
+  C:/msys64/mingw64/include/c++/15.2.0/deque \
   C:/msys64/mingw64/include/c++/15.2.0/exception \
   C:/msys64/mingw64/include/c++/15.2.0/ext/aligned_buffer.h \
   C:/msys64/mingw64/include/c++/15.2.0/ext/alloc_traits.h \
@@ -383,6 +390,8 @@ CMakeFiles/core.dir/src/ops_dispatch.cpp.obj: D:/C\ programs/CTensor/src/ops_dis
   C:/msys64/mingw64/include/c++/15.2.0/pstl/glue_memory_defs.h \
   C:/msys64/mingw64/include/c++/15.2.0/pstl/glue_numeric_defs.h \
   C:/msys64/mingw64/include/c++/15.2.0/pstl/pstl_config.h \
+  C:/msys64/mingw64/include/c++/15.2.0/set \
+  C:/msys64/mingw64/include/c++/15.2.0/stack \
   C:/msys64/mingw64/include/c++/15.2.0/stdexcept \
   C:/msys64/mingw64/include/c++/15.2.0/stdlib.h \
   C:/msys64/mingw64/include/c++/15.2.0/streambuf \
@@ -576,8 +585,10 @@ CMakeFiles/core.dir/src/ops_dispatch.cpp.obj: D:/C\ programs/CTensor/src/ops_dis
   D:/C\ programs/CTensor/src/cpu/AVX2/ops_avx2_f32.h \
   D:/C\ programs/CTensor/src/cpu/AVX512/ops_avx512_d64.h \
   D:/C\ programs/CTensor/src/cpu/AVX512/ops_avx512_f32.h \
+  D:/C\ programs/CTensor/src/autograd.h \
   D:/C\ programs/CTensor/src/device.h \
   D:/C\ programs/CTensor/src/dispatch.h \
+  D:/C\ programs/CTensor/src/ops_dispatch.h \
   D:/C\ programs/CTensor/src/opsmp.h \
   D:/C\ programs/CTensor/src/tensor.h
 
