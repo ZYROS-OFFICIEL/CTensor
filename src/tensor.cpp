@@ -427,8 +427,8 @@ void Tensor::save_image(const std::string& path) const {
 }
 
 void Tensor::backward() {
-    // extern void backward(Tensor&); 
-    // backward(*this);
+    extern void backward(Tensor&); 
+    backward(*this);
 }
 
 // Gather with Dispatcher
