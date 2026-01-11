@@ -326,7 +326,16 @@ CMakeFiles/core.dir/src/ops_dispatch.cpp.obj: \
  C:/msys64/mingw64/include/c++/15.2.0/bits/node_handle.h \
  C:/msys64/mingw64/include/c++/15.2.0/bits/erase_if.h \
  C:/msys64/mingw64/include/c++/15.2.0/array \
- D:/C\ programs/CTensor/src/cpu/AVX2/ops_avx2_d64.h \
+ D:\C\ programs\CTensor\src\autograd.h \
+ C:/msys64/mingw64/include/c++/15.2.0/stack \
+ C:/msys64/mingw64/include/c++/15.2.0/deque \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/stl_deque.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/deque.tcc \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/stl_stack.h \
+ C:/msys64/mingw64/include/c++/15.2.0/set \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/stl_tree.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/stl_set.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/stl_multiset.h \
  C:/msys64/mingw64/include/c++/15.2.0/algorithm \
  C:/msys64/mingw64/include/c++/15.2.0/bits/stl_algo.h \
  C:/msys64/mingw64/include/c++/15.2.0/bits/algorithmfwd.h \
@@ -334,6 +343,8 @@ CMakeFiles/core.dir/src/ops_dispatch.cpp.obj: \
  C:/msys64/mingw64/include/c++/15.2.0/bits/uniform_int_dist.h \
  C:/msys64/mingw64/include/c++/15.2.0/bits/ranges_algo.h \
  C:/msys64/mingw64/include/c++/15.2.0/pstl/glue_algorithm_defs.h \
+ D:\C\ programs\CTensor\src\ops_dispatch.h \
+ D:/C\ programs/CTensor/src/cpu/AVX2/ops_avx2_d64.h \
  D:/C\ programs/CTensor/src/cpu/AVX2/ops_avx2_f32.h \
  D:/C\ programs/CTensor/src/cpu/AVX512/ops_avx512_f32.h \
  D:/C\ programs/CTensor/src/cpu/AVX512/ops_avx512_d64.h
