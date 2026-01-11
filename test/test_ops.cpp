@@ -177,7 +177,7 @@ void test_autograd_simple() {
 
     // y = x^2, where x=3. dy/dx = 2x = 6.
     Tensor x = Tensor::from_vector({3.0}, {1}, DType::Float32, true);
-    std::cout << " Input: " << read_scalar_at(x.impl->data.get(), 0, x.impl->dtype) << "\n";
+    std::cout << " Input: " << read_scalar_at(x.impl->data->data.get(), 0, x.impl->dtype) << "\n";
     Tensor y = mul(x, x);
     print_t(y);
     // Check forward pass
@@ -191,7 +191,7 @@ void test_autograd_simple() {
     print_t(grad);
     if (grad.numel() > 0) {
         ASSERT_CLOSE(grad[0], 6.0, 1e-5);
-        std::cout << " Gradient: " << read_scalar_at(grad.impl->data.get(), 0, grad.impl->dtype) << "\n";
+        std::cout << " Gradient: " << read_scalar_at(grad.impl->data->data.get(), 0, grad.impl->dtype) << "\n";
     } else {
         std::cout << " (Skipping Grad check - Gradient not populated)\n";
         print_t(grad);
