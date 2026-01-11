@@ -35,7 +35,15 @@ static inline bool cpu_has_avx512f() {
 inline void ensure_same_device(const Tensor &a, const Tensor &b, const char* opname) {
     if (a.device() != b.device()) throw std::runtime_error(std::string(opname) + ": tensors must be on same device");
 }
-
+template <typename GradFnType, typename OpFunc>
+Tensor run_binary_op(const Tensor& a, const Tensor& b, OpFunc op) {
+    Tensor out = op();
+    if (a.requires_grad() || b.requires_grad()) {
+        out.requires_grad_(true);
+        out.impl->grad_fn = std::make_shared<GradFnType>(a, b);
+    }
+    return out;
+}
 // The main scheme: device -> dtype -> arch
 
 Tensor add(const Tensor &a, const Tensor &b) {
