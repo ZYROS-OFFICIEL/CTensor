@@ -1,6 +1,7 @@
 #include "dispatch.h"
 #include "tensor.h"
 #include "opsmp.h" 
+#include "autograd.h"
 #include "ops_avx2_d64.h"
 #include "ops_avx2_f32.h"
 #include "ops_avx512_f32.h"
