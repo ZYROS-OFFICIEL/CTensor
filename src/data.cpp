@@ -114,7 +114,7 @@ inline Tensor from_csv(const std::string& filename, DType dtype , bool has_heade
     size_t idx = 0;
     for (size_t r = 0; r < R; ++r)
         for (size_t c = 0; c < C; ++c)
-            write_scalar_at(out.impl->storage->data.get(), idx++, out.impl->dtype, rows[r][c]);
+            write_scalar_at(out.impl->data->data.get(), idx++, out.impl->dtype, rows[r][c]);
 
     return out;
 }
@@ -150,7 +150,7 @@ inline Tensor from_binary(const std::string& filename,
             case DType::Float32: val = static_cast<double>(reinterpret_cast<float*>(buffer.data())[i]); break;
             case DType::Double64:val = reinterpret_cast<double*>(buffer.data())[i]; break;
         }
-        write_scalar_at(out.impl->storage->data.get(), i, dtype, val);
+        write_scalar_at(out.impl->data->data.get(), i, dtype, val);
     }
 
     return out;
@@ -246,7 +246,7 @@ inline Tensor from_npy(const std::string& filename, bool requires_grad ) {
             case DType::Double64: val = reinterpret_cast<double*>(buffer.data())[i]; break;
             case DType::Int32: val = static_cast<double>(reinterpret_cast<int32_t*>(buffer.data())[i]); break;
         }
-        write_scalar_at(out.impl->storage->data.get(), i, dtype, val);
+        write_scalar_at(out.impl->data->data.get(), i, dtype, val);
     }
 
     return out;
