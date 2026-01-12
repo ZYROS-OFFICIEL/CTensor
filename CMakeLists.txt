@@ -13,7 +13,7 @@ set(PROJECT_INCLUDES
 # -------------------------------
 add_library(opsmp OBJECT src/opsmp.cpp)
 target_include_directories(opsmp PRIVATE ${PROJECT_INCLUDES})
-add_library(core OBJECT src/autograd.cpp src/ops_dispatch.cpp src/tensor.cpp)
+add_library(core OBJECT src/autograd.cpp src/ops_dispatch.cpp src/tensor.cpp src/data.cpp)
 target_include_directories(core PRIVATE ${PROJECT_INCLUDES})
 
 
