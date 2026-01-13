@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <regex>
 #include <cassert>
-#include "tensor1.h"
+#include "tensor.h"
 #include "data.h"
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -262,7 +262,7 @@ void tensorio::to_image(const Tensor& t, const std::string& path) {
     std::vector<unsigned char> buffer(W * H * C);
 
     for (size_t i = 0; i < buffer.size(); ++i) {
-        double val = read_scalar_at(t.impl->storage->data.get(), i, t.impl->dtype);
+        double val = read_scalar_at(t.impl->data->data.get(), i, t.impl->dtype);
         buffer[i] = static_cast<unsigned char>(std::clamp(val * 255.0, 0.0, 255.0));
     }
 
@@ -281,7 +281,7 @@ Tensor tensorio::from_image(const std::string& path, DType dtype) {
 
     // Copy and convert
     for (size_t i = 0; i < numel; ++i) {
-        write_scalar_at(t.impl->storage->data.get(), i, dtype , static_cast<double>(img_data[i]) / 255.0);
+        write_scalar_at(t.impl->data->data.get(), i, dtype , static_cast<double>(img_data[i]) / 255.0);
     }
 
     stbi_image_free(img_data);
