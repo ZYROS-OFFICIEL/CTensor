@@ -116,9 +116,25 @@ CMakeFiles/core.dir/src/tensor.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/core.dir/src/tensor.cpp.s"
 	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\C programs\CTensor\src\tensor.cpp" -o CMakeFiles\core.dir\src\tensor.cpp.s
 
+CMakeFiles/core.dir/src/data.cpp.obj: CMakeFiles/core.dir/flags.make
+CMakeFiles/core.dir/src/data.cpp.obj: CMakeFiles/core.dir/includes_CXX.rsp
+CMakeFiles/core.dir/src/data.cpp.obj: D:/C\ programs/CTensor/src/data.cpp
+CMakeFiles/core.dir/src/data.cpp.obj: CMakeFiles/core.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/core.dir/src/data.cpp.obj"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/core.dir/src/data.cpp.obj -MF CMakeFiles\core.dir\src\data.cpp.obj.d -o CMakeFiles\core.dir\src\data.cpp.obj -c "D:\C programs\CTensor\src\data.cpp"
+
+CMakeFiles/core.dir/src/data.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/core.dir/src/data.cpp.i"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\C programs\CTensor\src\data.cpp" > CMakeFiles\core.dir\src\data.cpp.i
+
+CMakeFiles/core.dir/src/data.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/core.dir/src/data.cpp.s"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\C programs\CTensor\src\data.cpp" -o CMakeFiles\core.dir\src\data.cpp.s
+
 core: CMakeFiles/core.dir/src/autograd.cpp.obj
 core: CMakeFiles/core.dir/src/ops_dispatch.cpp.obj
 core: CMakeFiles/core.dir/src/tensor.cpp.obj
+core: CMakeFiles/core.dir/src/data.cpp.obj
 core: CMakeFiles/core.dir/build.make
 .PHONY : core
 

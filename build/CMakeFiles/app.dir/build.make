@@ -99,7 +99,8 @@ app_EXTERNAL_OBJECTS = \
 "D:/C programs/CTensor/build/CMakeFiles/ops_avx512.dir/src/cpu/AVX512/ops_avx512_f32.cpp.obj" \
 "D:/C programs/CTensor/build/CMakeFiles/core.dir/src/autograd.cpp.obj" \
 "D:/C programs/CTensor/build/CMakeFiles/core.dir/src/ops_dispatch.cpp.obj" \
-"D:/C programs/CTensor/build/CMakeFiles/core.dir/src/tensor.cpp.obj"
+"D:/C programs/CTensor/build/CMakeFiles/core.dir/src/tensor.cpp.obj" \
+"D:/C programs/CTensor/build/CMakeFiles/core.dir/src/data.cpp.obj"
 
 app.exe: CMakeFiles/app.dir/test/test_ops.cpp.obj
 app.exe: CMakeFiles/opsmp.dir/src/opsmp.cpp.obj
@@ -110,6 +111,7 @@ app.exe: CMakeFiles/ops_avx512.dir/src/cpu/AVX512/ops_avx512_f32.cpp.obj
 app.exe: CMakeFiles/core.dir/src/autograd.cpp.obj
 app.exe: CMakeFiles/core.dir/src/ops_dispatch.cpp.obj
 app.exe: CMakeFiles/core.dir/src/tensor.cpp.obj
+app.exe: CMakeFiles/core.dir/src/data.cpp.obj
 app.exe: CMakeFiles/app.dir/build.make
 app.exe: CMakeFiles/app.dir/linkLibs.rsp
 app.exe: CMakeFiles/app.dir/objects1.rsp
