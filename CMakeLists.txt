@@ -5,15 +5,16 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(PROJECT_INCLUDES
     src
+    src/core
     src/cpu/AVX2
     src/cpu/AVX512
 )
 # -------------------------------
 # Scalar code
 # -------------------------------
-add_library(opsmp OBJECT src/opsmp.cpp)
+add_library(opsmp OBJECT src/core/opsmp.cpp)
 target_include_directories(opsmp PRIVATE ${PROJECT_INCLUDES})
-add_library(core OBJECT src/autograd.cpp src/ops_dispatch.cpp src/tensor.cpp src/data.cpp)
+add_library(core OBJECT src/core/autograd.cpp src/core/ops_dispatch.cpp src/core/tensor.cpp src/core/data.cpp)
 target_include_directories(core PRIVATE ${PROJECT_INCLUDES})
 
 
@@ -44,6 +45,7 @@ add_executable(app
 )
 target_include_directories(app PRIVATE
     src
+    src/core
     src/cpu/AVX2
     src/cpu/AVX512
 )

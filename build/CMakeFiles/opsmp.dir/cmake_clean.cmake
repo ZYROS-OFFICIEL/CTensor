@@ -1,6 +1,6 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/opsmp.dir/src/opsmp.cpp.obj"
-  "CMakeFiles/opsmp.dir/src/opsmp.cpp.obj.d"
+  "CMakeFiles/opsmp.dir/src/core/opsmp.cpp.obj"
+  "CMakeFiles/opsmp.dir/src/core/opsmp.cpp.obj.d"
 )
 
 # Per-language clean rules from dependency scanning.

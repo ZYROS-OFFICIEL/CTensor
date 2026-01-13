@@ -183,7 +183,8 @@ CMakeFiles/app.dir/test/test_ops.cpp.obj: \
  C:/msys64/mingw64/include/c++/15.2.0/bits/quoted_string.h \
  C:/msys64/mingw64/include/c++/15.2.0/sstream \
  C:/msys64/mingw64/include/c++/15.2.0/bits/sstream.tcc \
- D:/C\ programs/CTensor/src/tensor.h D:/C\ programs/CTensor/src/device.h \
+ D:/C\ programs/CTensor/src/core/tensor.h \
+ D:/C\ programs/CTensor/src/core/device.h \
  C:/msys64/mingw64/include/c++/15.2.0/memory \
  C:/msys64/mingw64/include/c++/15.2.0/bits/stl_tempbuf.h \
  C:/msys64/mingw64/include/c++/15.2.0/bits/stl_raw_storage_iter.h \
@@ -210,8 +211,8 @@ CMakeFiles/app.dir/test/test_ops.cpp.obj: \
  C:/msys64/mingw64/include/c++/15.2.0/numeric \
  C:/msys64/mingw64/include/c++/15.2.0/bits/stl_numeric.h \
  C:/msys64/mingw64/include/c++/15.2.0/pstl/glue_numeric_defs.h \
- D:/C\ programs/CTensor/src/ops_dispatch.h \
- D:/C\ programs/CTensor/src/autograd.h \
+ D:/C\ programs/CTensor/src/core/ops_dispatch.h \
+ D:/C\ programs/CTensor/src/core/autograd.h \
  C:/msys64/mingw64/include/c++/15.2.0/unordered_map \
  C:/msys64/mingw64/include/c++/15.2.0/bits/unordered_map.h \
  C:/msys64/mingw64/include/c++/15.2.0/bits/hashtable.h \

@@ -8,10 +8,10 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "D:/C programs/CTensor/src/autograd.cpp" "CMakeFiles/core.dir/src/autograd.cpp.obj" "gcc" "CMakeFiles/core.dir/src/autograd.cpp.obj.d"
-  "D:/C programs/CTensor/src/data.cpp" "CMakeFiles/core.dir/src/data.cpp.obj" "gcc" "CMakeFiles/core.dir/src/data.cpp.obj.d"
-  "D:/C programs/CTensor/src/ops_dispatch.cpp" "CMakeFiles/core.dir/src/ops_dispatch.cpp.obj" "gcc" "CMakeFiles/core.dir/src/ops_dispatch.cpp.obj.d"
-  "D:/C programs/CTensor/src/tensor.cpp" "CMakeFiles/core.dir/src/tensor.cpp.obj" "gcc" "CMakeFiles/core.dir/src/tensor.cpp.obj.d"
+  "D:/C programs/CTensor/src/core/autograd.cpp" "CMakeFiles/core.dir/src/core/autograd.cpp.obj" "gcc" "CMakeFiles/core.dir/src/core/autograd.cpp.obj.d"
+  "D:/C programs/CTensor/src/core/data.cpp" "CMakeFiles/core.dir/src/core/data.cpp.obj" "gcc" "CMakeFiles/core.dir/src/core/data.cpp.obj.d"
+  "D:/C programs/CTensor/src/core/ops_dispatch.cpp" "CMakeFiles/core.dir/src/core/ops_dispatch.cpp.obj" "gcc" "CMakeFiles/core.dir/src/core/ops_dispatch.cpp.obj.d"
+  "D:/C programs/CTensor/src/core/tensor.cpp" "CMakeFiles/core.dir/src/core/tensor.cpp.obj" "gcc" "CMakeFiles/core.dir/src/core/tensor.cpp.obj.d"
   )
 
 # Targets to which this target links which contain Fortran sources.

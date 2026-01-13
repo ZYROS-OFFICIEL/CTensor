@@ -8,7 +8,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "D:/C programs/CTensor/src/opsmp.cpp" "CMakeFiles/opsmp.dir/src/opsmp.cpp.obj" "gcc" "CMakeFiles/opsmp.dir/src/opsmp.cpp.obj.d"
+  "D:/C programs/CTensor/src/core/opsmp.cpp" "CMakeFiles/opsmp.dir/src/core/opsmp.cpp.obj" "gcc" "CMakeFiles/opsmp.dir/src/core/opsmp.cpp.obj.d"
   )
 
 # Targets to which this target links which contain Fortran sources.

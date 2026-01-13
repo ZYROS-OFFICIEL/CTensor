@@ -1,8 +1,8 @@
-CMakeFiles/ops_avx2.dir/src/cpu/AVX2/ops_avx2_f32.cpp.obj: \
- D:\C\ programs\CTensor\src\cpu\AVX2\ops_avx2_f32.cpp \
- D:\C\ programs\CTensor\src\cpu\AVX2\ops_avx2_f32.h \
- D:/C\ programs/CTensor/src/core/tensor.h \
- D:/C\ programs/CTensor/src/core/device.h \
+CMakeFiles/core.dir/src/core/ops_dispatch.cpp.obj: \
+ D:\C\ programs\CTensor\src\core\ops_dispatch.cpp \
+ D:\C\ programs\CTensor\src\core\dispatch.h \
+ D:\C\ programs\CTensor\src\core\tensor.h \
+ D:\C\ programs\CTensor\src\core\device.h \
  C:/msys64/mingw64/include/c++/15.2.0/string \
  C:/msys64/mingw64/include/c++/15.2.0/bits/requires_hosted.h \
  C:/msys64/mingw64/include/c++/15.2.0/x86_64-w64-mingw32/bits/c++config.h \
@@ -201,6 +201,10 @@ CMakeFiles/ops_avx2.dir/src/cpu/AVX2/ops_avx2_f32.cpp.obj: \
  C:/msys64/mingw64/include/c++/15.2.0/numeric \
  C:/msys64/mingw64/include/c++/15.2.0/bits/stl_numeric.h \
  C:/msys64/mingw64/include/c++/15.2.0/pstl/glue_numeric_defs.h \
+ D:\C\ programs\CTensor\src\core\opsmp.h \
+ C:/msys64/mingw64/include/c++/15.2.0/cstring \
+ C:/msys64/mingw64/include/string.h \
+ C:/msys64/mingw64/include/sec_api/string_s.h \
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/immintrin.h \
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/x86gprintrin.h \
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/ia32intrin.h \
@@ -313,6 +317,26 @@ CMakeFiles/ops_avx2.dir/src/cpu/AVX2/ops_avx2_f32.cpp.obj: \
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/avx10_2copyintrin.h \
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/movrsintrin.h \
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/amxmovrsintrin.h \
+ C:/msys64/mingw64/include/c++/15.2.0/functional \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/std_function.h \
+ C:/msys64/mingw64/include/c++/15.2.0/unordered_map \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/unordered_map.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/hashtable.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/hashtable_policy.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/enable_special_members.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/node_handle.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/erase_if.h \
+ C:/msys64/mingw64/include/c++/15.2.0/array \
+ D:\C\ programs\CTensor\src\core\autograd.h \
+ C:/msys64/mingw64/include/c++/15.2.0/stack \
+ C:/msys64/mingw64/include/c++/15.2.0/deque \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/stl_deque.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/deque.tcc \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/stl_stack.h \
+ C:/msys64/mingw64/include/c++/15.2.0/set \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/stl_tree.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/stl_set.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/stl_multiset.h \
  C:/msys64/mingw64/include/c++/15.2.0/algorithm \
  C:/msys64/mingw64/include/c++/15.2.0/bits/stl_algo.h \
  C:/msys64/mingw64/include/c++/15.2.0/bits/algorithmfwd.h \
@@ -320,7 +344,8 @@ CMakeFiles/ops_avx2.dir/src/cpu/AVX2/ops_avx2_f32.cpp.obj: \
  C:/msys64/mingw64/include/c++/15.2.0/bits/uniform_int_dist.h \
  C:/msys64/mingw64/include/c++/15.2.0/bits/ranges_algo.h \
  C:/msys64/mingw64/include/c++/15.2.0/pstl/glue_algorithm_defs.h \
- C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/omp.h \
- C:/msys64/mingw64/include/c++/15.2.0/cstring \
- C:/msys64/mingw64/include/string.h \
- C:/msys64/mingw64/include/sec_api/string_s.h
+ D:\C\ programs\CTensor\src\core\ops_dispatch.h \
+ D:/C\ programs/CTensor/src/cpu/AVX2/ops_avx2_d64.h \
+ D:/C\ programs/CTensor/src/cpu/AVX2/ops_avx2_f32.h \
+ D:/C\ programs/CTensor/src/cpu/AVX512/ops_avx512_f32.h \
+ D:/C\ programs/CTensor/src/cpu/AVX512/ops_avx512_d64.h

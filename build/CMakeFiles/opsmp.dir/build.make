@@ -71,22 +71,22 @@ include CMakeFiles/opsmp.dir/flags.make
 CMakeFiles/opsmp.dir/codegen:
 .PHONY : CMakeFiles/opsmp.dir/codegen
 
-CMakeFiles/opsmp.dir/src/opsmp.cpp.obj: CMakeFiles/opsmp.dir/flags.make
-CMakeFiles/opsmp.dir/src/opsmp.cpp.obj: CMakeFiles/opsmp.dir/includes_CXX.rsp
-CMakeFiles/opsmp.dir/src/opsmp.cpp.obj: D:/C\ programs/CTensor/src/opsmp.cpp
-CMakeFiles/opsmp.dir/src/opsmp.cpp.obj: CMakeFiles/opsmp.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/opsmp.dir/src/opsmp.cpp.obj"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/opsmp.dir/src/opsmp.cpp.obj -MF CMakeFiles\opsmp.dir\src\opsmp.cpp.obj.d -o CMakeFiles\opsmp.dir\src\opsmp.cpp.obj -c "D:\C programs\CTensor\src\opsmp.cpp"
+CMakeFiles/opsmp.dir/src/core/opsmp.cpp.obj: CMakeFiles/opsmp.dir/flags.make
+CMakeFiles/opsmp.dir/src/core/opsmp.cpp.obj: CMakeFiles/opsmp.dir/includes_CXX.rsp
+CMakeFiles/opsmp.dir/src/core/opsmp.cpp.obj: D:/C\ programs/CTensor/src/core/opsmp.cpp
+CMakeFiles/opsmp.dir/src/core/opsmp.cpp.obj: CMakeFiles/opsmp.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/opsmp.dir/src/core/opsmp.cpp.obj"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/opsmp.dir/src/core/opsmp.cpp.obj -MF CMakeFiles\opsmp.dir\src\core\opsmp.cpp.obj.d -o CMakeFiles\opsmp.dir\src\core\opsmp.cpp.obj -c "D:\C programs\CTensor\src\core\opsmp.cpp"
 
-CMakeFiles/opsmp.dir/src/opsmp.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/opsmp.dir/src/opsmp.cpp.i"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\C programs\CTensor\src\opsmp.cpp" > CMakeFiles\opsmp.dir\src\opsmp.cpp.i
+CMakeFiles/opsmp.dir/src/core/opsmp.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/opsmp.dir/src/core/opsmp.cpp.i"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\C programs\CTensor\src\core\opsmp.cpp" > CMakeFiles\opsmp.dir\src\core\opsmp.cpp.i
 
-CMakeFiles/opsmp.dir/src/opsmp.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/opsmp.dir/src/opsmp.cpp.s"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\C programs\CTensor\src\opsmp.cpp" -o CMakeFiles\opsmp.dir\src\opsmp.cpp.s
+CMakeFiles/opsmp.dir/src/core/opsmp.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/opsmp.dir/src/core/opsmp.cpp.s"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\C programs\CTensor\src\core\opsmp.cpp" -o CMakeFiles\opsmp.dir\src\core\opsmp.cpp.s
 
-opsmp: CMakeFiles/opsmp.dir/src/opsmp.cpp.obj
+opsmp: CMakeFiles/opsmp.dir/src/core/opsmp.cpp.obj
 opsmp: CMakeFiles/opsmp.dir/build.make
 .PHONY : opsmp
 
