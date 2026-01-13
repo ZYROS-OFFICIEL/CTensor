@@ -37,7 +37,7 @@ target_compile_options(ops_avx512 PRIVATE
 # -------------------------------
 
 add_executable(app
-    test/test_ops.cpp
+    test/time_avx.cpp
     $<TARGET_OBJECTS:opsmp>
     $<TARGET_OBJECTS:ops_avx2>
     $<TARGET_OBJECTS:ops_avx512>
