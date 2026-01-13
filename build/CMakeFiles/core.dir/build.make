@@ -71,70 +71,70 @@ include CMakeFiles/core.dir/flags.make
 CMakeFiles/core.dir/codegen:
 .PHONY : CMakeFiles/core.dir/codegen
 
-CMakeFiles/core.dir/src/autograd.cpp.obj: CMakeFiles/core.dir/flags.make
-CMakeFiles/core.dir/src/autograd.cpp.obj: CMakeFiles/core.dir/includes_CXX.rsp
-CMakeFiles/core.dir/src/autograd.cpp.obj: D:/C\ programs/CTensor/src/autograd.cpp
-CMakeFiles/core.dir/src/autograd.cpp.obj: CMakeFiles/core.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/core.dir/src/autograd.cpp.obj"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/core.dir/src/autograd.cpp.obj -MF CMakeFiles\core.dir\src\autograd.cpp.obj.d -o CMakeFiles\core.dir\src\autograd.cpp.obj -c "D:\C programs\CTensor\src\autograd.cpp"
+CMakeFiles/core.dir/src/core/autograd.cpp.obj: CMakeFiles/core.dir/flags.make
+CMakeFiles/core.dir/src/core/autograd.cpp.obj: CMakeFiles/core.dir/includes_CXX.rsp
+CMakeFiles/core.dir/src/core/autograd.cpp.obj: D:/C\ programs/CTensor/src/core/autograd.cpp
+CMakeFiles/core.dir/src/core/autograd.cpp.obj: CMakeFiles/core.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/core.dir/src/core/autograd.cpp.obj"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/core.dir/src/core/autograd.cpp.obj -MF CMakeFiles\core.dir\src\core\autograd.cpp.obj.d -o CMakeFiles\core.dir\src\core\autograd.cpp.obj -c "D:\C programs\CTensor\src\core\autograd.cpp"
 
-CMakeFiles/core.dir/src/autograd.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/core.dir/src/autograd.cpp.i"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\C programs\CTensor\src\autograd.cpp" > CMakeFiles\core.dir\src\autograd.cpp.i
+CMakeFiles/core.dir/src/core/autograd.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/core.dir/src/core/autograd.cpp.i"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\C programs\CTensor\src\core\autograd.cpp" > CMakeFiles\core.dir\src\core\autograd.cpp.i
 
-CMakeFiles/core.dir/src/autograd.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/core.dir/src/autograd.cpp.s"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\C programs\CTensor\src\autograd.cpp" -o CMakeFiles\core.dir\src\autograd.cpp.s
+CMakeFiles/core.dir/src/core/autograd.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/core.dir/src/core/autograd.cpp.s"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\C programs\CTensor\src\core\autograd.cpp" -o CMakeFiles\core.dir\src\core\autograd.cpp.s
 
-CMakeFiles/core.dir/src/ops_dispatch.cpp.obj: CMakeFiles/core.dir/flags.make
-CMakeFiles/core.dir/src/ops_dispatch.cpp.obj: CMakeFiles/core.dir/includes_CXX.rsp
-CMakeFiles/core.dir/src/ops_dispatch.cpp.obj: D:/C\ programs/CTensor/src/ops_dispatch.cpp
-CMakeFiles/core.dir/src/ops_dispatch.cpp.obj: CMakeFiles/core.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/core.dir/src/ops_dispatch.cpp.obj"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/core.dir/src/ops_dispatch.cpp.obj -MF CMakeFiles\core.dir\src\ops_dispatch.cpp.obj.d -o CMakeFiles\core.dir\src\ops_dispatch.cpp.obj -c "D:\C programs\CTensor\src\ops_dispatch.cpp"
+CMakeFiles/core.dir/src/core/ops_dispatch.cpp.obj: CMakeFiles/core.dir/flags.make
+CMakeFiles/core.dir/src/core/ops_dispatch.cpp.obj: CMakeFiles/core.dir/includes_CXX.rsp
+CMakeFiles/core.dir/src/core/ops_dispatch.cpp.obj: D:/C\ programs/CTensor/src/core/ops_dispatch.cpp
+CMakeFiles/core.dir/src/core/ops_dispatch.cpp.obj: CMakeFiles/core.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/core.dir/src/core/ops_dispatch.cpp.obj"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/core.dir/src/core/ops_dispatch.cpp.obj -MF CMakeFiles\core.dir\src\core\ops_dispatch.cpp.obj.d -o CMakeFiles\core.dir\src\core\ops_dispatch.cpp.obj -c "D:\C programs\CTensor\src\core\ops_dispatch.cpp"
 
-CMakeFiles/core.dir/src/ops_dispatch.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/core.dir/src/ops_dispatch.cpp.i"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\C programs\CTensor\src\ops_dispatch.cpp" > CMakeFiles\core.dir\src\ops_dispatch.cpp.i
+CMakeFiles/core.dir/src/core/ops_dispatch.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/core.dir/src/core/ops_dispatch.cpp.i"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\C programs\CTensor\src\core\ops_dispatch.cpp" > CMakeFiles\core.dir\src\core\ops_dispatch.cpp.i
 
-CMakeFiles/core.dir/src/ops_dispatch.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/core.dir/src/ops_dispatch.cpp.s"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\C programs\CTensor\src\ops_dispatch.cpp" -o CMakeFiles\core.dir\src\ops_dispatch.cpp.s
+CMakeFiles/core.dir/src/core/ops_dispatch.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/core.dir/src/core/ops_dispatch.cpp.s"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\C programs\CTensor\src\core\ops_dispatch.cpp" -o CMakeFiles\core.dir\src\core\ops_dispatch.cpp.s
 
-CMakeFiles/core.dir/src/tensor.cpp.obj: CMakeFiles/core.dir/flags.make
-CMakeFiles/core.dir/src/tensor.cpp.obj: CMakeFiles/core.dir/includes_CXX.rsp
-CMakeFiles/core.dir/src/tensor.cpp.obj: D:/C\ programs/CTensor/src/tensor.cpp
-CMakeFiles/core.dir/src/tensor.cpp.obj: CMakeFiles/core.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/core.dir/src/tensor.cpp.obj"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/core.dir/src/tensor.cpp.obj -MF CMakeFiles\core.dir\src\tensor.cpp.obj.d -o CMakeFiles\core.dir\src\tensor.cpp.obj -c "D:\C programs\CTensor\src\tensor.cpp"
+CMakeFiles/core.dir/src/core/tensor.cpp.obj: CMakeFiles/core.dir/flags.make
+CMakeFiles/core.dir/src/core/tensor.cpp.obj: CMakeFiles/core.dir/includes_CXX.rsp
+CMakeFiles/core.dir/src/core/tensor.cpp.obj: D:/C\ programs/CTensor/src/core/tensor.cpp
+CMakeFiles/core.dir/src/core/tensor.cpp.obj: CMakeFiles/core.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/core.dir/src/core/tensor.cpp.obj"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/core.dir/src/core/tensor.cpp.obj -MF CMakeFiles\core.dir\src\core\tensor.cpp.obj.d -o CMakeFiles\core.dir\src\core\tensor.cpp.obj -c "D:\C programs\CTensor\src\core\tensor.cpp"
 
-CMakeFiles/core.dir/src/tensor.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/core.dir/src/tensor.cpp.i"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\C programs\CTensor\src\tensor.cpp" > CMakeFiles\core.dir\src\tensor.cpp.i
+CMakeFiles/core.dir/src/core/tensor.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/core.dir/src/core/tensor.cpp.i"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\C programs\CTensor\src\core\tensor.cpp" > CMakeFiles\core.dir\src\core\tensor.cpp.i
 
-CMakeFiles/core.dir/src/tensor.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/core.dir/src/tensor.cpp.s"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\C programs\CTensor\src\tensor.cpp" -o CMakeFiles\core.dir\src\tensor.cpp.s
+CMakeFiles/core.dir/src/core/tensor.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/core.dir/src/core/tensor.cpp.s"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\C programs\CTensor\src\core\tensor.cpp" -o CMakeFiles\core.dir\src\core\tensor.cpp.s
 
-CMakeFiles/core.dir/src/data.cpp.obj: CMakeFiles/core.dir/flags.make
-CMakeFiles/core.dir/src/data.cpp.obj: CMakeFiles/core.dir/includes_CXX.rsp
-CMakeFiles/core.dir/src/data.cpp.obj: D:/C\ programs/CTensor/src/data.cpp
-CMakeFiles/core.dir/src/data.cpp.obj: CMakeFiles/core.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/core.dir/src/data.cpp.obj"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/core.dir/src/data.cpp.obj -MF CMakeFiles\core.dir\src\data.cpp.obj.d -o CMakeFiles\core.dir\src\data.cpp.obj -c "D:\C programs\CTensor\src\data.cpp"
+CMakeFiles/core.dir/src/core/data.cpp.obj: CMakeFiles/core.dir/flags.make
+CMakeFiles/core.dir/src/core/data.cpp.obj: CMakeFiles/core.dir/includes_CXX.rsp
+CMakeFiles/core.dir/src/core/data.cpp.obj: D:/C\ programs/CTensor/src/core/data.cpp
+CMakeFiles/core.dir/src/core/data.cpp.obj: CMakeFiles/core.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/core.dir/src/core/data.cpp.obj"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/core.dir/src/core/data.cpp.obj -MF CMakeFiles\core.dir\src\core\data.cpp.obj.d -o CMakeFiles\core.dir\src\core\data.cpp.obj -c "D:\C programs\CTensor\src\core\data.cpp"
 
-CMakeFiles/core.dir/src/data.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/core.dir/src/data.cpp.i"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\C programs\CTensor\src\data.cpp" > CMakeFiles\core.dir\src\data.cpp.i
+CMakeFiles/core.dir/src/core/data.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/core.dir/src/core/data.cpp.i"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\C programs\CTensor\src\core\data.cpp" > CMakeFiles\core.dir\src\core\data.cpp.i
 
-CMakeFiles/core.dir/src/data.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/core.dir/src/data.cpp.s"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\C programs\CTensor\src\data.cpp" -o CMakeFiles\core.dir\src\data.cpp.s
+CMakeFiles/core.dir/src/core/data.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/core.dir/src/core/data.cpp.s"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\C programs\CTensor\src\core\data.cpp" -o CMakeFiles\core.dir\src\core\data.cpp.s
 
-core: CMakeFiles/core.dir/src/autograd.cpp.obj
-core: CMakeFiles/core.dir/src/ops_dispatch.cpp.obj
-core: CMakeFiles/core.dir/src/tensor.cpp.obj
-core: CMakeFiles/core.dir/src/data.cpp.obj
+core: CMakeFiles/core.dir/src/core/autograd.cpp.obj
+core: CMakeFiles/core.dir/src/core/ops_dispatch.cpp.obj
+core: CMakeFiles/core.dir/src/core/tensor.cpp.obj
+core: CMakeFiles/core.dir/src/core/data.cpp.obj
 core: CMakeFiles/core.dir/build.make
 .PHONY : core
 

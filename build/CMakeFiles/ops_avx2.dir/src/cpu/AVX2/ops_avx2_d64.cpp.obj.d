@@ -1,7 +1,8 @@
 CMakeFiles/ops_avx2.dir/src/cpu/AVX2/ops_avx2_d64.cpp.obj: \
  D:\C\ programs\CTensor\src\cpu\AVX2\ops_avx2_d64.cpp \
  D:\C\ programs\CTensor\src\cpu\AVX2\ops_avx2_d64.h \
- D:/C\ programs/CTensor/src/tensor.h D:/C\ programs/CTensor/src/device.h \
+ D:/C\ programs/CTensor/src/core/tensor.h \
+ D:/C\ programs/CTensor/src/core/device.h \
  C:/msys64/mingw64/include/c++/15.2.0/string \
  C:/msys64/mingw64/include/c++/15.2.0/bits/requires_hosted.h \
  C:/msys64/mingw64/include/c++/15.2.0/x86_64-w64-mingw32/bits/c++config.h \

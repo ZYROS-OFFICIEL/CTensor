@@ -180,29 +180,125 @@ app/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\app.dir\build.make CMakeFiles/app.dir/build
 .PHONY : app/fast
 
-src/autograd.obj: src/autograd.cpp.obj
-.PHONY : src/autograd.obj
+src/core/autograd.obj: src/core/autograd.cpp.obj
+.PHONY : src/core/autograd.obj
 
 # target to build an object file
-src/autograd.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\core.dir\build.make CMakeFiles/core.dir/src/autograd.cpp.obj
-.PHONY : src/autograd.cpp.obj
+src/core/autograd.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\core.dir\build.make CMakeFiles/core.dir/src/core/autograd.cpp.obj
+.PHONY : src/core/autograd.cpp.obj
 
-src/autograd.i: src/autograd.cpp.i
-.PHONY : src/autograd.i
+src/core/autograd.i: src/core/autograd.cpp.i
+.PHONY : src/core/autograd.i
 
 # target to preprocess a source file
-src/autograd.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\core.dir\build.make CMakeFiles/core.dir/src/autograd.cpp.i
-.PHONY : src/autograd.cpp.i
+src/core/autograd.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\core.dir\build.make CMakeFiles/core.dir/src/core/autograd.cpp.i
+.PHONY : src/core/autograd.cpp.i
 
-src/autograd.s: src/autograd.cpp.s
-.PHONY : src/autograd.s
+src/core/autograd.s: src/core/autograd.cpp.s
+.PHONY : src/core/autograd.s
 
 # target to generate assembly for a file
-src/autograd.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\core.dir\build.make CMakeFiles/core.dir/src/autograd.cpp.s
-.PHONY : src/autograd.cpp.s
+src/core/autograd.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\core.dir\build.make CMakeFiles/core.dir/src/core/autograd.cpp.s
+.PHONY : src/core/autograd.cpp.s
+
+src/core/data.obj: src/core/data.cpp.obj
+.PHONY : src/core/data.obj
+
+# target to build an object file
+src/core/data.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\core.dir\build.make CMakeFiles/core.dir/src/core/data.cpp.obj
+.PHONY : src/core/data.cpp.obj
+
+src/core/data.i: src/core/data.cpp.i
+.PHONY : src/core/data.i
+
+# target to preprocess a source file
+src/core/data.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\core.dir\build.make CMakeFiles/core.dir/src/core/data.cpp.i
+.PHONY : src/core/data.cpp.i
+
+src/core/data.s: src/core/data.cpp.s
+.PHONY : src/core/data.s
+
+# target to generate assembly for a file
+src/core/data.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\core.dir\build.make CMakeFiles/core.dir/src/core/data.cpp.s
+.PHONY : src/core/data.cpp.s
+
+src/core/ops_dispatch.obj: src/core/ops_dispatch.cpp.obj
+.PHONY : src/core/ops_dispatch.obj
+
+# target to build an object file
+src/core/ops_dispatch.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\core.dir\build.make CMakeFiles/core.dir/src/core/ops_dispatch.cpp.obj
+.PHONY : src/core/ops_dispatch.cpp.obj
+
+src/core/ops_dispatch.i: src/core/ops_dispatch.cpp.i
+.PHONY : src/core/ops_dispatch.i
+
+# target to preprocess a source file
+src/core/ops_dispatch.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\core.dir\build.make CMakeFiles/core.dir/src/core/ops_dispatch.cpp.i
+.PHONY : src/core/ops_dispatch.cpp.i
+
+src/core/ops_dispatch.s: src/core/ops_dispatch.cpp.s
+.PHONY : src/core/ops_dispatch.s
+
+# target to generate assembly for a file
+src/core/ops_dispatch.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\core.dir\build.make CMakeFiles/core.dir/src/core/ops_dispatch.cpp.s
+.PHONY : src/core/ops_dispatch.cpp.s
+
+src/core/opsmp.obj: src/core/opsmp.cpp.obj
+.PHONY : src/core/opsmp.obj
+
+# target to build an object file
+src/core/opsmp.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\opsmp.dir\build.make CMakeFiles/opsmp.dir/src/core/opsmp.cpp.obj
+.PHONY : src/core/opsmp.cpp.obj
+
+src/core/opsmp.i: src/core/opsmp.cpp.i
+.PHONY : src/core/opsmp.i
+
+# target to preprocess a source file
+src/core/opsmp.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\opsmp.dir\build.make CMakeFiles/opsmp.dir/src/core/opsmp.cpp.i
+.PHONY : src/core/opsmp.cpp.i
+
+src/core/opsmp.s: src/core/opsmp.cpp.s
+.PHONY : src/core/opsmp.s
+
+# target to generate assembly for a file
+src/core/opsmp.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\opsmp.dir\build.make CMakeFiles/opsmp.dir/src/core/opsmp.cpp.s
+.PHONY : src/core/opsmp.cpp.s
+
+src/core/tensor.obj: src/core/tensor.cpp.obj
+.PHONY : src/core/tensor.obj
+
+# target to build an object file
+src/core/tensor.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\core.dir\build.make CMakeFiles/core.dir/src/core/tensor.cpp.obj
+.PHONY : src/core/tensor.cpp.obj
+
+src/core/tensor.i: src/core/tensor.cpp.i
+.PHONY : src/core/tensor.i
+
+# target to preprocess a source file
+src/core/tensor.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\core.dir\build.make CMakeFiles/core.dir/src/core/tensor.cpp.i
+.PHONY : src/core/tensor.cpp.i
+
+src/core/tensor.s: src/core/tensor.cpp.s
+.PHONY : src/core/tensor.s
+
+# target to generate assembly for a file
+src/core/tensor.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\core.dir\build.make CMakeFiles/core.dir/src/core/tensor.cpp.s
+.PHONY : src/core/tensor.cpp.s
 
 src/cpu/AVX2/ops_avx2_d64.obj: src/cpu/AVX2/ops_avx2_d64.cpp.obj
 .PHONY : src/cpu/AVX2/ops_avx2_d64.obj
@@ -300,102 +396,6 @@ src/cpu/AVX512/ops_avx512_f32.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\ops_avx512.dir\build.make CMakeFiles/ops_avx512.dir/src/cpu/AVX512/ops_avx512_f32.cpp.s
 .PHONY : src/cpu/AVX512/ops_avx512_f32.cpp.s
 
-src/data.obj: src/data.cpp.obj
-.PHONY : src/data.obj
-
-# target to build an object file
-src/data.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\core.dir\build.make CMakeFiles/core.dir/src/data.cpp.obj
-.PHONY : src/data.cpp.obj
-
-src/data.i: src/data.cpp.i
-.PHONY : src/data.i
-
-# target to preprocess a source file
-src/data.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\core.dir\build.make CMakeFiles/core.dir/src/data.cpp.i
-.PHONY : src/data.cpp.i
-
-src/data.s: src/data.cpp.s
-.PHONY : src/data.s
-
-# target to generate assembly for a file
-src/data.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\core.dir\build.make CMakeFiles/core.dir/src/data.cpp.s
-.PHONY : src/data.cpp.s
-
-src/ops_dispatch.obj: src/ops_dispatch.cpp.obj
-.PHONY : src/ops_dispatch.obj
-
-# target to build an object file
-src/ops_dispatch.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\core.dir\build.make CMakeFiles/core.dir/src/ops_dispatch.cpp.obj
-.PHONY : src/ops_dispatch.cpp.obj
-
-src/ops_dispatch.i: src/ops_dispatch.cpp.i
-.PHONY : src/ops_dispatch.i
-
-# target to preprocess a source file
-src/ops_dispatch.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\core.dir\build.make CMakeFiles/core.dir/src/ops_dispatch.cpp.i
-.PHONY : src/ops_dispatch.cpp.i
-
-src/ops_dispatch.s: src/ops_dispatch.cpp.s
-.PHONY : src/ops_dispatch.s
-
-# target to generate assembly for a file
-src/ops_dispatch.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\core.dir\build.make CMakeFiles/core.dir/src/ops_dispatch.cpp.s
-.PHONY : src/ops_dispatch.cpp.s
-
-src/opsmp.obj: src/opsmp.cpp.obj
-.PHONY : src/opsmp.obj
-
-# target to build an object file
-src/opsmp.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\opsmp.dir\build.make CMakeFiles/opsmp.dir/src/opsmp.cpp.obj
-.PHONY : src/opsmp.cpp.obj
-
-src/opsmp.i: src/opsmp.cpp.i
-.PHONY : src/opsmp.i
-
-# target to preprocess a source file
-src/opsmp.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\opsmp.dir\build.make CMakeFiles/opsmp.dir/src/opsmp.cpp.i
-.PHONY : src/opsmp.cpp.i
-
-src/opsmp.s: src/opsmp.cpp.s
-.PHONY : src/opsmp.s
-
-# target to generate assembly for a file
-src/opsmp.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\opsmp.dir\build.make CMakeFiles/opsmp.dir/src/opsmp.cpp.s
-.PHONY : src/opsmp.cpp.s
-
-src/tensor.obj: src/tensor.cpp.obj
-.PHONY : src/tensor.obj
-
-# target to build an object file
-src/tensor.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\core.dir\build.make CMakeFiles/core.dir/src/tensor.cpp.obj
-.PHONY : src/tensor.cpp.obj
-
-src/tensor.i: src/tensor.cpp.i
-.PHONY : src/tensor.i
-
-# target to preprocess a source file
-src/tensor.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\core.dir\build.make CMakeFiles/core.dir/src/tensor.cpp.i
-.PHONY : src/tensor.cpp.i
-
-src/tensor.s: src/tensor.cpp.s
-.PHONY : src/tensor.s
-
-# target to generate assembly for a file
-src/tensor.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\core.dir\build.make CMakeFiles/core.dir/src/tensor.cpp.s
-.PHONY : src/tensor.cpp.s
-
 test/test_ops.obj: test/test_ops.cpp.obj
 .PHONY : test/test_ops.obj
 
@@ -433,9 +433,21 @@ help:
 	@echo ... ops_avx2
 	@echo ... ops_avx512
 	@echo ... opsmp
-	@echo ... src/autograd.obj
-	@echo ... src/autograd.i
-	@echo ... src/autograd.s
+	@echo ... src/core/autograd.obj
+	@echo ... src/core/autograd.i
+	@echo ... src/core/autograd.s
+	@echo ... src/core/data.obj
+	@echo ... src/core/data.i
+	@echo ... src/core/data.s
+	@echo ... src/core/ops_dispatch.obj
+	@echo ... src/core/ops_dispatch.i
+	@echo ... src/core/ops_dispatch.s
+	@echo ... src/core/opsmp.obj
+	@echo ... src/core/opsmp.i
+	@echo ... src/core/opsmp.s
+	@echo ... src/core/tensor.obj
+	@echo ... src/core/tensor.i
+	@echo ... src/core/tensor.s
 	@echo ... src/cpu/AVX2/ops_avx2_d64.obj
 	@echo ... src/cpu/AVX2/ops_avx2_d64.i
 	@echo ... src/cpu/AVX2/ops_avx2_d64.s
@@ -448,18 +460,6 @@ help:
 	@echo ... src/cpu/AVX512/ops_avx512_f32.obj
 	@echo ... src/cpu/AVX512/ops_avx512_f32.i
 	@echo ... src/cpu/AVX512/ops_avx512_f32.s
-	@echo ... src/data.obj
-	@echo ... src/data.i
-	@echo ... src/data.s
-	@echo ... src/ops_dispatch.obj
-	@echo ... src/ops_dispatch.i
-	@echo ... src/ops_dispatch.s
-	@echo ... src/opsmp.obj
-	@echo ... src/opsmp.i
-	@echo ... src/opsmp.s
-	@echo ... src/tensor.obj
-	@echo ... src/tensor.i
-	@echo ... src/tensor.s
 	@echo ... test/test_ops.obj
 	@echo ... test/test_ops.i
 	@echo ... test/test_ops.s

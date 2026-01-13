@@ -1,1 +1,1 @@
--I"D:/C programs/CTensor/src" -I"D:/C programs/CTensor/src/cpu/AVX2" -I"D:/C programs/CTensor/src/cpu/AVX512"
+-I"D:/C programs/CTensor/src" -I"D:/C programs/CTensor/src/core" -I"D:/C programs/CTensor/src/cpu/AVX2" -I"D:/C programs/CTensor/src/cpu/AVX512"
