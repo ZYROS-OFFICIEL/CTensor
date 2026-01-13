@@ -1,7 +1,7 @@
 #pragma once
 #include <vector>
 #include <string>
-#include "tensor1.h"
+#include "tensor.h"
 
 // ---------- flat vector -> tensor ----------
 template<typename T>
