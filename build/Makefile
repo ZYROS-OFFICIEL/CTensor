@@ -300,6 +300,30 @@ src/cpu/AVX512/ops_avx512_f32.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\ops_avx512.dir\build.make CMakeFiles/ops_avx512.dir/src/cpu/AVX512/ops_avx512_f32.cpp.s
 .PHONY : src/cpu/AVX512/ops_avx512_f32.cpp.s
 
+src/data.obj: src/data.cpp.obj
+.PHONY : src/data.obj
+
+# target to build an object file
+src/data.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\core.dir\build.make CMakeFiles/core.dir/src/data.cpp.obj
+.PHONY : src/data.cpp.obj
+
+src/data.i: src/data.cpp.i
+.PHONY : src/data.i
+
+# target to preprocess a source file
+src/data.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\core.dir\build.make CMakeFiles/core.dir/src/data.cpp.i
+.PHONY : src/data.cpp.i
+
+src/data.s: src/data.cpp.s
+.PHONY : src/data.s
+
+# target to generate assembly for a file
+src/data.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\core.dir\build.make CMakeFiles/core.dir/src/data.cpp.s
+.PHONY : src/data.cpp.s
+
 src/ops_dispatch.obj: src/ops_dispatch.cpp.obj
 .PHONY : src/ops_dispatch.obj
 
@@ -424,6 +448,9 @@ help:
 	@echo ... src/cpu/AVX512/ops_avx512_f32.obj
 	@echo ... src/cpu/AVX512/ops_avx512_f32.i
 	@echo ... src/cpu/AVX512/ops_avx512_f32.s
+	@echo ... src/data.obj
+	@echo ... src/data.i
+	@echo ... src/data.s
 	@echo ... src/ops_dispatch.obj
 	@echo ... src/ops_dispatch.i
 	@echo ... src/ops_dispatch.s
