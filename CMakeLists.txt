@@ -22,14 +22,14 @@ target_include_directories(core PRIVATE ${PROJECT_INCLUDES})
 add_library(ops_avx2 OBJECT src/cpu/AVX2/ops_avx2_d64.cpp src/cpu/AVX2/ops_avx2_f32.cpp)
 target_include_directories(ops_avx2 PRIVATE ${PROJECT_INCLUDES})
 target_compile_options(ops_avx2 PRIVATE
-    -O0 -mavx2 -mfma
+    -O3 -mavx2 -mfma
 )
 
 # AVX-512 code
 add_library(ops_avx512 OBJECT src/cpu/AVX512/ops_avx512_d64.cpp src/cpu/AVX512/ops_avx512_f32.cpp)
 target_include_directories(ops_avx512 PRIVATE ${PROJECT_INCLUDES})
 target_compile_options(ops_avx512 PRIVATE
-    -O0 -mavx512f -mavx512dq
+    -O3 -mavx512f -mavx512dq
 )
 
 # -------------------------------
@@ -49,4 +49,4 @@ target_include_directories(app PRIVATE
     src/cpu/AVX2
     src/cpu/AVX512
 )
-target_compile_options(app PRIVATE -O0)
+target_compile_options(app PRIVATE -O3)
