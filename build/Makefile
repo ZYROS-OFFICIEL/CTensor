@@ -396,29 +396,29 @@ src/cpu/AVX512/ops_avx512_f32.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\ops_avx512.dir\build.make CMakeFiles/ops_avx512.dir/src/cpu/AVX512/ops_avx512_f32.cpp.s
 .PHONY : src/cpu/AVX512/ops_avx512_f32.cpp.s
 
-test/test_ops.obj: test/test_ops.cpp.obj
-.PHONY : test/test_ops.obj
+test/time_avx.obj: test/time_avx.cpp.obj
+.PHONY : test/time_avx.obj
 
 # target to build an object file
-test/test_ops.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\app.dir\build.make CMakeFiles/app.dir/test/test_ops.cpp.obj
-.PHONY : test/test_ops.cpp.obj
+test/time_avx.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\app.dir\build.make CMakeFiles/app.dir/test/time_avx.cpp.obj
+.PHONY : test/time_avx.cpp.obj
 
-test/test_ops.i: test/test_ops.cpp.i
-.PHONY : test/test_ops.i
+test/time_avx.i: test/time_avx.cpp.i
+.PHONY : test/time_avx.i
 
 # target to preprocess a source file
-test/test_ops.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\app.dir\build.make CMakeFiles/app.dir/test/test_ops.cpp.i
-.PHONY : test/test_ops.cpp.i
+test/time_avx.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\app.dir\build.make CMakeFiles/app.dir/test/time_avx.cpp.i
+.PHONY : test/time_avx.cpp.i
 
-test/test_ops.s: test/test_ops.cpp.s
-.PHONY : test/test_ops.s
+test/time_avx.s: test/time_avx.cpp.s
+.PHONY : test/time_avx.s
 
 # target to generate assembly for a file
-test/test_ops.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\app.dir\build.make CMakeFiles/app.dir/test/test_ops.cpp.s
-.PHONY : test/test_ops.cpp.s
+test/time_avx.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\app.dir\build.make CMakeFiles/app.dir/test/time_avx.cpp.s
+.PHONY : test/time_avx.cpp.s
 
 # Help Target
 help:
@@ -460,9 +460,9 @@ help:
 	@echo ... src/cpu/AVX512/ops_avx512_f32.obj
 	@echo ... src/cpu/AVX512/ops_avx512_f32.i
 	@echo ... src/cpu/AVX512/ops_avx512_f32.s
-	@echo ... test/test_ops.obj
-	@echo ... test/test_ops.i
-	@echo ... test/test_ops.s
+	@echo ... test/time_avx.obj
+	@echo ... test/time_avx.i
+	@echo ... test/time_avx.s
 .PHONY : help
 
 

@@ -337,8 +337,8 @@ CMakeFiles/ops_avx512.dir/src/cpu/AVX512/ops_avx512_d64.cpp.obj
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/xsaveoptintrin.h
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/xsavesintrin.h
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/xtestintrin.h
- D:/C programs/CTensor/src/device.h
- D:/C programs/CTensor/src/tensor.h
+ D:/C programs/CTensor/src/core/device.h
+ D:/C programs/CTensor/src/core/tensor.h
  D:/C programs/CTensor/src/cpu/AVX512/ops_avx512_d64.h
 
 CMakeFiles/ops_avx512.dir/src/cpu/AVX512/ops_avx512_f32.cpp.obj
@@ -677,7 +677,7 @@ CMakeFiles/ops_avx512.dir/src/cpu/AVX512/ops_avx512_f32.cpp.obj
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/xsaveoptintrin.h
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/xsavesintrin.h
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/xtestintrin.h
- D:/C programs/CTensor/src/device.h
- D:/C programs/CTensor/src/tensor.h
+ D:/C programs/CTensor/src/core/device.h
+ D:/C programs/CTensor/src/core/tensor.h
  D:/C programs/CTensor/src/cpu/AVX512/ops_avx512_f32.h
 

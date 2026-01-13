@@ -71,24 +71,24 @@ include CMakeFiles/app.dir/flags.make
 CMakeFiles/app.dir/codegen:
 .PHONY : CMakeFiles/app.dir/codegen
 
-CMakeFiles/app.dir/test/test_ops.cpp.obj: CMakeFiles/app.dir/flags.make
-CMakeFiles/app.dir/test/test_ops.cpp.obj: CMakeFiles/app.dir/includes_CXX.rsp
-CMakeFiles/app.dir/test/test_ops.cpp.obj: D:/C\ programs/CTensor/test/test_ops.cpp
-CMakeFiles/app.dir/test/test_ops.cpp.obj: CMakeFiles/app.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/app.dir/test/test_ops.cpp.obj"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/app.dir/test/test_ops.cpp.obj -MF CMakeFiles\app.dir\test\test_ops.cpp.obj.d -o CMakeFiles\app.dir\test\test_ops.cpp.obj -c "D:\C programs\CTensor\test\test_ops.cpp"
+CMakeFiles/app.dir/test/time_avx.cpp.obj: CMakeFiles/app.dir/flags.make
+CMakeFiles/app.dir/test/time_avx.cpp.obj: CMakeFiles/app.dir/includes_CXX.rsp
+CMakeFiles/app.dir/test/time_avx.cpp.obj: D:/C\ programs/CTensor/test/time_avx.cpp
+CMakeFiles/app.dir/test/time_avx.cpp.obj: CMakeFiles/app.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/app.dir/test/time_avx.cpp.obj"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/app.dir/test/time_avx.cpp.obj -MF CMakeFiles\app.dir\test\time_avx.cpp.obj.d -o CMakeFiles\app.dir\test\time_avx.cpp.obj -c "D:\C programs\CTensor\test\time_avx.cpp"
 
-CMakeFiles/app.dir/test/test_ops.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/app.dir/test/test_ops.cpp.i"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\C programs\CTensor\test\test_ops.cpp" > CMakeFiles\app.dir\test\test_ops.cpp.i
+CMakeFiles/app.dir/test/time_avx.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/app.dir/test/time_avx.cpp.i"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\C programs\CTensor\test\time_avx.cpp" > CMakeFiles\app.dir\test\time_avx.cpp.i
 
-CMakeFiles/app.dir/test/test_ops.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/app.dir/test/test_ops.cpp.s"
-	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\C programs\CTensor\test\test_ops.cpp" -o CMakeFiles\app.dir\test\test_ops.cpp.s
+CMakeFiles/app.dir/test/time_avx.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/app.dir/test/time_avx.cpp.s"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\C programs\CTensor\test\time_avx.cpp" -o CMakeFiles\app.dir\test\time_avx.cpp.s
 
 # Object files for target app
 app_OBJECTS = \
-"CMakeFiles/app.dir/test/test_ops.cpp.obj"
+"CMakeFiles/app.dir/test/time_avx.cpp.obj"
 
 # External object files for target app
 app_EXTERNAL_OBJECTS = \
@@ -102,7 +102,7 @@ app_EXTERNAL_OBJECTS = \
 "D:/C programs/CTensor/build/CMakeFiles/core.dir/src/core/tensor.cpp.obj" \
 "D:/C programs/CTensor/build/CMakeFiles/core.dir/src/core/data.cpp.obj"
 
-app.exe: CMakeFiles/app.dir/test/test_ops.cpp.obj
+app.exe: CMakeFiles/app.dir/test/time_avx.cpp.obj
 app.exe: CMakeFiles/opsmp.dir/src/core/opsmp.cpp.obj
 app.exe: CMakeFiles/ops_avx2.dir/src/cpu/AVX2/ops_avx2_d64.cpp.obj
 app.exe: CMakeFiles/ops_avx2.dir/src/cpu/AVX2/ops_avx2_f32.cpp.obj

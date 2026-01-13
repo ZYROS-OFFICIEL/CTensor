@@ -336,8 +336,8 @@ CMakeFiles/ops_avx512.dir/src/cpu/AVX512/ops_avx512_d64.cpp.obj: D:/C\ programs/
   C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/xsaveoptintrin.h \
   C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/xsavesintrin.h \
   C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/xtestintrin.h \
-  D:/C\ programs/CTensor/src/device.h \
-  D:/C\ programs/CTensor/src/tensor.h \
+  D:/C\ programs/CTensor/src/core/device.h \
+  D:/C\ programs/CTensor/src/core/tensor.h \
   D:/C\ programs/CTensor/src/cpu/AVX512/ops_avx512_d64.h
 
 CMakeFiles/ops_avx512.dir/src/cpu/AVX512/ops_avx512_f32.cpp.obj: D:/C\ programs/CTensor/src/cpu/AVX512/ops_avx512_f32.cpp \
@@ -675,8 +675,8 @@ CMakeFiles/ops_avx512.dir/src/cpu/AVX512/ops_avx512_f32.cpp.obj: D:/C\ programs/
   C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/xsaveoptintrin.h \
   C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/xsavesintrin.h \
   C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/xtestintrin.h \
-  D:/C\ programs/CTensor/src/device.h \
-  D:/C\ programs/CTensor/src/tensor.h \
+  D:/C\ programs/CTensor/src/core/device.h \
+  D:/C\ programs/CTensor/src/core/tensor.h \
   D:/C\ programs/CTensor/src/cpu/AVX512/ops_avx512_f32.h
 
 
@@ -1148,8 +1148,6 @@ C:/msys64/mingw64/include/crtdefs.h:
 
 C:/msys64/mingw64/include/errno.h:
 
-D:/C\ programs/CTensor/src/tensor.h:
-
 C:/msys64/mingw64/include/math.h:
 
 C:/msys64/mingw64/include/process.h:
@@ -1203,6 +1201,8 @@ C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/amxfp8intrin.h:
 C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/amxmovrsintrin.h:
 
 C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/amxtileintrin.h:
+
+D:/C\ programs/CTensor/src/core/tensor.h:
 
 C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/amxtransposeintrin.h:
 
@@ -1358,4 +1358,4 @@ C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/xsavesintrin.h:
 
 C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/xtestintrin.h:
 
-D:/C\ programs/CTensor/src/device.h:
+D:/C\ programs/CTensor/src/core/device.h:
