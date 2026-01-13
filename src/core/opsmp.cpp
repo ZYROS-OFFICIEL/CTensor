@@ -136,13 +136,11 @@ Tensor unary_op_impl(const Tensor& a, Func op, std::shared_ptr<GradFn> grad_fn =
     
     size_t n = a.numel();
     size_t ndim = a.impl->ndim;
-    // FIX: use .data()
     const size_t* shape = a.impl->shape.data();
     const size_t* strides = a.impl->strides.data();
     size_t offset_base = a.impl->offset;
     
     if (a._dtype() == DType::Float32) {
-        // FIX: impl->data
         float* data_a = (float*)a.impl->data->data.get();
         float* data_out = (float*)out.impl->data->data.get();
         
@@ -167,7 +165,6 @@ Tensor unary_op_impl(const Tensor& a, Func op, std::shared_ptr<GradFn> grad_fn =
                 rem /= shape[d];
                 idx += coord * strides[d];
             }
-            // FIX: impl->data
             double val = read_scalar_at(a.impl->data->data.get(), idx, a._dtype());
             write_scalar_at(out.impl->data->data.get(), flat, out._dtype(), op(val));
         }
@@ -289,7 +286,6 @@ Tensor matmul_mp(const Tensor& A, const Tensor& B) {
     size_t stride_cm = C.impl->strides[C.impl->ndim - 2]; 
     size_t stride_cn = C.impl->strides[C.impl->ndim - 1]; 
     
-    // FIX: impl->data
     auto* data_a = A.impl->data->data.get();
     auto* data_b = B.impl->data->data.get();
     auto* data_c = C.impl->data->data.get();
