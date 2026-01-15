@@ -4,7 +4,6 @@
 #include <string>
 #include <memory>
 
-// Abstract base class for all neural network modules (layers)
 class Module {
 public:
     bool training;
@@ -56,7 +55,4 @@ public:
         return params;
     }
     
-    // Forward pass through the chain
-    // Note: This assumes all modules take 1 tensor and return 1 tensor.
-    // You'd need a common interface for this to work generically.
 };
