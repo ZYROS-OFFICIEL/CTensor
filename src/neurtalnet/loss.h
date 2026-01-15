@@ -45,3 +45,20 @@ struct GradMSE : GradFn {
     void backward(const Tensor& self) override;
 };
 
+struct GradMAE : GradFn {
+    Tensor pred, target;
+    std::string reduction;
+    GradMAE(const Tensor& pred_, const Tensor& target_, const std::string& reduction_)
+        : pred(pred_), target(target_), reduction(reduction_) { parents = {pred}; }
+    void backward(const Tensor& self) override;
+};
+
+struct GradHuberLoss : GradFn {
+    Tensor pred, target;
+    std::string reduction;
+    double delta;
+    GradHuberLoss(const Tensor& pred_, const Tensor& target_, const std::string& reduction_, double delta_)
+        : pred(pred_), target(target_), reduction(reduction_), delta(delta_) { parents = {pred}; }
+    void backward(const Tensor& self) override;
+};
+
