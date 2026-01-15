@@ -77,3 +77,19 @@ struct GradBCE : GradFn {
         : pred(pred_), target(target_), reduction(reduction_) { parents = {pred}; }
     void backward(const Tensor& self) override;
 };
+
+struct GradKLDiv : GradFn {
+    Tensor pred, target;
+    std::string reduction;
+    GradKLDiv(const Tensor& pred_, const Tensor& target_, const std::string& reduction_)
+        : pred(pred_), target(target_), reduction(reduction_) { parents = {pred}; }
+    void backward(const Tensor& self) override;
+};
+
+struct GradNLLLoss : GradFn {
+    Tensor pred, target;
+    std::string reduction;
+    GradNLLLoss(const Tensor& pred_, const Tensor& target_, const std::string& reduction_)
+        : pred(pred_), target(target_), reduction(reduction_) { parents = {pred}; }
+    void backward(const Tensor& self) override;
+};
