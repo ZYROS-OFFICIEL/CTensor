@@ -37,3 +37,11 @@ public:
     static Tensor MarginRankingLoss(const Tensor& input1, const Tensor& input2, const Tensor& target, double margin = 0.0, std::string reduction = "mean");
 };
 
+// --- Gradient Structs ---
+
+struct GradMSE : GradFn {
+    Tensor pred, target;
+    GradMSE(const Tensor& pred_, const Tensor& target_) : pred(pred_), target(target_) { parents = {pred}; }
+    void backward(const Tensor& self) override;
+};
+
