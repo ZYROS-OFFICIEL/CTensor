@@ -68,3 +68,38 @@ Tensor Loss::MAE(const Tensor& pred, const Tensor& target,std::string reduction)
 
     return result;
 }
+
+
+Tensor Loss::HuberLoss(const Tensor& pred, const Tensor& target,std::string reduction,double delta){
+    if (!pred.impl || !target.impl)
+        throw std::runtime_error("Loss::HuberLoss: null tensor implementation");
+
+    if (pred.impl->ndim != target.impl->ndim)
+        throw std::runtime_error("Loss::HuberLoss: dimension mismatch");
+
+    bool req = pred.requires_grad();
+    Tensor result({1}, pred.impl->dtype, req);
+
+    
+    // Compute Huber Loss
+    Tensor diff = pred - target;
+    Tensor abs_diff = abs_mp(diff);
+    Tensor linear = delta * (abs_diff - 0.5 * delta);
+    Tensor quadratic = 0.5 * diff * diff;
+
+    Tensor huber_loss = (abs_diff <= delta) * quadratic + (abs_diff > delta) * linear;
+    
+    // Sum all elements
+    Tensor summed = sum(huber_loss, -1);
+    double huber_value = read_scalar_at(summed.impl->data->data.get(), 0, summed._dtype());
+    if(reduction == "mean") {
+        huber_value /= static_cast<double>(pred.numel_());
+    }
+    write_scalar_at(result.impl->data->data.get(), 0, result._dtype(), huber_value);
+    // Attach backward function if needed
+    if (req) {
+        result.impl->grad_fn = std::make_shared<GradHuberLoss>(pred, target, reduction, delta);
+    }
+
+    return result;
+}
