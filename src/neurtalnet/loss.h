@@ -110,3 +110,11 @@ struct GradMarginRankingLoss : GradFn {
         : input1(input1_), input2(input2_), target(target_), margin(margin_), reduction(reduction_) { parents = {input1, input2}; }
     void backward(const Tensor& self) override;
 };
+
+struct GradLogCosh : GradFn {
+    Tensor pred, target;
+    std::string reduction;
+    GradLogCosh(const Tensor& pred_, const Tensor& target_, const std::string& reduction_)
+        : pred(pred_), target(target_), reduction(reduction_) { parents = {pred}; }
+    void backward(const Tensor& self) override;
+};
