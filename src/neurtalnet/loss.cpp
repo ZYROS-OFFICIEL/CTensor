@@ -252,3 +252,26 @@ Tensor Loss::KLDiv(const Tensor& pred, const Tensor& target,std::string reductio
 
     return result;
 }
+
+Tensor Loss::NLLLoss(const Tensor& pred, const Tensor& target, std::string reduction){
+    if (!pred.impl || !target.impl) throw std::runtime_error("Loss::NLLLoss: null tensor");
+    
+    // Assumes pred is ALREADY Log-Probabilities [Batch, Classes]
+    // Target is Indices [Batch, 1]
+
+    bool req = pred.requires_grad();
+    Tensor result({1}, pred.impl->dtype, req);
+
+    // Gather specific indices
+    Tensor picked = pred.gather(target, 1);  
+    Tensor loss = picked * -1.0; // NLL is negative log likelihood
+
+    Tensor reduced;
+    if(reduction == "mean") reduced = mean(loss);
+    else reduced = sum(loss);
+
+    double val = read_scalar_at(reduced.impl->data->data.get(), 0, reduced._dtype());
+    write_scalar_at(result.impl->data->data.get(), 0, result._dtype(), val);
+    if (req) result.impl->grad_fn = std::make_shared<GradNLLLoss>(pred, target, reduction);
+    return result;
+}
