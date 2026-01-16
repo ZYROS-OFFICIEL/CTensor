@@ -177,3 +177,46 @@ Tensor Loss::LogCosh(const Tensor& pred, const Tensor& target,std::string reduct
 
     return result;
 }
+
+Tensor Loss::BCE(const Tensor& pred, const Tensor& target,std::string reduction){
+    if (!pred.impl || !target.impl)
+        throw std::runtime_error("Loss::BCE: null tensor implementation");
+
+    if (pred.impl->ndim != target.impl->ndim)
+        throw std::runtime_error("Loss::BCE: dimension mismatch");
+    Tensor t_max = max(pred); // returns shape [1]
+    Tensor t_min = min(pred); // returns shape [1]
+    
+    // read scalar value from the underlying storage
+    double max_val = read_scalar_at(t_max.impl->storage->data.get(), 0, t_max._dtype());
+    double min_val = read_scalar_at(t_min.impl->storage->data.get(), 0, t_min._dtype());
+    if (max_val > 1.0 || min_val < 0.0)
+        throw std::runtime_error("BCE: input must be in [0, 1]");
+
+
+    bool req = pred.requires_grad();
+    Tensor result({1}, pred.impl->dtype, req);
+
+    // Compute BCE Loss
+    Tensor log_pred = ln(pred + 1e-12);               // to avoid log(0)
+    Tensor log_one_minus_pred = ln(1 - pred + 1e-12); // to avoid log(0)
+
+    Tensor bce_loss = - (target * log_pred + (1 - target) * log_one_minus_pred);
+
+    // Sum all elements
+    Tensor summed = sum(bce_loss, -1);
+    double bce_value = read_scalar_at(summed.impl->data->data.get(), 0, summed._dtype());
+
+    if(reduction == "mean") {
+        bce_value /= static_cast<double>(pred.numel_());
+    }
+
+    write_scalar_at(result.impl->data->data.get(), 0, result._dtype(), bce_value);
+
+    // Attach backward function if needed
+    if (req) {
+        result.impl->grad_fn = std::make_shared<GradBCE>(pred, target, reduction);
+    }
+
+    return result;
+}
