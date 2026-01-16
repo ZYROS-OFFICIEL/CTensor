@@ -187,9 +187,9 @@ Tensor Loss::BCE(const Tensor& pred, const Tensor& target,std::string reduction)
     Tensor t_max = max(pred); // returns shape [1]
     Tensor t_min = min(pred); // returns shape [1]
     
-    // read scalar value from the underlying storage
-    double max_val = read_scalar_at(t_max.impl->storage->data.get(), 0, t_max._dtype());
-    double min_val = read_scalar_at(t_min.impl->storage->data.get(), 0, t_min._dtype());
+    // read scalar value from the underlying data
+    double max_val = read_scalar_at(t_max.impl->data->data.get(), 0, t_max._dtype());
+    double min_val = read_scalar_at(t_min.impl->data->data.get(), 0, t_min._dtype());
     if (max_val > 1.0 || min_val < 0.0)
         throw std::runtime_error("BCE: input must be in [0, 1]");
 
@@ -356,6 +356,35 @@ void GradMSE::backward(const Tensor& self) {
         double res = (2.0 / static_cast<double>(n)) * (p - t);
         write_scalar_at(grad_input.impl->data->data.get(), i, grad_input._dtype(), res);
     }
+
+    accumulate_grad(pred, grad_input);
+}
+
+void GradMAE::backward(const Tensor& self) {
+    if (!self.impl || !self.impl->data || !self.impl->data->grad)
+        throw std::runtime_error("GradMAE: missing self grad");
+    if (!pred.requires_grad()) return;
+
+    Tensor grad_input = tensor_from_grad(self);
+    size_t n = pred.numel_();
+
+    auto* gdata = grad_input.impl->data->data.get();
+    auto* pdata = pred.impl->data->data.get();
+    auto* tdata = target.impl->data->data.get();
+
+    for (size_t i = 0; i < n; ++i) {
+        double p = read_scalar_at(pdata, i, pred._dtype());
+        double t = read_scalar_at(tdata, i, target._dtype());
+        double sign = (p > t) ? 1.0 : ((p < t) ? -1.0 : 0.0);
+        double grad_val = sign;
+        write_scalar_at(gdata, i, grad_input._dtype(), grad_val);
+    }
+
+    // 🔹 If reduction is "mean", scale gradient
+    if (reduction == "mean") {
+        grad_input = grad_input / static_cast<double>(n);
+    }
+    // 🔹 If reduction == "sum", leave as-is (no scaling)
 
     accumulate_grad(pred, grad_input);
 }
