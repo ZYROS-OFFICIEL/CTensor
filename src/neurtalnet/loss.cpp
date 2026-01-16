@@ -275,3 +275,36 @@ Tensor Loss::NLLLoss(const Tensor& pred, const Tensor& target, std::string reduc
     if (req) result.impl->grad_fn = std::make_shared<GradNLLLoss>(pred, target, reduction);
     return result;
 }
+
+
+Tensor HingeLoss(const Tensor& pred, const Tensor& target,std::string reduction){
+    if (!pred.impl || !target.impl)
+        throw std::runtime_error("Loss::HingeLoss: null tensor implementation");
+
+    if (pred.impl->ndim != target.impl->ndim)
+        throw std::runtime_error("Loss::HingeLoss: dimension mismatch");
+
+    bool req = pred.requires_grad();
+    Tensor result({1}, pred.impl->dtype, req);
+
+    // Compute Hinge Loss
+    Tensor one = Tensor::full(pred.shape(), 1.0, pred._dtype(), false);
+    Tensor margin = one - target * pred;
+    Tensor hinge_loss = Relu(margin);
+
+    // Sum all elements
+    Tensor summed = sum(hinge_loss);
+    double hinge_value = read_scalar_at(summed.impl->data->data.get(), 0, summed._dtype());
+    if(reduction == "mean") {
+        hinge_value /= static_cast<double>(pred.numel_());
+    }
+
+    write_scalar_at(result.impl->data->data.get(), 0, result._dtype(), hinge_value);
+
+    // Attach backward function if needed
+    if (req) {
+        result.impl->grad_fn = std::make_shared<GradHingeLoss>(pred, target, reduction);
+    }
+
+    return result;
+}
