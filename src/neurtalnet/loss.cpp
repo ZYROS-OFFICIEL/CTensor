@@ -476,3 +476,32 @@ void GradCrossEntropy::backward(const Tensor& self) {
 
     accumulate_grad(pred, grad_input);
 }
+
+
+void GradBCE::backward(const Tensor& self) {
+    if (!self.impl || !self.impl->data || !self.impl->data->grad)
+        throw std::runtime_error("GradBCE: missing self grad");
+    if (!pred.requires_grad()) return;
+
+    Tensor grad_input = tensor_from_grad(self);
+    size_t n = pred.numel_();
+
+    auto* gdata = grad_input.impl->data->data.get();
+    auto* pdata = pred.impl->data->data.get();
+    auto* tdata = target.impl->data->data.get();
+
+    for (size_t i = 0; i < n; ++i) {
+        double p = read_scalar_at(pdata, i, pred._dtype());
+        double t = read_scalar_at(tdata, i, target._dtype());
+        double grad_val = (p - t) / ( (p * (1 - p)) + 1e-12 ); // derivative of BCE
+        write_scalar_at(gdata, i, grad_input._dtype(), grad_val);
+    }
+
+    // 🔹 If reduction is "mean", scale gradient
+    if (reduction == "mean") {
+        grad_input = grad_input / static_cast<double>(n);
+    }
+    // 🔹 If reduction == "sum", leave as-is (no scaling)
+
+    accumulate_grad(pred, grad_input);
+}
