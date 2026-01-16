@@ -103,3 +103,44 @@ Tensor Loss::HuberLoss(const Tensor& pred, const Tensor& target,std::string redu
 
     return result;
 }
+
+Tensor Loss::CrossEntropy(const Tensor& pred_, const Tensor& target_, std::string reduction) {
+    if (!pred_.impl || !target_.impl) throw std::runtime_error("Loss::CrossEntropy: null tensor");
+    
+    // Pred: [Batch, Classes], Target: [Batch, 1] (Indices)
+    if (pred_.impl->ndim != 2) throw std::runtime_error("CrossEntropy: Pred must be 2D [Batch, Classes]");
+    // Target can be [Batch, 1] or [Batch] (if supported), assuming [Batch, 1] from loader
+    
+    bool req = pred_.requires_grad();
+    Tensor result({1}, pred_.impl->dtype, req);
+
+    // 1. LogSoftmax Stability Trick: x - max(x)
+    Tensor max_vals = max(pred_, 1).reshape({pred_.shape()[0], 1});
+    Tensor shifted = pred_ - max_vals; 
+
+    // 2. Compute Exp and Sum
+    Tensor exp_vals = exp(shifted);
+    Tensor sum_exp = sum(exp_vals, 1).reshape({pred_.shape()[0], 1});
+    Tensor log_sum_exp = ln(sum_exp);
+
+    // 3. LogSoftmax = logits - log_sum_exp
+    Tensor log_probs = shifted - log_sum_exp; 
+
+    // 4. Gather correct class probability
+    // Target contains indices. gather(dim=1) picks the column.
+    Tensor picked = log_probs.gather(target_, 1); // Returns [Batch, 1]
+    
+    // 5. NLL = -picked
+    Tensor nll = picked * -1.0;
+
+    // 6. Reduction
+    Tensor reduced;
+    if (reduction == "mean") reduced = mean(nll);
+    else reduced = sum(nll);
+    
+    double val = read_scalar_at(reduced.impl->data->data.get(), 0, reduced._dtype());
+    write_scalar_at(result.impl->data->data.get(), 0, result._dtype(), val);
+
+    if (req) result.impl->grad_fn = std::make_shared<GradCrossEntropy>(pred_, target_, reduction);
+    return result;
+}

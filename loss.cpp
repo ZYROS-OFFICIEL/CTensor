@@ -62,6 +62,7 @@ Tensor Loss::MAE(const Tensor& pred, const Tensor& target,std::string reduction)
 
     return result;
 }
+
 Tensor Loss::HuberLoss(const Tensor& pred, const Tensor& target,std::string reduction,double delta){
     if (!pred.impl || !target.impl)
         throw std::runtime_error("Loss::HuberLoss: null tensor implementation");
