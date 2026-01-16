@@ -425,3 +425,54 @@ void GradHuberLoss::backward(const Tensor& self) {
 
     accumulate_grad(pred, grad_input);
 }
+
+
+// --- CROSS ENTROPY BACKWARD (UPDATED FOR INDICES) ---
+void GradCrossEntropy::backward(const Tensor& self) {
+    if (!self.impl->data->grad) throw std::runtime_error("GradCrossEntropy: missing self grad");
+    if (!pred.requires_grad()) return;
+
+    // 1. Re-compute Softmax (can be optimized if cached, but safer to recompute)
+    Tensor max_vals = max_mp(pred, 1).reshape({pred.shape()[0], 1});
+    Tensor shifted = pred - max_vals;
+    Tensor sum_exp = sum_mp(exp_mp(shifted), 1).reshape({pred.shape()[0], 1});
+    Tensor probs = exp_mp(shifted) / sum_exp; 
+
+    // 2. Initialize Gradient with 'probs'
+    // Deriv is (probs - 1) at target index, (probs - 0) elsewhere.
+    Tensor grad_input = probs; 
+
+    // 3. Subtract 1.0 at target indices
+    size_t batch_size = pred.shape()[0];
+    size_t num_classes = pred.shape()[1];
+    
+    // We assume target is Int32 [Batch, 1]
+    int32_t* t_ptr = (int32_t*)target.impl->data->data.get();
+    float* g_ptr = (float*)grad_input.impl->data->data.get(); // assuming float gradient
+
+    #pragma omp parallel for
+    for (size_t b = 0; b < batch_size; ++b) {
+        int label = t_ptr[b];
+        if (label >= 0 && label < (int)num_classes) {
+            size_t idx = b * num_classes + label;
+            g_ptr[idx] -= 1.0f; 
+        }
+    }
+
+    // 4. Handle Reduction and Incoming Gradient
+    // Get scalar gradient from loss (usually 1.0)
+    double grad_out = read_scalar_at(self.impl->data->grad.get(), 0, self._dtype());
+
+    if (reduction == "mean") {
+        grad_out /= static_cast<double>(batch_size);
+    }
+
+    // Apply scaling
+    if (grad_out != 1.0) {
+        size_t n = grad_input.numel();
+        #pragma omp parallel for
+        for (size_t i = 0; i < n; ++i) g_ptr[i] *= (float)grad_out;
+    }
+
+    accumulate_grad(pred, grad_input);
+}
