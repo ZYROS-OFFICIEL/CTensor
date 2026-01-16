@@ -341,3 +341,21 @@ Tensor MarginRankingLoss(const Tensor& input1, const Tensor& input2, const Tenso
 
     return result;
 }
+
+void GradMSE::backward(const Tensor& self) {
+    if (!self.impl || !self.impl->data || !self.impl->data->grad)
+        throw std::runtime_error("GradMSE: missing self grad");
+    if (!pred.impl || !pred.requires_grad()) return;
+
+    Tensor grad_input = tensor_from_grad(self);
+    size_t n = pred.numel_();
+
+    for (size_t i = 0; i < n; ++i) {
+        double p = read_scalar_at(pred.impl->data->data.get(), i, pred._dtype());
+        double t = read_scalar_at(target.impl->data->data.get(), i, target._dtype());
+        double res = (2.0 / static_cast<double>(n)) * (p - t);
+        write_scalar_at(grad_input.impl->data->data.get(), i, grad_input._dtype(), res);
+    }
+
+    accumulate_grad(pred, grad_input);
+}
