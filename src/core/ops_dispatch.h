@@ -73,13 +73,13 @@ Tensor operator+(double scalar, const Tensor& a);
 Tensor operator-(const Tensor& a, const Tensor& b);
 inline Tensor operator-(const Tensor& a, double scalar) { return sub_scalar(a, scalar); }
 inline Tensor operator-(double scalar, const Tensor& a) { return sub_scalar_rev(scalar, a); }
-inline Tensor operator-(const Tensor& a) { return mult_scalar(a, -1.0); }
+inline Tensor operator-(const Tensor& a) { return mul_scalar(a, -1.0); }
 Tensor operator*(const Tensor& a, const Tensor& b);
-inline Tensor operator*(const Tensor& a, double scalar) { return mult_scalar(a, scalar); }
-inline Tensor operator*(double scalar, const Tensor& a) { return mult_scalar(a, scalar); }
+inline Tensor operator*(const Tensor& a, double scalar) { return mul_scalar(a, scalar); }
+inline Tensor operator*(double scalar, const Tensor& a) { return mul_scalar(a, scalar); }
 Tensor operator/(const Tensor& a, const Tensor& b);
-inline Tensor operator/(const Tensor& a, double scalar) { return div_scalar(a, scalar); }
-inline Tensor operator/(double scalar, const Tensor& a) { return scalar_div(scalar, a); }
+inline Tensor operator/(const Tensor& a, double scalar) { return sub_scalar(a, scalar); }
+inline Tensor operator/(double scalar, const Tensor& a) { return sub_scalar_rev(scalar, a); }
 Tensor operator^(const Tensor& a, const Tensor& b);
 inline Tensor operator^(const Tensor& a, double scalar) { return pow_scalar(a, scalar); }
 inline Tensor operator^(double scalar, const Tensor& a) { return pow_scalar_rev(scalar, a); }
@@ -90,7 +90,7 @@ inline Tensor operator<=(const Tensor& a, double b) { return le(a, b); }
 inline Tensor operator>(const Tensor& a, double b) { return gt(a, b); }
 inline Tensor operator>=(const Tensor& a, double b) { return ge(a, b); }
 inline Tensor operator==(const Tensor& a, double b) { return eq(a, b); }
-inline Tensor operator!=(const Tensor& a, double b) { return neq(a, b); }
+inline Tensor operator!=(const Tensor& a, double b) { return ne(a, b); }
 
 // Two tensor comparisons
 inline Tensor operator<(const Tensor& a, const Tensor& b) { return lt(a, b); }

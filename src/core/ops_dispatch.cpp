@@ -404,11 +404,11 @@ Tensor& operator-=(Tensor& a, double scalar) {
 }
 
 Tensor& operator*=(Tensor& a, const Tensor& b) {
-    a = mult(a, b);
+    a = mul(a, b);
     return a;
 }
 Tensor& operator*=(Tensor& a, double scalar) {
-    a = mult_scalar(a, scalar);
+    a = mul_scalar(a, scalar);
     return a;
 }
 
@@ -435,11 +435,11 @@ Tensor operator+(const Tensor& a, const Tensor& b) {
 }
 
 Tensor operator-(const Tensor& a, const Tensor& b) {
-    return diff(a, b);
+    return sub(a, b);
 }
 
 Tensor operator*(const Tensor& a, const Tensor& b) {
-    return mult(a, b);
+    return mul(a, b);
 }
 
 Tensor operator/(const Tensor& a, const Tensor& b) {
