@@ -10,12 +10,18 @@ set(PROJECT_INCLUDES
     src/cpu/AVX512
 )
 # -------------------------------
-# Scalar code
+# Scalar 
 # -------------------------------
 add_library(opsmp OBJECT src/core/opsmp.cpp)
 target_include_directories(opsmp PRIVATE ${PROJECT_INCLUDES})
 add_library(core OBJECT src/core/autograd.cpp src/core/ops_dispatch.cpp src/core/tensor.cpp src/core/data.cpp)
 target_include_directories(core PRIVATE ${PROJECT_INCLUDES})
+
+# -------------------------------
+# Neural Net
+# -------------------------------
+add_library(neuralnet OBJECT src/neuralnet/loss.cpp)
+target_include_directories(neuralnet PRIVATE ${PROJECT_INCLUDES})
 
 
 # AVX2 code
