@@ -343,7 +343,7 @@ Tensor MarginRankingLoss(const Tensor& input1, const Tensor& input2, const Tenso
 }
 
 void GradMSE::backward(const Tensor& self) {
-    if (!self.impl || !self.impl->data || !self.impl->data->grad)
+    if (!self.impl || !self.impl->data || !self.impl->grad)
         throw std::runtime_error("GradMSE: missing self grad");
     if (!pred.impl || !pred.requires_grad()) return;
 
@@ -361,7 +361,7 @@ void GradMSE::backward(const Tensor& self) {
 }
 
 void GradMAE::backward(const Tensor& self) {
-    if (!self.impl || !self.impl->data || !self.impl->data->grad)
+    if (!self.impl || !self.impl->data || !self.impl->grad)
         throw std::runtime_error("GradMAE: missing self grad");
     if (!pred.requires_grad()) return;
 
@@ -390,7 +390,7 @@ void GradMAE::backward(const Tensor& self) {
 }
 
 void GradHuberLoss::backward(const Tensor& self) {
-    if (!self.impl || !self.impl->data || !self.impl->data->grad)
+    if (!self.impl || !self.impl->data || !self.impl->grad)
         throw std::runtime_error("GradHuberLoss: missing self grad");
     if (!pred.requires_grad()) return;
 
@@ -429,12 +429,12 @@ void GradHuberLoss::backward(const Tensor& self) {
 
 // --- CROSS ENTROPY BACKWARD (UPDATED FOR INDICES) ---
 void GradCrossEntropy::backward(const Tensor& self) {
-    if (!self.impl->data->grad) throw std::runtime_error("GradCrossEntropy: missing self grad");
+    if (!self.impl->grad) throw std::runtime_error("GradCrossEntropy: missing self grad");
     if (!pred.requires_grad()) return;
 
     // 1. Re-compute Softmax (can be optimized if cached, but safer to recompute)
     Tensor max_vals = max(pred, 1).reshape({pred.shape()[0], 1});
-    Tensor shifted = pred - max_vals;
+    Tensor shifted = sub(pred, max_vals);
     Tensor sum_exp = sum(exp(shifted), 1).reshape({pred.shape()[0], 1});
     Tensor probs = exp(shifted) / sum_exp; 
 
@@ -461,7 +461,7 @@ void GradCrossEntropy::backward(const Tensor& self) {
 
     // 4. Handle Reduction and Incoming Gradient
     // Get scalar gradient from loss (usually 1.0)
-    double grad_out = read_scalar_at(self.impl->data->grad.get(), 0, self._dtype());
+    double grad_out = read_scalar_at(self.impl->grad.get(), 0, self._dtype());
 
     if (reduction == "mean") {
         grad_out /= static_cast<double>(batch_size);
@@ -479,7 +479,7 @@ void GradCrossEntropy::backward(const Tensor& self) {
 
 
 void GradBCE::backward(const Tensor& self) {
-    if (!self.impl || !self.impl->data || !self.impl->data->grad)
+    if (!self.impl || !self.impl->data || !self.impl->grad)
         throw std::runtime_error("GradBCE: missing self grad");
     if (!pred.requires_grad()) return;
 
@@ -507,7 +507,7 @@ void GradBCE::backward(const Tensor& self) {
 }
 
 void GradLogCosh::backward(const Tensor& self) {
-    if (!self.impl || !self.impl->data || !self.impl->data->grad)
+    if (!self.impl || !self.impl->data || !self.impl->grad)
         throw std::runtime_error("GradLogCosh: missing self grad");
     if (!pred.requires_grad()) return;
 
@@ -537,7 +537,7 @@ void GradLogCosh::backward(const Tensor& self) {
 
 
 void GradKLDiv::backward(const Tensor& self) {
-    if (!self.impl || !self.impl->data || !self.impl->data->grad)
+    if (!self.impl || !self.impl->data || !self.impl->grad)
         throw std::runtime_error("GradKLDiv: missing self grad");
     if (!pred.requires_grad()) return;
 
@@ -565,7 +565,7 @@ void GradKLDiv::backward(const Tensor& self) {
 }
 
 void GradNLLLoss::backward(const Tensor& self) {
-    if (!self.impl->data->grad) throw std::runtime_error("GradNLLLoss: missing self grad");
+    if (!self.impl->grad) throw std::runtime_error("GradNLLLoss: missing self grad");
     if (!pred.requires_grad()) return;
 
     Tensor grad_input = Tensor::zeros(pred.shape(), pred._dtype(), false);
@@ -585,7 +585,7 @@ void GradNLLLoss::backward(const Tensor& self) {
         }
     }
 
-    double grad_out = read_scalar_at(self.impl->data->grad.get(), 0, self._dtype());
+    double grad_out = read_scalar_at(self.impl->grad.get(), 0, self._dtype());
     if (reduction == "mean") grad_out /= static_cast<double>(batch_size);
 
     if (grad_out != 1.0) {
@@ -599,7 +599,7 @@ void GradNLLLoss::backward(const Tensor& self) {
 
 
 void GradHingeLoss::backward(const Tensor& self) {
-    if (!self.impl || !self.impl->data || !self.impl->data->grad)
+    if (!self.impl || !self.impl->data || !self.impl->grad)
         throw std::runtime_error("GradHingeLoss: missing self grad");
     if (!pred.requires_grad()) return;
 
@@ -628,7 +628,7 @@ void GradHingeLoss::backward(const Tensor& self) {
 }
 
 void GradMarginRankingLoss::backward(const Tensor& self) {
-    if (!self.impl || !self.impl->data || !self.impl->data->grad)
+    if (!self.impl || !self.impl->data || !self.impl->grad)
         throw std::runtime_error("GradMarginRankingLoss: missing self grad");
     if (!input1.requires_grad() && !input2.requires_grad()) return;
 
