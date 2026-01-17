@@ -39,6 +39,7 @@ Tensor ne(const Tensor &a, double b);
 // Unary Ops
 Tensor abs(const Tensor &a);
 Tensor log(const Tensor &a);
+Tensor ln(const Tensor &a);
 Tensor exp(const Tensor &a);
 Tensor sqrt(const Tensor &a);
 Tensor sin(const Tensor &a);
