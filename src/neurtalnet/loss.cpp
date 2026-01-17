@@ -563,3 +563,36 @@ void GradKLDiv::backward(const Tensor& self) {
 
     accumulate_grad(pred, grad_input);
 }
+
+void GradNLLLoss::backward(const Tensor& self) {
+    if (!self.impl->data->grad) throw std::runtime_error("GradNLLLoss: missing self grad");
+    if (!pred.requires_grad()) return;
+
+    Tensor grad_input = Tensor::zeros(pred.shape(), pred._dtype(), false);
+    
+    size_t batch_size = pred.shape()[0];
+    size_t num_classes = pred.shape()[1];
+    int32_t* t_ptr = (int32_t*)target.impl->data->data.get();
+    float* g_ptr = (float*)grad_input.impl->data->data.get();
+
+    #pragma omp parallel for
+    for (size_t b = 0; b < batch_size; ++b) {
+        int label = t_ptr[b];
+        if (label >= 0 && label < (int)num_classes) {
+            // Gradient of NLL w.r.t input (LogProb) is -1 at target index
+            size_t idx = b * num_classes + label;
+            g_ptr[idx] = -1.0f;
+        }
+    }
+
+    double grad_out = read_scalar_at(self.impl->data->grad.get(), 0, self._dtype());
+    if (reduction == "mean") grad_out /= static_cast<double>(batch_size);
+
+    if (grad_out != 1.0) {
+        size_t n = grad_input.numel();
+        #pragma omp parallel for
+        for (size_t i = 0; i < n; ++i) g_ptr[i] *= (float)grad_out;
+    }
+
+    accumulate_grad(pred, grad_input);
+}
