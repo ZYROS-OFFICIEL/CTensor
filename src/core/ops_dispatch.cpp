@@ -247,6 +247,7 @@ Tensor NAME(const Tensor &a) { \
 
 IMPLEMENT_UNARY_OP(abs, GradAbs, abs_mp, abs_avx2, abs_avx512)
 IMPLEMENT_UNARY_OP(log, GradLn, ln_mp, ln_avx2, ln_avx512)
+IMPLEMENT_UNARY_OP(ln, GradLn, ln_mp, ln_avx2, ln_avx512)
 IMPLEMENT_UNARY_OP(exp, GradExp, exp_mp, exp_avx2, exp_avx512)
 IMPLEMENT_UNARY_OP(sqrt, GradSqrt, sqrt_mp, sqrt_avx2, sqrt_avx512)
 IMPLEMENT_UNARY_OP(sin, GradSin, sin_mp, sin_avx2, sin_avx512)
