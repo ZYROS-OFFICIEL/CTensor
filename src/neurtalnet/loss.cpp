@@ -625,4 +625,48 @@ void GradHingeLoss::backward(const Tensor& self) {
     // 🔹 If reduction == "sum", leave as-is (no scaling)
 
     accumulate_grad(pred, grad_input);
-}s
+}
+
+void GradMarginRankingLoss::backward(const Tensor& self) {
+    if (!self.impl || !self.impl->data || !self.impl->data->grad)
+        throw std::runtime_error("GradMarginRankingLoss: missing self grad");
+    if (!input1.requires_grad() && !input2.requires_grad()) return;
+
+    Tensor grad_input = tensor_from_grad(self);
+    size_t n = input1.numel_();
+
+    auto* gdata = grad_input.impl->data->data.get();
+    auto* in1data = input1.impl->data->data.get();
+    auto* in2data = input2.impl->data->data.get();
+    auto* tdata = target.impl->data->data.get();
+
+    for (size_t i = 0; i < n; ++i) {
+        double in1 = read_scalar_at(in1data, i, input1._dtype());
+        double in2 = read_scalar_at(in2data, i, input2._dtype());
+        double t = read_scalar_at(tdata, i, target._dtype());
+        double margin_val = margin - t * (in1 - in2);
+        double grad_val = (margin_val > 0) ? -t : 0.0; // derivative of Margin Ranking Loss
+
+        if (input1.requires_grad()) {
+            write_scalar_at(gdata, i, grad_input._dtype(), grad_val);
+            accumulate_grad(input1, grad_input);
+        }
+        if (input2.requires_grad()) {
+            write_scalar_at(gdata, i, grad_input._dtype(), -grad_val);
+            accumulate_grad(input2, grad_input);
+        }
+    }
+
+    // 🔹 If reduction is "mean", scale gradients
+    if (reduction == "mean") {
+        if (input1.requires_grad()) {
+            Tensor scaled_grad1 = tensor_from_grad(self) / static_cast<double>(n);
+            accumulate_grad(input1, scaled_grad1);
+        }
+        if (input2.requires_grad()) {
+            Tensor scaled_grad2 = tensor_from_grad(self) / static_cast<double>(n);
+            accumulate_grad(input2, scaled_grad2);
+        }
+    }
+    // 🔹 If reduction == "sum", leave as-is (no scaling)
+}
