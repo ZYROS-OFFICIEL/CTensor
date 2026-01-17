@@ -381,3 +381,78 @@ Tensor cat(const std::vector<Tensor>& tensors, size_t dim) {
     // Basic cat without grad for now, or just MP
     return cat_mp(tensors, dim);
 }
+
+
+// --- Compound assignment operators ---
+
+Tensor& operator+=(Tensor& a, const Tensor& b) {
+    a = add(a, b);
+    return a;
+}
+Tensor& operator+=(Tensor& a, double scalar) {
+    a = add_scalar(a, scalar);
+    return a;
+}
+
+Tensor& operator-=(Tensor& a, const Tensor& b) {
+    a = sub(a, b);
+    return a;
+}
+Tensor& operator-=(Tensor& a, double scalar) {
+    a = sub_scalar(a, scalar);
+    return a;
+}
+
+Tensor& operator*=(Tensor& a, const Tensor& b) {
+    a = mult(a, b);
+    return a;
+}
+Tensor& operator*=(Tensor& a, double scalar) {
+    a = mult_scalar(a, scalar);
+    return a;
+}
+
+Tensor& operator/=(Tensor& a, const Tensor& b) {
+    a = div(a, b);
+    return a;
+}
+Tensor& operator/=(Tensor& a, double scalar) {
+    a = div_scalar(a, scalar);
+    return a;
+}
+
+Tensor& operator^=(Tensor& a, const Tensor& b) {
+    a = pow(a, b);
+    return a;
+}
+Tensor& operator^=(Tensor& a, double scalar) {
+    a = pow_scalar(a, scalar);
+    return a;
+}
+
+Tensor operator+(const Tensor& a, const Tensor& b) {
+    return add(a, b);
+}
+
+Tensor operator-(const Tensor& a, const Tensor& b) {
+    return diff(a, b);
+}
+
+Tensor operator*(const Tensor& a, const Tensor& b) {
+    return mult(a, b);
+}
+
+Tensor operator/(const Tensor& a, const Tensor& b) {
+    return div(a, b);
+}
+
+Tensor operator^(const Tensor& a, const Tensor& b) {
+    return pow(a, b);
+}
+
+Tensor operator+(double s, const Tensor& a) {
+    return add_scalar(a, s);
+}
+Tensor operator+(const Tensor& a,double s) {
+    return add_scalar(a, s);
+}
