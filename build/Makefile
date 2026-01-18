@@ -142,6 +142,19 @@ core/fast:
 .PHONY : core/fast
 
 #=============================================================================
+# Target rules for targets named neuralnet
+
+# Build rule for target.
+neuralnet: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\Makefile2 neuralnet
+.PHONY : neuralnet
+
+# fast build rule for target.
+neuralnet/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\neuralnet.dir\build.make CMakeFiles/neuralnet.dir/build
+.PHONY : neuralnet/fast
+
+#=============================================================================
 # Target rules for targets named ops_avx2
 
 # Build rule for target.
@@ -396,6 +409,30 @@ src/cpu/AVX512/ops_avx512_f32.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\ops_avx512.dir\build.make CMakeFiles/ops_avx512.dir/src/cpu/AVX512/ops_avx512_f32.cpp.s
 .PHONY : src/cpu/AVX512/ops_avx512_f32.cpp.s
 
+src/neuralnet/loss.obj: src/neuralnet/loss.cpp.obj
+.PHONY : src/neuralnet/loss.obj
+
+# target to build an object file
+src/neuralnet/loss.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\neuralnet.dir\build.make CMakeFiles/neuralnet.dir/src/neuralnet/loss.cpp.obj
+.PHONY : src/neuralnet/loss.cpp.obj
+
+src/neuralnet/loss.i: src/neuralnet/loss.cpp.i
+.PHONY : src/neuralnet/loss.i
+
+# target to preprocess a source file
+src/neuralnet/loss.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\neuralnet.dir\build.make CMakeFiles/neuralnet.dir/src/neuralnet/loss.cpp.i
+.PHONY : src/neuralnet/loss.cpp.i
+
+src/neuralnet/loss.s: src/neuralnet/loss.cpp.s
+.PHONY : src/neuralnet/loss.s
+
+# target to generate assembly for a file
+src/neuralnet/loss.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\neuralnet.dir\build.make CMakeFiles/neuralnet.dir/src/neuralnet/loss.cpp.s
+.PHONY : src/neuralnet/loss.cpp.s
+
 test/time_avx.obj: test/time_avx.cpp.obj
 .PHONY : test/time_avx.obj
 
@@ -430,6 +467,7 @@ help:
 	@echo ... rebuild_cache
 	@echo ... app
 	@echo ... core
+	@echo ... neuralnet
 	@echo ... ops_avx2
 	@echo ... ops_avx512
 	@echo ... opsmp
@@ -460,6 +498,9 @@ help:
 	@echo ... src/cpu/AVX512/ops_avx512_f32.obj
 	@echo ... src/cpu/AVX512/ops_avx512_f32.i
 	@echo ... src/cpu/AVX512/ops_avx512_f32.s
+	@echo ... src/neuralnet/loss.obj
+	@echo ... src/neuralnet/loss.i
+	@echo ... src/neuralnet/loss.s
 	@echo ... test/time_avx.obj
 	@echo ... test/time_avx.i
 	@echo ... test/time_avx.s
