@@ -39,3 +39,44 @@ Tensor Linear::forward(const Tensor& input) {
 
     return output;
 }
+
+// --- Flatten Layer Implementation ---
+
+Tensor Flatten::forward(const Tensor& input) const {
+    if (!input.impl) throw std::runtime_error("Flatten: null input");
+    
+    std::vector<size_t> shape = input.shape();
+    int ndim = (int)shape.size();
+    
+    // Default behavior: Flatten [N, C, H, W] -> [N, C*H*W]
+    // start_dim = 1, end_dim = -1
+    
+    int start = start_dim;
+    int end = (end_dim < 0) ? (ndim + end_dim) : end_dim;
+    
+    if (start < 0 || start >= ndim || end < 0 || end >= ndim || start > end) {
+        // Fallback: just return input or throw error
+        return input;
+    }
+
+    std::vector<size_t> new_shape;
+    
+    // 1. Dimensions before start_dim are kept (Batch dim)
+    for (int i = 0; i < start; ++i) {
+        new_shape.push_back(shape[i]);
+    }
+    
+    // 2. Flatten range [start, end]
+    size_t flattened_size = 1;
+    for (int i = start; i <= end; ++i) {
+        flattened_size *= shape[i];
+    }
+    new_shape.push_back(flattened_size);
+    
+    // 3. Dimensions after end_dim are kept
+    for (int i = end + 1; i < ndim; ++i) {
+        new_shape.push_back(shape[i]);
+    }
+
+    return input.reshape(new_shape);
+}
