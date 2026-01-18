@@ -9,7 +9,7 @@
 #include <cmath>
 #include <iostream>
 #include <cstdint>
-#include <numeric> // For std::accumulate
+#include <numeric> 
 
 // ----------------- DType System -----------------
 enum class DType { 
@@ -96,7 +96,6 @@ inline std::vector<size_t> calc_strides(const std::vector<size_t>& shape) {
 struct Tensorimpl {
     std::shared_ptr<Storage> data;
     
-    // IMPROVEMENT: Grad is now a Tensorimpl, allowing gradients to have views/strides
     std::shared_ptr<Tensorimpl> grad = nullptr; 
     
     size_t offset = 0;
