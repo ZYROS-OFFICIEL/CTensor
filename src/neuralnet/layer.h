@@ -30,3 +30,20 @@ public:
     Tensor forward(const Tensor& input);
     Tensor operator()(const Tensor& input) { return forward(input); }
 };
+
+// --- Flatten Layer ---
+// Flattens a contiguous range of dims into a tensor.
+// Typically used to flatten all non-batch dimensions: [B, C, H, W] -> [B, C*H*W]
+class Flatten : public Module {
+public:
+    int start_dim;
+    int end_dim; // -1 means last dimension
+
+    Flatten(int start_dim = 1, int end_dim = -1) 
+        : start_dim(start_dim), end_dim(end_dim) {}
+
+    // No parameters to return, default implementation returns {}
+
+    Tensor forward(const Tensor& input) const;
+    Tensor operator()(const Tensor& input) const { return forward(input); }
+};
