@@ -1,0 +1,56 @@
+#include "check.h"
+#include <fstream>
+#include <iostream>
+#include <stdexcept>
+#include <cstdint>
+
+namespace checkpoints {
+
+    constexpr uint32_t MAGIC_NUMBER = 0xCAFEBABE;
+
+    void save_weights(const std::vector<Tensor*>& params, const std::string& filename) {
+        std::ofstream outfile(filename, std::ios::binary);
+        if (!outfile) throw std::runtime_error("Could not open file for saving: " + filename);
+
+        // 1. Write Magic Number
+        uint32_t magic = MAGIC_NUMBER;
+        outfile.write(reinterpret_cast<const char*>(&magic), sizeof(magic));
+
+        // 2. Write Number of Tensors
+        uint32_t num_tensors = (uint32_t)params.size();
+        outfile.write(reinterpret_cast<const char*>(&num_tensors), sizeof(num_tensors));
+
+        // 3. Write Tensors
+        for (const auto* t : params) {
+            if (!t->impl) throw std::runtime_error("Attempting to save null tensor");
+
+            // Meta: NDIM
+            uint32_t ndim = (uint32_t)t->impl->ndim;
+            outfile.write(reinterpret_cast<const char*>(&ndim), sizeof(ndim));
+
+            // Meta: Shape
+            // We use uint64_t for dimensions to be safe
+            for (size_t i = 0; i < ndim; ++i) {
+                uint64_t dim = (uint64_t)t->impl->shape[i];
+                outfile.write(reinterpret_cast<const char*>(&dim), sizeof(dim));
+            }
+
+            // Data
+            // Ensure contiguous memory before writing!
+            // In your library, 'data' is a raw pointer. If strides are not standard, 
+            // saving raw bytes is dangerous.
+            // Assumption: Parameters (weights) are always contiguous.
+            
+            size_t numel = t->numel();
+            size_t type_size = t->dtype_bytes();
+            uint64_t data_bytes = numel * type_size;
+
+            outfile.write(reinterpret_cast<const char*>(&data_bytes), sizeof(data_bytes));
+            outfile.write(reinterpret_cast<const char*>(t->impl->storage->data.get()), data_bytes);
+        }
+
+        outfile.close();
+        std::cout << "Saved " << num_tensors << " tensors to " << filename << "\n";
+    }
+
+}
