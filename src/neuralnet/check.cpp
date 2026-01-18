@@ -52,5 +52,69 @@ namespace checkpoints {
         outfile.close();
         std::cout << "Saved " << num_tensors << " tensors to " << filename << "\n";
     }
+    
+    void load_weights(std::vector<Tensor*>& params, const std::string& filename) {
+        std::ifstream infile(filename, std::ios::binary);
+        if (!infile) throw std::runtime_error("Could not open file for loading: " + filename);
+
+        // 1. Check Magic
+        uint32_t magic;
+        infile.read(reinterpret_cast<char*>(&magic), sizeof(magic));
+        if (magic != MAGIC_NUMBER) throw std::runtime_error("Invalid checkpoint format or endianness mismatch.");
+
+        // 2. Check Count
+        uint32_t num_tensors;
+        infile.read(reinterpret_cast<char*>(&num_tensors), sizeof(num_tensors));
+
+        if (num_tensors != params.size()) {
+            std::cerr << "Warning: Checkpoint has " << num_tensors << " params but model has " << params.size() << "\n";
+            // We proceed, but mismatch usually implies wrong model arch
+        }
+
+        // 3. Read Tensors
+        size_t limit = std::min((size_t)num_tensors, params.size());
+        
+        for (size_t i = 0; i < limit; ++i) {
+            Tensor* t = params[i];
+
+            // Read NDIM
+            uint32_t ndim;
+            infile.read(reinterpret_cast<char*>(&ndim), sizeof(ndim));
+
+            // Read Shape & Verify
+            std::vector<size_t> loaded_shape;
+            for (uint32_t d = 0; d < ndim; ++d) {
+                uint64_t dim;
+                infile.read(reinterpret_cast<char*>(&dim), sizeof(dim));
+                loaded_shape.push_back((size_t)dim);
+            }
+
+            // Verify Shape
+            if (loaded_shape != t->shape()) {
+                std::cerr << "Shape mismatch at param " << i << ". Loaded: (";
+                for(auto s : loaded_shape) std::cerr << s << ",";
+                std::cerr << ") Expected: (";
+                t->print_shape();
+                std::cerr << ")\n";
+                throw std::runtime_error("Checkpoint shape mismatch");
+            }
+
+            // Read Data Size
+            uint64_t data_bytes;
+            infile.read(reinterpret_cast<char*>(&data_bytes), sizeof(data_bytes));
+
+            // Verify Size
+            size_t expected_bytes = t->numel() * t->dtype_bytes();
+            if (data_bytes != expected_bytes) {
+                throw std::runtime_error("Data size mismatch. DType change?");
+            }
+
+            // Read Raw Data directly into tensor storage
+            infile.read(reinterpret_cast<char*>(t->impl->storage->data.get()), data_bytes);
+        }
+
+        infile.close();
+        std::cout << "Loaded weights successfully from " << filename << "\n";
+    }
 
 }
