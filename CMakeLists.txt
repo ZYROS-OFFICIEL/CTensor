@@ -20,7 +20,7 @@ target_include_directories(core PRIVATE ${PROJECT_INCLUDES})
 # -------------------------------
 # Neural Net
 # -------------------------------
-add_library(neuralnet OBJECT src/neuralnet/loss.cpp)
+add_library(neuralnet OBJECT src/neuralnet/loss.cpp src/neuralnet/layer.cpp src/neuralnet/Relu.cpp)
 target_include_directories(neuralnet PRIVATE ${PROJECT_INCLUDES})
 
 
