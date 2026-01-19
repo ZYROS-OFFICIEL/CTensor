@@ -374,3 +374,121 @@ void GradConv2d::backward(const Tensor& self) {
         }
     }
 }
+
+
+// Optimized Backward for Conv3d
+void GradConv3d::backward(const Tensor& self) {
+    if (!self.impl->storage->grad) throw std::runtime_error("GradConv3d: missing self grad");
+
+    size_t batch = input.impl->shape[0];
+    size_t in_c  = input.impl->shape[1];
+    size_t depth  = input.impl->shape[2];
+    size_t height = input.impl->shape[3];
+    size_t width  = input.impl->shape[4];
+    size_t out_c = weight.impl->shape[0];
+    size_t k_d   = weight.impl->shape[2];
+    size_t k_h   = weight.impl->shape[3];
+    size_t k_w   = weight.impl->shape[4];
+    
+    size_t out_d = self.impl->shape[2];
+    size_t out_h = self.impl->shape[3];
+    size_t out_w = self.impl->shape[4];
+
+    size_t kernel_patch_size = in_c * k_d * k_h * k_w;
+    size_t num_patches = batch * out_d * out_h * out_w;
+
+    Tensor grad_output = tensor_from_grad(self);
+    
+    Tensor grad_output_reshaped = grad_output.permute({1, 0, 2, 3, 4});
+    Tensor grad_output_reshaped_con = add_scalar_mp(grad_output_reshaped,0.0); // ensure contiguous
+    Tensor grad_output_flat = grad_output_reshaped.reshape({out_c, num_patches});
+
+    if (bias.requires_grad()) {
+        Tensor grad_bias = sum_mp(grad_output_flat, 1);
+        accumulate_grad(bias, grad_bias.reshape(bias.shape()));
+    }
+
+    if (weight.requires_grad() || input.requires_grad()) {
+        Tensor input_patches = Tensor::zeros({kernel_patch_size, num_patches}, input._dtype(), false);
+        
+        #pragma omp parallel for
+        for (size_t i = 0; i < num_patches; ++i) {
+            size_t temp = i;
+            size_t ow = temp % out_w; temp /= out_w;
+            size_t oh = temp % out_h; temp /= out_h;
+            size_t od = temp % out_d; temp /= out_d;
+            size_t b  = temp;
+            size_t patch_row = 0;
+            
+            for (size_t ic = 0; ic < in_c; ++ic) {
+                for (int kd = 0; kd < k_d; ++kd) {
+                    for (int kh = 0; kh < k_h; ++kh) {
+                        for (int kw = 0; kw < k_w; ++kw) {
+                            int id = (int)od * stride_d + kd - padding_d;
+                            int ih = (int)oh * stride_h + kh - padding_h;
+                            int iw = (int)ow * stride_w + kw - padding_w;
+                            
+                            if (id >= 0 && id < (int)depth && ih >= 0 && ih < (int)height && iw >= 0 && iw < (int)width) {
+                                input_patches[patch_row][i] = input[b][ic][(size_t)id][(size_t)ih][(size_t)iw];
+                            }
+                            patch_row++;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (weight.requires_grad()) {
+            Tensor patches_T = input_patches.t_();
+            Tensor grad_w_flat = matmul_mp(grad_output_flat, patches_T);
+            accumulate_grad(weight, grad_w_flat.reshape(weight.shape()));
+        }
+
+        if (input.requires_grad()) {
+            Tensor w_flat = weight.reshape({out_c, kernel_patch_size});
+            Tensor w_flat_T = w_flat.t_();
+            Tensor grad_input_patches = matmul_mp(w_flat_T, grad_output_flat);
+            
+            Tensor grad_input = Tensor::zeros(input.shape(), input._dtype(), false);
+            auto* gi_data = grad_input.impl->storage->data.get();
+
+            #pragma omp parallel for
+            for (size_t i = 0; i < num_patches; ++i) {
+                size_t temp = i;
+                size_t ow = temp % out_w; temp /= out_w;
+                size_t oh = temp % out_h; temp /= out_h;
+                size_t od = temp % out_d; temp /= out_d;
+                size_t b  = temp;
+                size_t patch_row = 0;
+                
+                for (size_t ic = 0; ic < in_c; ++ic) {
+                    for (int kd = 0; kd < k_d; ++kd) {
+                        for (int kh = 0; kh < k_h; ++kh) {
+                            for (int kw = 0; kw < k_w; ++kw) {
+                                int id = (int)od * stride_d + kd - padding_d;
+                                int ih = (int)oh * stride_h + kh - padding_h;
+                                int iw = (int)ow * stride_w + kw - padding_w;
+                                
+                                if (id >= 0 && id < (int)depth && ih >= 0 && ih < (int)height && iw >= 0 && iw < (int)width) {
+                                    double val = grad_input_patches[patch_row][i];
+                                    size_t idx = grad_input.impl->offset + 
+                                        b*grad_input.impl->strides[0] + 
+                                        ic*grad_input.impl->strides[1] + 
+                                        id*grad_input.impl->strides[2] + 
+                                        ih*grad_input.impl->strides[3] + 
+                                        iw*grad_input.impl->strides[4];
+                                    
+                                    float* ptr = (float*)gi_data + idx;
+                                    #pragma omp atomic
+                                    *ptr += (float)val;
+                                }
+                                patch_row++;
+                            }
+                        }
+                    }
+                }
+            }
+            accumulate_grad(input, grad_input);
+        }
+    }
+}
