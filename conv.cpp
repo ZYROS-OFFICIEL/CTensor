@@ -1,5 +1,5 @@
 #include "conv.h"
-#include "opsmp.h" // Use optimized ops
+#include "ops.h" // Use optimized ops
 #include <stdexcept>
 
 // --- Conv1d ---
