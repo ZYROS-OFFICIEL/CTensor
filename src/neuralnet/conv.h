@@ -49,3 +49,13 @@ public:
     Tensor forward(const Tensor& input);
     Tensor operator()(const Tensor& input) { return forward(input); }
 };
+
+// --- GRAD NODES ---
+
+struct GradConv1d : GradFn {
+    Tensor input, weight, bias;
+    int stride, padding;
+    GradConv1d(const Tensor& x, const Tensor& w, const Tensor& b, int s, int p)
+        : input(x), weight(w), bias(b), stride(s), padding(p) { parents = {input, weight, bias}; }
+    void backward(const Tensor& self) override;
+};
