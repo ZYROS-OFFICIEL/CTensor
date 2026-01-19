@@ -59,3 +59,15 @@ struct GradConv1d : GradFn {
         : input(x), weight(w), bias(b), stride(s), padding(p) { parents = {input, weight, bias}; }
     void backward(const Tensor& self) override;
 };
+
+struct GradConv2d: GradFn {
+    Tensor input, weight, bias;
+    int stride_h, stride_w, padding_h, padding_w;
+    
+    // Constructor matches the one called in conv.cpp
+    GradConv2d(const Tensor& x, const Tensor& w, const Tensor& b, int sh, int sw, int ph, int pw)
+        : input(x), weight(w), bias(b), stride_h(sh), stride_w(sw), padding_h(ph), padding_w(pw)
+    { parents = {input, weight, bias}; }
+    
+    void backward(const Tensor& self) override;
+};
