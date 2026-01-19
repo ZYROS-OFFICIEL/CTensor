@@ -17,3 +17,18 @@ public:
     Tensor forward(const Tensor& input);
     Tensor operator()(const Tensor& input) { return forward(input); }
 };
+
+// --- Conv2d ---
+class Conv2d : public Module {
+public:
+    int in_channels, out_channels, kernel_size_h, kernel_size_w;
+    int stride_h, stride_w, padding_h, padding_w;
+    Tensor weight, bias;
+
+    // Added DType
+    Conv2d(int in_c, int out_c, int kh, int kw, int sh = 1, int sw = 1, int ph = 0, int pw = 0, DType dt = DType::Float32);
+
+    std::vector<Tensor*> parameters() override { return {&weight, &bias}; }
+    Tensor forward(const Tensor& input);
+    Tensor operator()(const Tensor& input) { return forward(input); }
+};
