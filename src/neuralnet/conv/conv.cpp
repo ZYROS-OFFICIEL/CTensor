@@ -202,3 +202,51 @@ Tensor Conv3d::forward(const Tensor& input) {
     }
     return output;
 }
+
+
+// --- Backward Implementations ---
+
+void GradConv1d::backward(const Tensor& self) {
+    if (!self.impl->storage->grad) throw std::runtime_error("GradConv1d: missing self grad");
+    Tensor grad_output = tensor_from_grad(self);
+    Tensor grad_input  = Tensor::zeros(input.shape(), input._dtype(), false);
+    Tensor grad_weight = Tensor::zeros(weight.shape(), weight._dtype(), false);
+    Tensor grad_bias   = Tensor::zeros(bias.shape(), bias._dtype(), false);
+
+    // Naive backward (consistent with naive forward)
+    size_t batch = input.impl->shape[0];
+    size_t in_c  = input.impl->shape[1];
+    size_t width = input.impl->shape[2];
+    size_t out_c = weight.impl->shape[0];
+    size_t k_len = weight.impl->shape[2];
+    size_t out_w = grad_output.impl->shape[2];
+
+    for (size_t b = 0; b < batch; ++b) {
+        for (size_t oc = 0; oc < out_c; ++oc) {
+            for (size_t ow = 0; ow < out_w; ++ow) {
+                double go = grad_output[b][oc][ow]; 
+                // Bias
+                double cur_b = grad_bias[oc];
+                grad_bias[oc] = cur_b + go;
+
+                for (size_t ic = 0; ic < in_c; ++ic) {
+                    for (size_t kk = 0; kk < k_len; ++kk) {
+                        int iw = (int)ow * stride + (int)kk - padding;
+                        if (iw >= 0 && iw < (int)width) {
+                            double cur_in = grad_input[b][ic][(size_t)iw];
+                            double w_val  = weight[oc][ic][kk];
+                            grad_input[b][ic][(size_t)iw] = cur_in + go * w_val;
+
+                            double cur_w = grad_weight[oc][ic][kk];
+                            double in_val = input[b][ic][(size_t)iw];
+                            grad_weight[oc][ic][kk] = cur_w + go * in_val;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    accumulate_grad(input, grad_input);
+    accumulate_grad(weight, grad_weight);
+    accumulate_grad(bias, grad_bias);
+}
