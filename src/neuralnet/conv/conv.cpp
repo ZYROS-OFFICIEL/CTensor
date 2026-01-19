@@ -116,7 +116,7 @@ Tensor Conv2d::forward(const Tensor& input) {
         }
     }
     // 3. MatMul
-    Tensor output_flat = matmul_mp(w_flat, input_patches);
+    Tensor output_flat = matmul(w_flat, input_patches);
 
     // 4. Bias
     Tensor bias_col = bias.reshape({(size_t)out_channels, 1});
@@ -190,7 +190,7 @@ Tensor Conv3d::forward(const Tensor& input) {
         }
     }
 
-    Tensor output_flat = matmul_mp(w_flat, input_patches);
+    Tensor output_flat = matmul(w_flat, input_patches);
     Tensor bias_col = bias.reshape({(size_t)out_channels, 1});
     output_flat = output_flat + bias_col;
 
@@ -249,4 +249,128 @@ void GradConv1d::backward(const Tensor& self) {
     accumulate_grad(input, grad_input);
     accumulate_grad(weight, grad_weight);
     accumulate_grad(bias, grad_bias);
+}
+
+
+// Optimized Backward for Conv2d
+void GradConv2d::backward(const Tensor& self) {
+    if (!self.impl->storage->grad) throw std::runtime_error("GradConv2d: missing self grad");
+
+    size_t batch = input.impl->shape[0];
+    size_t in_c  = input.impl->shape[1];
+    size_t out_c = weight.impl->shape[0];
+    size_t k_h   = weight.impl->shape[2];
+    size_t k_w   = weight.impl->shape[3];
+    size_t out_h = self.impl->shape[2];
+    size_t out_w = self.impl->shape[3];
+    size_t height = input.impl->shape[2];
+    size_t width = input.impl->shape[3];
+
+    size_t kernel_patch_size = in_c * k_h * k_w;
+    size_t num_patches = batch * out_h * out_w;
+
+    Tensor grad_output = tensor_from_grad(self);
+    
+    // FIX 1: Ensure Contiguous Memory before Reshape
+    Tensor grad_output_permuted = grad_output.permute({1, 0, 2, 3});
+    Tensor grad_output_contig = add_scalar(grad_output_permuted, 0.0); 
+    Tensor grad_output_flat = grad_output_contig.reshape({out_c, num_patches});
+
+    // 2. Bias Grad
+    if (bias.requires_grad()) {
+        Tensor grad_bias = sum(grad_output_flat, 1); 
+        accumulate_grad(bias, grad_bias.reshape(bias.shape()));
+    }
+
+    // 3. Weight and Input Gradients
+    if (weight.requires_grad() || input.requires_grad()) {
+        Tensor input_patches = Tensor::zeros({kernel_patch_size, num_patches}, input._dtype(), false);
+        
+        // FIX 2: Use Raw Pointers (No operator[] inside OMP)
+        const float* in_ptr = (const float*)input.impl->storage->data.get();
+        float* patch_ptr = (float*)input_patches.impl->storage->data.get();
+        
+        size_t s0 = input.impl->strides[0];
+        size_t s1 = input.impl->strides[1];
+        size_t s2 = input.impl->strides[2];
+        size_t s3 = input.impl->strides[3];
+        size_t patch_stride = num_patches;
+
+        #pragma omp parallel for
+        for (size_t i = 0; i < num_patches; ++i) {
+            size_t temp = i;
+            size_t ow = temp % out_w; temp /= out_w;
+            size_t oh = temp % out_h; temp /= out_h;
+            size_t b  = temp;
+            
+            size_t patch_row = 0;
+            for (size_t ic = 0; ic < in_c; ++ic) {
+                for (int kh = 0; kh < k_h; ++kh) {
+                    for (int kw = 0; kw < k_w; ++kw) {
+                        int ih = (int)oh * stride_h + kh - padding_h;
+                        int iw = (int)ow * stride_w + kw - padding_w;
+                        
+                        float val = 0.0f;
+                        if (ih >= 0 && ih < (int)height && iw >= 0 && iw < (int)width) {
+                            size_t offset = b * s0 + ic * s1 + ih * s2 + iw * s3;
+                            val = in_ptr[offset];
+                        }
+                        patch_ptr[patch_row * patch_stride + i] = val;
+                        patch_row++;
+                    }
+                }
+            }
+        }
+
+        if (weight.requires_grad()) {
+            Tensor patches_T = input_patches.t_();
+            Tensor grad_w_flat = matmul(grad_output_flat, patches_T);
+            accumulate_grad(weight, grad_w_flat.reshape(weight.shape()));
+        }
+
+        if (input.requires_grad()) {
+            Tensor w_flat = weight.reshape({out_c, kernel_patch_size});
+            Tensor w_flat_T = w_flat.t_();
+            Tensor grad_input_patches = matmul(w_flat_T, grad_output_flat);
+            
+            Tensor grad_input = Tensor::zeros(input.shape(), input._dtype(), false);
+            auto* gi_data = grad_input.impl->storage->data.get();
+            float* g_patches_ptr = (float*)grad_input_patches.impl->storage->data.get();
+            size_t gp_stride = num_patches; // Row-major stride
+
+            #pragma omp parallel for
+            for (size_t i = 0; i < num_patches; ++i) {
+                size_t temp = i;
+                size_t ow = temp % out_w; temp /= out_w;
+                size_t oh = temp % out_h; temp /= out_h;
+                size_t b  = temp;
+                
+                size_t patch_row = 0;
+                for (size_t ic = 0; ic < in_c; ++ic) {
+                    for (int kh = 0; kh < k_h; ++kh) {
+                        for (int kw = 0; kw < k_w; ++kw) {
+                            int ih = (int)oh * stride_h + kh - padding_h;
+                            int iw = (int)ow * stride_w + kw - padding_w;
+                            
+                            if (ih >= 0 && ih < (int)height && iw >= 0 && iw < (int)width) {
+                                float val = g_patches_ptr[patch_row * gp_stride + i];
+                                
+                                size_t idx = grad_input.impl->offset + 
+                                    b*grad_input.impl->strides[0] + 
+                                    ic*grad_input.impl->strides[1] + 
+                                    ih*grad_input.impl->strides[2] + 
+                                    iw*grad_input.impl->strides[3];
+                                
+                                float* ptr = (float*)gi_data + idx;
+                                #pragma omp atomic
+                                *ptr += val;
+                            }
+                            patch_row++;
+                        }
+                    }
+                }
+            }
+            accumulate_grad(input, grad_input);
+        }
+    }
 }
