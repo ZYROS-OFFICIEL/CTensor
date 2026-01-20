@@ -76,3 +76,12 @@ public:
     Tensor forward(const Tensor& input);
     Tensor operator()(const Tensor& input) { return forward(input); }
 };
+
+// ... Grad Nodes ...
+struct GradAvgPool1d : public GradFn {
+    Tensor input;
+    int kernel_size, stride, padding;
+    GradAvgPool1d(const Tensor& inp, int k, int s, int p) 
+        : input(inp), kernel_size(k), stride(s), padding(p) { parents.push_back(input); }
+    void backward(const Tensor& self) override;
+};
