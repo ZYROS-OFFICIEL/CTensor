@@ -56,3 +56,13 @@ public:
     Tensor forward(const Tensor& input);
     Tensor operator()(const Tensor& input) { return forward(input); }
 };
+
+class AvgPool2d : public Module {
+public:
+    int kernel_size_h, kernel_size_w;
+    int stride_h, stride_w;
+    int padding_h, padding_w;
+    AvgPool2d(int kh, int kw, int sh = -1, int sw = -1, int ph = 0, int pw = 0); // FIX
+    Tensor forward(const Tensor& input);
+    Tensor operator()(const Tensor& input) { return forward(input); }
+};
