@@ -13,7 +13,6 @@ class MaxPool1d : public Module {
 public:
     int kernel_size, stride, padding;
 
-    // FIX: Default stride to -1
     MaxPool1d(int k, int s = -1, int p = 0);
 
     Tensor forward(const Tensor& input);
