@@ -49,3 +49,19 @@ Tensor Dropout::forward(const Tensor& input) {
 
     return output;
 }
+
+void GradDropout::backward(const Tensor& self) {
+    if (!self.impl->storage->grad)
+        throw std::runtime_error("GradDropout: missing self grad");
+    
+    if (input.requires_grad()) {
+        // Backward is: grad_input = grad_output * mask * scale
+        Tensor grad_output = tensor_from_grad(self);
+        
+        // We use the saved mask and scale
+        Tensor grad_input = grad_output * mask;
+        grad_input = grad_input * scale;
+
+        accumulate_grad(input, grad_input);
+    }
+}
