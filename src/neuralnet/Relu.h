@@ -1,5 +1,5 @@
 #pragma once
-#include "tensor1.h"
+#include "tensor.h"
 #include "autograd.h"
 #include "module.h" // Inherit from Module
 
