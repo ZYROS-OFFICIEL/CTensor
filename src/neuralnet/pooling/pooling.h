@@ -109,3 +109,11 @@ struct GradMaxPool1d : public GradFn {
         : input(inp), kernel_size(k), stride(s), padding(p) { parents.push_back(input); }
     void backward(const Tensor& self) override;
 };
+
+struct GradMaxPool2d : public GradFn {
+    Tensor input;
+    int kernel_size_h, kernel_size_w, stride_h, stride_w, padding_h, padding_w;
+    GradMaxPool2d(const Tensor& inp, int kh, int kw, int sh, int sw, int ph, int pw)
+        : input(inp), kernel_size_h(kh), kernel_size_w(kw), stride_h(sh), stride_w(sw), padding_h(ph), padding_w(pw) { parents.push_back(input); }
+    void backward(const Tensor& self) override;
+};
