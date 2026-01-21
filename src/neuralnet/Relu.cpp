@@ -1,5 +1,5 @@
 #include "Relu.h"
-#include "opsmp.h" 
+#include "ops_dispatch.h" 
 #include <vector>
 #include <omp.h>
 #include <stdexcept>
@@ -10,7 +10,7 @@
 
 Tensor Relu::forward(const Tensor& input) {
     // Simply delegate to the optimized functional implementation
-    return Relu_mp(input);
+    return Relu(input);
 }
 
 // ===========================================================================
