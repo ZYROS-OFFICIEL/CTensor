@@ -32,12 +32,12 @@ Tensor LeakyRelu(const Tensor& input, double negative_slope) {
 
     // Pointers for fast access
     size_t ndim = input.impl->ndim;
-    const size_t* shape = input.impl->shape;
-    const size_t* strides_in = input.impl->strides;
-    const size_t* strides_out = result.impl->strides; // Contiguous
+    const size_t* shape = input.impl->shape.data();
+    const size_t* strides_in = input.impl->strides.data();
+    const size_t* strides_out = result.impl->strides.data(); // Contiguous
     
-    auto* in_data = input.impl->storage->data.get();
-    auto* out_data = result.impl->storage->data.get();
+    auto* in_data = input.impl->data->data.get();
+    auto* out_data = result.impl->data->data.get();
     DType dt = input._dtype();
     size_t off_in = input.impl->offset;
 
@@ -63,7 +63,7 @@ Tensor LeakyRelu(const Tensor& input, double negative_slope) {
 }
 
 void GradLeakyRelu::backward(const Tensor& self) {
-    if (!self.impl->storage->grad) throw std::runtime_error("GradLeakyRelu: missing self grad");
+    if (!self.impl->data->grad) throw std::runtime_error("GradLeakyRelu: missing self grad");
     
     Tensor grad_output = tensor_from_grad(self); // Stride-aware copy
     Tensor grad_input = Tensor::zeros(input.shape(), input._dtype(), false);
@@ -75,9 +75,9 @@ void GradLeakyRelu::backward(const Tensor& self) {
     const size_t* strides_gi = grad_input.impl->strides;
     // grad_output is contiguous from tensor_from_grad
     
-    auto* in_data = input.impl->storage->data.get();
-    auto* go_data = grad_output.impl->storage->data.get();
-    auto* gi_data = grad_input.impl->storage->data.get();
+    auto* in_data = input.impl->data->data.get();
+    auto* go_data = grad_output.impl->data->data.get();
+    auto* gi_data = grad_input.impl->data->data.get();
     DType dt = input._dtype();
     size_t off_in = input.impl->offset;
     size_t off_gi = grad_input.impl->offset;
@@ -143,9 +143,9 @@ Tensor PRelu::forward(const Tensor& input) {
     const size_t* strides_in = input.impl->strides;
     const size_t* strides_w = weight.impl->strides;
     
-    auto* in_data = input.impl->storage->data.get();
-    auto* w_data = weight.impl->storage->data.get();
-    auto* out_data = result.impl->storage->data.get();
+    auto* in_data = input.impl->data->data.get();
+    auto* w_data = weight.impl->data->data.get();
+    auto* out_data = result.impl->data->data.get();
     
     DType dt = input._dtype();
     size_t off_in = input.impl->offset;
@@ -180,7 +180,7 @@ Tensor PRelu::forward(const Tensor& input) {
 }
 
 void GradPRelu::backward(const Tensor& self) {
-    if (!self.impl->storage->grad) throw std::runtime_error("GradPRelu: missing self grad");
+    if (!self.impl->data->grad) throw std::runtime_error("GradPRelu: missing self grad");
     
     Tensor grad_output = tensor_from_grad(self); 
     Tensor grad_input = Tensor::zeros(input.shape(), input._dtype(), false);
@@ -194,11 +194,11 @@ void GradPRelu::backward(const Tensor& self) {
     const size_t* strides_w = weight.impl->strides;
     const size_t* strides_gw = grad_weight.impl->strides;
 
-    auto* in_data = input.impl->storage->data.get();
-    auto* w_data = weight.impl->storage->data.get();
-    auto* go_data = grad_output.impl->storage->data.get();
-    auto* gi_data = grad_input.impl->storage->data.get();
-    auto* gw_data = grad_weight.impl->storage->data.get(); // Assuming contiguous accumulation buffer usually
+    auto* in_data = input.impl->data->data.get();
+    auto* w_data = weight.impl->data->data.get();
+    auto* go_data = grad_output.impl->data->data.get();
+    auto* gi_data = grad_input.impl->data->data.get();
+    auto* gw_data = grad_weight.impl->data->data.get(); // Assuming contiguous accumulation buffer usually
     
     DType dt = input._dtype();
     size_t off_in = input.impl->offset;
