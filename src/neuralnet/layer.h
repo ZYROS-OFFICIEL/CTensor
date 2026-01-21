@@ -1,6 +1,6 @@
 #pragma once
-#include "tensor1.h"
-#include "opsmp.h"
+#include "tensor.h"
+#include "ops_dispatch.h"
 #include "autograd.h"
 #include "module.h" // Inherit from Module
 #include <string>
