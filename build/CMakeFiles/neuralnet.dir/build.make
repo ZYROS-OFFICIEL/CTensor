@@ -86,7 +86,39 @@ CMakeFiles/neuralnet.dir/src/neuralnet/loss.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/neuralnet.dir/src/neuralnet/loss.cpp.s"
 	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\C programs\CTensor\src\neuralnet\loss.cpp" -o CMakeFiles\neuralnet.dir\src\neuralnet\loss.cpp.s
 
+CMakeFiles/neuralnet.dir/src/neuralnet/layer.cpp.obj: CMakeFiles/neuralnet.dir/flags.make
+CMakeFiles/neuralnet.dir/src/neuralnet/layer.cpp.obj: CMakeFiles/neuralnet.dir/includes_CXX.rsp
+CMakeFiles/neuralnet.dir/src/neuralnet/layer.cpp.obj: D:/C\ programs/CTensor/src/neuralnet/layer.cpp
+CMakeFiles/neuralnet.dir/src/neuralnet/layer.cpp.obj: CMakeFiles/neuralnet.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/neuralnet.dir/src/neuralnet/layer.cpp.obj"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/neuralnet.dir/src/neuralnet/layer.cpp.obj -MF CMakeFiles\neuralnet.dir\src\neuralnet\layer.cpp.obj.d -o CMakeFiles\neuralnet.dir\src\neuralnet\layer.cpp.obj -c "D:\C programs\CTensor\src\neuralnet\layer.cpp"
+
+CMakeFiles/neuralnet.dir/src/neuralnet/layer.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/neuralnet.dir/src/neuralnet/layer.cpp.i"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\C programs\CTensor\src\neuralnet\layer.cpp" > CMakeFiles\neuralnet.dir\src\neuralnet\layer.cpp.i
+
+CMakeFiles/neuralnet.dir/src/neuralnet/layer.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/neuralnet.dir/src/neuralnet/layer.cpp.s"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\C programs\CTensor\src\neuralnet\layer.cpp" -o CMakeFiles\neuralnet.dir\src\neuralnet\layer.cpp.s
+
+CMakeFiles/neuralnet.dir/src/neuralnet/Relu.cpp.obj: CMakeFiles/neuralnet.dir/flags.make
+CMakeFiles/neuralnet.dir/src/neuralnet/Relu.cpp.obj: CMakeFiles/neuralnet.dir/includes_CXX.rsp
+CMakeFiles/neuralnet.dir/src/neuralnet/Relu.cpp.obj: D:/C\ programs/CTensor/src/neuralnet/Relu.cpp
+CMakeFiles/neuralnet.dir/src/neuralnet/Relu.cpp.obj: CMakeFiles/neuralnet.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/neuralnet.dir/src/neuralnet/Relu.cpp.obj"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/neuralnet.dir/src/neuralnet/Relu.cpp.obj -MF CMakeFiles\neuralnet.dir\src\neuralnet\Relu.cpp.obj.d -o CMakeFiles\neuralnet.dir\src\neuralnet\Relu.cpp.obj -c "D:\C programs\CTensor\src\neuralnet\Relu.cpp"
+
+CMakeFiles/neuralnet.dir/src/neuralnet/Relu.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/neuralnet.dir/src/neuralnet/Relu.cpp.i"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\C programs\CTensor\src\neuralnet\Relu.cpp" > CMakeFiles\neuralnet.dir\src\neuralnet\Relu.cpp.i
+
+CMakeFiles/neuralnet.dir/src/neuralnet/Relu.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/neuralnet.dir/src/neuralnet/Relu.cpp.s"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\C programs\CTensor\src\neuralnet\Relu.cpp" -o CMakeFiles\neuralnet.dir\src\neuralnet\Relu.cpp.s
+
 neuralnet: CMakeFiles/neuralnet.dir/src/neuralnet/loss.cpp.obj
+neuralnet: CMakeFiles/neuralnet.dir/src/neuralnet/layer.cpp.obj
+neuralnet: CMakeFiles/neuralnet.dir/src/neuralnet/Relu.cpp.obj
 neuralnet: CMakeFiles/neuralnet.dir/build.make
 .PHONY : neuralnet
 

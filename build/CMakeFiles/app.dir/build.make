@@ -100,7 +100,11 @@ app_EXTERNAL_OBJECTS = \
 "D:/C programs/CTensor/build/CMakeFiles/core.dir/src/core/autograd.cpp.obj" \
 "D:/C programs/CTensor/build/CMakeFiles/core.dir/src/core/ops_dispatch.cpp.obj" \
 "D:/C programs/CTensor/build/CMakeFiles/core.dir/src/core/tensor.cpp.obj" \
-"D:/C programs/CTensor/build/CMakeFiles/core.dir/src/core/data.cpp.obj"
+"D:/C programs/CTensor/build/CMakeFiles/core.dir/src/core/data.cpp.obj" \
+"D:/C programs/CTensor/build/CMakeFiles/neuralnet.dir/src/neuralnet/loss.cpp.obj" \
+"D:/C programs/CTensor/build/CMakeFiles/neuralnet.dir/src/neuralnet/layer.cpp.obj" \
+"D:/C programs/CTensor/build/CMakeFiles/neuralnet.dir/src/neuralnet/Relu.cpp.obj" \
+"D:/C programs/CTensor/build/CMakeFiles/conv.dir/src/neuralnet/conv/conv.cpp.obj"
 
 app.exe: CMakeFiles/app.dir/test/time_avx.cpp.obj
 app.exe: CMakeFiles/opsmp.dir/src/core/opsmp.cpp.obj
@@ -112,6 +116,10 @@ app.exe: CMakeFiles/core.dir/src/core/autograd.cpp.obj
 app.exe: CMakeFiles/core.dir/src/core/ops_dispatch.cpp.obj
 app.exe: CMakeFiles/core.dir/src/core/tensor.cpp.obj
 app.exe: CMakeFiles/core.dir/src/core/data.cpp.obj
+app.exe: CMakeFiles/neuralnet.dir/src/neuralnet/loss.cpp.obj
+app.exe: CMakeFiles/neuralnet.dir/src/neuralnet/layer.cpp.obj
+app.exe: CMakeFiles/neuralnet.dir/src/neuralnet/Relu.cpp.obj
+app.exe: CMakeFiles/conv.dir/src/neuralnet/conv/conv.cpp.obj
 app.exe: CMakeFiles/app.dir/build.make
 app.exe: CMakeFiles/app.dir/linkLibs.rsp
 app.exe: CMakeFiles/app.dir/objects1.rsp

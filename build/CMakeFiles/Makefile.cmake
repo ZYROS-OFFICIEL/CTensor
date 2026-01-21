@@ -54,6 +54,7 @@ set(CMAKE_DEPEND_INFO_FILES
   "CMakeFiles/opsmp.dir/DependInfo.cmake"
   "CMakeFiles/core.dir/DependInfo.cmake"
   "CMakeFiles/neuralnet.dir/DependInfo.cmake"
+  "CMakeFiles/conv.dir/DependInfo.cmake"
   "CMakeFiles/ops_avx2.dir/DependInfo.cmake"
   "CMakeFiles/ops_avx512.dir/DependInfo.cmake"
   "CMakeFiles/app.dir/DependInfo.cmake"

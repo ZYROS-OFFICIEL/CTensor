@@ -8,9 +8,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "D:/C programs/CTensor/src/neuralnet/Relu.cpp" "CMakeFiles/neuralnet.dir/src/neuralnet/Relu.cpp.obj" "gcc" "CMakeFiles/neuralnet.dir/src/neuralnet/Relu.cpp.obj.d"
-  "D:/C programs/CTensor/src/neuralnet/layer.cpp" "CMakeFiles/neuralnet.dir/src/neuralnet/layer.cpp.obj" "gcc" "CMakeFiles/neuralnet.dir/src/neuralnet/layer.cpp.obj.d"
-  "D:/C programs/CTensor/src/neuralnet/loss.cpp" "CMakeFiles/neuralnet.dir/src/neuralnet/loss.cpp.obj" "gcc" "CMakeFiles/neuralnet.dir/src/neuralnet/loss.cpp.obj.d"
+  "D:/C programs/CTensor/src/neuralnet/conv/conv.cpp" "CMakeFiles/conv.dir/src/neuralnet/conv/conv.cpp.obj" "gcc" "CMakeFiles/conv.dir/src/neuralnet/conv/conv.cpp.obj.d"
   )
 
 # Targets to which this target links which contain Fortran sources.

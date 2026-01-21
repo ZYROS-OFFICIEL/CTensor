@@ -155,6 +155,19 @@ neuralnet/fast:
 .PHONY : neuralnet/fast
 
 #=============================================================================
+# Target rules for targets named conv
+
+# Build rule for target.
+conv: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\Makefile2 conv
+.PHONY : conv
+
+# fast build rule for target.
+conv/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\conv.dir\build.make CMakeFiles/conv.dir/build
+.PHONY : conv/fast
+
+#=============================================================================
 # Target rules for targets named ops_avx2
 
 # Build rule for target.
@@ -409,6 +422,78 @@ src/cpu/AVX512/ops_avx512_f32.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\ops_avx512.dir\build.make CMakeFiles/ops_avx512.dir/src/cpu/AVX512/ops_avx512_f32.cpp.s
 .PHONY : src/cpu/AVX512/ops_avx512_f32.cpp.s
 
+src/neuralnet/Relu.obj: src/neuralnet/Relu.cpp.obj
+.PHONY : src/neuralnet/Relu.obj
+
+# target to build an object file
+src/neuralnet/Relu.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\neuralnet.dir\build.make CMakeFiles/neuralnet.dir/src/neuralnet/Relu.cpp.obj
+.PHONY : src/neuralnet/Relu.cpp.obj
+
+src/neuralnet/Relu.i: src/neuralnet/Relu.cpp.i
+.PHONY : src/neuralnet/Relu.i
+
+# target to preprocess a source file
+src/neuralnet/Relu.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\neuralnet.dir\build.make CMakeFiles/neuralnet.dir/src/neuralnet/Relu.cpp.i
+.PHONY : src/neuralnet/Relu.cpp.i
+
+src/neuralnet/Relu.s: src/neuralnet/Relu.cpp.s
+.PHONY : src/neuralnet/Relu.s
+
+# target to generate assembly for a file
+src/neuralnet/Relu.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\neuralnet.dir\build.make CMakeFiles/neuralnet.dir/src/neuralnet/Relu.cpp.s
+.PHONY : src/neuralnet/Relu.cpp.s
+
+src/neuralnet/conv/conv.obj: src/neuralnet/conv/conv.cpp.obj
+.PHONY : src/neuralnet/conv/conv.obj
+
+# target to build an object file
+src/neuralnet/conv/conv.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\conv.dir\build.make CMakeFiles/conv.dir/src/neuralnet/conv/conv.cpp.obj
+.PHONY : src/neuralnet/conv/conv.cpp.obj
+
+src/neuralnet/conv/conv.i: src/neuralnet/conv/conv.cpp.i
+.PHONY : src/neuralnet/conv/conv.i
+
+# target to preprocess a source file
+src/neuralnet/conv/conv.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\conv.dir\build.make CMakeFiles/conv.dir/src/neuralnet/conv/conv.cpp.i
+.PHONY : src/neuralnet/conv/conv.cpp.i
+
+src/neuralnet/conv/conv.s: src/neuralnet/conv/conv.cpp.s
+.PHONY : src/neuralnet/conv/conv.s
+
+# target to generate assembly for a file
+src/neuralnet/conv/conv.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\conv.dir\build.make CMakeFiles/conv.dir/src/neuralnet/conv/conv.cpp.s
+.PHONY : src/neuralnet/conv/conv.cpp.s
+
+src/neuralnet/layer.obj: src/neuralnet/layer.cpp.obj
+.PHONY : src/neuralnet/layer.obj
+
+# target to build an object file
+src/neuralnet/layer.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\neuralnet.dir\build.make CMakeFiles/neuralnet.dir/src/neuralnet/layer.cpp.obj
+.PHONY : src/neuralnet/layer.cpp.obj
+
+src/neuralnet/layer.i: src/neuralnet/layer.cpp.i
+.PHONY : src/neuralnet/layer.i
+
+# target to preprocess a source file
+src/neuralnet/layer.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\neuralnet.dir\build.make CMakeFiles/neuralnet.dir/src/neuralnet/layer.cpp.i
+.PHONY : src/neuralnet/layer.cpp.i
+
+src/neuralnet/layer.s: src/neuralnet/layer.cpp.s
+.PHONY : src/neuralnet/layer.s
+
+# target to generate assembly for a file
+src/neuralnet/layer.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\neuralnet.dir\build.make CMakeFiles/neuralnet.dir/src/neuralnet/layer.cpp.s
+.PHONY : src/neuralnet/layer.cpp.s
+
 src/neuralnet/loss.obj: src/neuralnet/loss.cpp.obj
 .PHONY : src/neuralnet/loss.obj
 
@@ -466,6 +551,7 @@ help:
 	@echo ... edit_cache
 	@echo ... rebuild_cache
 	@echo ... app
+	@echo ... conv
 	@echo ... core
 	@echo ... neuralnet
 	@echo ... ops_avx2
@@ -498,6 +584,15 @@ help:
 	@echo ... src/cpu/AVX512/ops_avx512_f32.obj
 	@echo ... src/cpu/AVX512/ops_avx512_f32.i
 	@echo ... src/cpu/AVX512/ops_avx512_f32.s
+	@echo ... src/neuralnet/Relu.obj
+	@echo ... src/neuralnet/Relu.i
+	@echo ... src/neuralnet/Relu.s
+	@echo ... src/neuralnet/conv/conv.obj
+	@echo ... src/neuralnet/conv/conv.i
+	@echo ... src/neuralnet/conv/conv.s
+	@echo ... src/neuralnet/layer.obj
+	@echo ... src/neuralnet/layer.i
+	@echo ... src/neuralnet/layer.s
 	@echo ... src/neuralnet/loss.obj
 	@echo ... src/neuralnet/loss.i
 	@echo ... src/neuralnet/loss.s
