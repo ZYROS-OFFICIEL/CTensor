@@ -1,6 +1,7 @@
 D:/C programs/CTensor/build/CMakeFiles/opsmp.dir
 D:/C programs/CTensor/build/CMakeFiles/core.dir
 D:/C programs/CTensor/build/CMakeFiles/neuralnet.dir
+D:/C programs/CTensor/build/CMakeFiles/conv.dir
 D:/C programs/CTensor/build/CMakeFiles/ops_avx2.dir
 D:/C programs/CTensor/build/CMakeFiles/ops_avx512.dir
 D:/C programs/CTensor/build/CMakeFiles/app.dir
