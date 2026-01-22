@@ -8,6 +8,10 @@ set(PROJECT_INCLUDES
     src/core
     src/cpu/AVX2
     src/cpu/AVX512
+    src/neuralnet
+    src/neuralnet/conv
+    src/neuralnet/pooling
+    src/neuralnet/dropout
 )
 # -------------------------------
 # Scalar 
