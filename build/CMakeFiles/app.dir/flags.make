@@ -6,5 +6,5 @@ CXX_DEFINES =
 
 CXX_INCLUDES = @CMakeFiles/app.dir/includes_CXX.rsp
 
-CXX_FLAGS = -std=gnu++20 -O3
+CXX_FLAGS = -std=gnu++20 -fopenmp
 
