@@ -5,6 +5,7 @@
 #include <omp.h>
 #include <limits>
 #include <cstring>
+#include <vector>
 
 #if defined(__AVX2__)
 
@@ -32,14 +33,18 @@ inline T* get_ptr(const Tensor& t) {
 // --- Masked Load/Store Helpers ---
 static inline __m256 masked_loadu_ps(const float* ptr, size_t valid_count) {
     alignas(32) float tmp[8] = {0.0f};
-    for (size_t i = 0; i < valid_count; ++i) tmp[i] = ptr[i];
+    if (valid_count > 0) {
+        std::memcpy(tmp, ptr, valid_count * sizeof(float));
+    }
     return _mm256_load_ps(tmp);
 }
 
 static inline void masked_storeu_ps(float* ptr, __m256 v, size_t valid_count) {
     alignas(32) float tmp[8];
     _mm256_store_ps(tmp, v);
-    for (size_t i = 0; i < valid_count; ++i) ptr[i] = tmp[i];
+    if (valid_count > 0) {
+        std::memcpy(ptr, tmp, valid_count * sizeof(float));
+    }
 }
 
 // --- Abs ---
@@ -231,21 +236,49 @@ inline float hsum256_ps(__m256 v) {
     return _mm_cvtss_f32(sums);
 }
 
+// --- Horizontal Max ---
+inline float hmax256_ps(__m256 v) {
+    __m128 vlow = _mm256_castps256_ps128(v);
+    __m128 vhigh = _mm256_extractf128_ps(v, 1);
+    vlow = _mm_max_ps(vlow, vhigh);
+    __m128 shuf = _mm_movehdup_ps(vlow);
+    vlow = _mm_max_ps(vlow, shuf);
+    shuf = _mm_movehl_ps(shuf, vlow);
+    vlow = _mm_max_ss(vlow, shuf);
+    return _mm_cvtss_f32(vlow);
+}
+
+// --- Horizontal Min ---
+inline float hmin256_ps(__m256 v) {
+    __m128 vlow = _mm256_castps256_ps128(v);
+    __m128 vhigh = _mm256_extractf128_ps(v, 1);
+    vlow = _mm_min_ps(vlow, vhigh);
+    __m128 shuf = _mm_movehdup_ps(vlow);
+    vlow = _mm_min_ps(vlow, shuf);
+    shuf = _mm_movehl_ps(shuf, vlow);
+    vlow = _mm_min_ss(vlow, shuf);
+    return _mm_cvtss_f32(vlow);
+}
+
 } // namespace
 
 // ---------------------------
 // Broadcasting helpers
 // ---------------------------
 
-// REPLACED: Use actual strides from the Tensor object instead of calculating from shape
+// REPLACED: Use int64_t for offsets to avoid overflow on large tensors
 static inline std::vector<int64_t> get_strides_bytes(const Tensor& t) {
     std::vector<int64_t> strides_bytes;
     if (!t.impl) return strides_bytes;
-    // We assume the caller knows t's dtype for element size, but here we can check t._dtype() or assume correctness.
     size_t el_size = dtype_size(t._dtype()); 
     strides_bytes.reserve(t.impl->ndim);
-    for (size_t s : t.impl->strides) {
-        strides_bytes.push_back(static_cast<int64_t>(s * el_size));
+    // Explicit scalar handling: if numel == 1, effective strides are 0 for broadcasting
+    if (t.numel() == 1) {
+        for (size_t i = 0; i < t.impl->ndim; ++i) strides_bytes.push_back(0);
+    } else {
+        for (size_t s : t.impl->strides) {
+            strides_bytes.push_back(static_cast<int64_t>(s * el_size));
+        }
     }
     return strides_bytes;
 }
@@ -263,6 +296,7 @@ static std::vector<size_t> broadcast_shape(const std::vector<size_t>& a, const s
     return out;
 }
 
+// Used for StrideIterator initialization
 static std::vector<int64_t> build_index_multipliers(const std::vector<size_t>& shape) {
     std::vector<int64_t> mult(shape.size());
     if (shape.empty()) return mult;
@@ -271,119 +305,267 @@ static std::vector<int64_t> build_index_multipliers(const std::vector<size_t>& s
     return mult;
 }
 
-static inline int32_t compute_offset_bytes(size_t lin_idx, const std::vector<size_t>& out_shape, const std::vector<int64_t>& out_mult, const std::vector<size_t>& in_shape, const std::vector<int64_t>& in_strides_bytes) {
-    int32_t offset = 0;
-    size_t nd = out_shape.size();
-    size_t offset_dim = nd - in_shape.size();
-    for (size_t d = 0; d < nd; ++d) {
-        size_t coord = (lin_idx / out_mult[d]) % out_shape[d];
-        size_t in_coord = 0;
-        if (d >= offset_dim) {
-            size_t idx = d - offset_dim;
-            if (in_shape[idx] != 1) in_coord = coord;
-            offset += (int32_t)(in_coord * in_strides_bytes[idx]);
+// ---------------------- Stride Iterator ----------------------
+
+namespace {
+    struct StrideIterator {
+        size_t ndim;
+        std::vector<size_t> shape;
+        std::vector<int64_t> strides_a;
+        std::vector<int64_t> strides_b;
+        std::vector<size_t> coords;
+        int64_t offset_a;
+        int64_t offset_b;
+
+        StrideIterator(const std::vector<size_t>& out_shape, 
+                       const std::vector<int64_t>& s_a, 
+                       const std::vector<int64_t>& s_b) 
+            : shape(out_shape), strides_a(s_a), strides_b(s_b) {
+            ndim = shape.size();
+            coords.resize(ndim, 0);
+            offset_a = 0;
+            offset_b = 0;
         }
-    }
-    return offset;
+
+        // Initialize at specific linear index without linear iteration
+        void init(size_t linear_idx, const std::vector<int64_t>& multipliers) {
+            offset_a = 0;
+            offset_b = 0;
+            size_t rem = linear_idx;
+            for (size_t i = 0; i < ndim; ++i) {
+                coords[i] = (rem / multipliers[i]) % shape[i];
+                offset_a += coords[i] * strides_a[i];
+                offset_b += coords[i] * strides_b[i];
+            }
+        }
+
+        // Advance by 1
+        inline void next() {
+            for (int i = (int)ndim - 1; i >= 0; --i) {
+                coords[i]++;
+                offset_a += strides_a[i];
+                offset_b += strides_b[i];
+                if (coords[i] < shape[i]) {
+                    return;
+                }
+                // Wrap around
+                coords[i] = 0;
+                offset_a -= strides_a[i] * (int64_t)shape[i]; 
+                offset_b -= strides_b[i] * (int64_t)shape[i];
+            }
+        }
+    };
 }
 
-// ----------------------Binary Broadcast Template (AVX2)----------------------
+// ---------------------- Binary Operations ----------------------
 
+// FAST PATH: Contiguous + Same Shape (Supports 4x Unrolling)
 template <typename Func>
-Tensor binary_op_broadcast(const Tensor& A, const Tensor& B, Func op) {
+Tensor binary_op_contiguous(const Tensor& A, const Tensor& B, Func op) {
+    Tensor out(A.shape(), DType::Float32);
+    const float* a_ptr = get_ptr<float>(A);
+    const float* b_ptr = get_ptr<float>(B);
+    float* out_ptr = get_ptr<float>(out);
+    size_t n = A.numel();
+    size_t vec_limit = (n / 32) * 32;
+
+    #pragma omp parallel for schedule(static)
+    for (size_t i = 0; i < vec_limit; i += 32) {
+        __m256 a0 = _mm256_loadu_ps(a_ptr + i);
+        __m256 a1 = _mm256_loadu_ps(a_ptr + i + 8);
+        __m256 a2 = _mm256_loadu_ps(a_ptr + i + 16);
+        __m256 a3 = _mm256_loadu_ps(a_ptr + i + 24);
+
+        __m256 b0 = _mm256_loadu_ps(b_ptr + i);
+        __m256 b1 = _mm256_loadu_ps(b_ptr + i + 8);
+        __m256 b2 = _mm256_loadu_ps(b_ptr + i + 16);
+        __m256 b3 = _mm256_loadu_ps(b_ptr + i + 24);
+
+        _mm256_storeu_ps(out_ptr + i,      op(a0, b0));
+        _mm256_storeu_ps(out_ptr + i + 8,  op(a1, b1));
+        _mm256_storeu_ps(out_ptr + i + 16, op(a2, b2));
+        _mm256_storeu_ps(out_ptr + i + 24, op(a3, b3));
+    }
+
+    // Tail handling
+    for (size_t i = vec_limit; i < n; i += 8) {
+        size_t tail = (n - i < 8) ? (n - i) : 8;
+        __m256 va = masked_loadu_ps(a_ptr + i, tail);
+        __m256 vb = masked_loadu_ps(b_ptr + i, tail);
+        __m256 vr = op(va, vb);
+        masked_storeu_ps(out_ptr + i, vr, tail);
+    }
+    return out;
+}
+
+// GENERAL PATH: Strided Iterator + Broadcast Fast Path
+template <typename Func>
+Tensor binary_op_general(const Tensor& A, const Tensor& B, Func op) {
     std::vector<size_t> a_shape = A.shape();
     std::vector<size_t> b_shape = B.shape();
     std::vector<size_t> out_shape = broadcast_shape(a_shape, b_shape);
+    
     size_t out_numel = 1;
     for (auto s : out_shape) out_numel *= s;
 
     Tensor out(out_shape, DType::Float32);
-
     const float* a_ptr = get_ptr<float>(A);
     const float* b_ptr = get_ptr<float>(B);
     float* out_ptr = get_ptr<float>(out);
 
-    auto out_mult = build_index_multipliers(out_shape);
-    
-    // CHANGED: Get actual strides from the tensor metadata
+    auto multipliers = build_index_multipliers(out_shape);
     auto a_strides = get_strides_bytes(A);
     auto b_strides = get_strides_bytes(B);
 
-    bool a_contig = A.is_contiguous() && a_shape == out_shape;
-    bool b_contig = B.is_contiguous() && b_shape == out_shape;
-    bool a_is_scalar = (a_shape.empty() || (a_shape.size() == 1 && a_shape[0] == 1));
-    bool b_is_scalar = (b_shape.empty() || (b_shape.size() == 1 && b_shape[0] == 1));
+    // Padding strides if rank differs (numpy broadcasting rules: prepend 1s)
+    size_t ndim = out_shape.size();
+    if (a_strides.size() < ndim) a_strides.insert(a_strides.begin(), ndim - a_strides.size(), 0);
+    if (b_strides.size() < ndim) b_strides.insert(b_strides.begin(), ndim - b_strides.size(), 0);
 
-    size_t vec_end = (out_numel / 8) * 8;
+    // If a dimension is 1 in input but N in output, stride must be 0 (broadcast)
+    for(size_t i=0; i<ndim; ++i) {
+        if(out_shape[i] > 1) {
+             size_t a_dim = (i >= ndim - A.shape().size()) ? A.shape()[i - (ndim - A.shape().size())] : 1;
+             if(a_dim == 1) a_strides[i] = 0;
+             
+             size_t b_dim = (i >= ndim - B.shape().size()) ? B.shape()[i - (ndim - B.shape().size())] : 1;
+             if(b_dim == 1) b_strides[i] = 0;
+        }
+    }
+
+    // --- Fast Path Detection: Vectorized Inner Loop ---
+    // If the innermost dimension is contiguous (stride 4) or scalar broadcast (stride 0)
+    // for both A and B, we can use AVX for the inner loop.
+    int64_t last_sa = ndim > 0 ? a_strides.back() : 0;
+    int64_t last_sb = ndim > 0 ? b_strides.back() : 0;
+    size_t inner_dim_size = ndim > 0 ? out_shape.back() : 1;
+
+    bool can_vectorize = (last_sa == 0 || last_sa == sizeof(float)) && 
+                         (last_sb == 0 || last_sb == sizeof(float)) &&
+                         (inner_dim_size >= 8); // Only worth it if inner dim is large enough
 
     #pragma omp parallel
     {
-        int32_t gather_idx[8];
-
-        #pragma omp for
-        for (size_t i = 0; i < vec_end; i += 8) {
-            __m256 va;
-            if (a_contig) {
-                va = _mm256_loadu_ps(a_ptr + i);
-            } else if (a_is_scalar) {
-                va = _mm256_set1_ps(a_ptr[0]);
-            } else {
-                for (int lane = 0; lane < 8; ++lane)
-                    gather_idx[lane] = compute_offset_bytes(i + lane, out_shape, out_mult, a_shape, a_strides);
-                va = _mm256_i32gather_ps(a_ptr, _mm256_loadu_si256((const __m256i*)gather_idx), 1);
-            }
-
-            __m256 vb;
-            if (b_contig) {
-                vb = _mm256_loadu_ps(b_ptr + i);
-            } else if (b_is_scalar) {
-                vb = _mm256_set1_ps(b_ptr[0]);
-            } else {
-                for (int lane = 0; lane < 8; ++lane)
-                    gather_idx[lane] = compute_offset_bytes(i + lane, out_shape, out_mult, b_shape, b_strides);
-                vb = _mm256_i32gather_ps(b_ptr, _mm256_loadu_si256((const __m256i*)gather_idx), 1);
-            }
-
-            __m256 vr = op(va, vb);
-            _mm256_storeu_ps(out_ptr + i, vr);
-        }
-    }
-    
-    // Tail loop (scalar/masked)
-    if (vec_end < out_numel) {
-        size_t tail = out_numel - vec_end;
+        StrideIterator it(out_shape, a_strides, b_strides);
         
-        // A Load
-        __m256 va;
-        if (a_contig) {
-            va = masked_loadu_ps(a_ptr + vec_end, tail);
-        } else if (a_is_scalar) {
-            va = _mm256_set1_ps(a_ptr[0]);
-        } else {
-            int32_t gidx[8] = {0};
-            for (size_t j=0; j<tail; ++j) 
-                gidx[j] = compute_offset_bytes(vec_end + j, out_shape, out_mult, a_shape, a_strides);
-            va = _mm256_i32gather_ps(a_ptr, _mm256_loadu_si256((const __m256i*)gidx), 1);
-        }
+        // OpenMP chunks the outer loop linearly.
+        // We initialize the StrideIterator to the start of the chunk.
+        #pragma omp for schedule(static)
+        for (size_t i = 0; i < out_numel; ++i) {
+            // Optimization: Only run expensive init/re-sync at start of chunk or if logic desyncs
+            // Ideally, we lift 'init' out of loop, but OpenMP hides the chunk bounds.
+            // Standard pattern: Compute 'it' state from 'i' manually at start of iteration? 
+            // Too slow to do every iter. 
+            // Correct OpenMP pattern with custom iterator:
+            // Since we can't easily hook into OpenMP's chunk start, we rely on the fact 
+            // that for very large arrays, we can afford one div/mod per thread start
+            // BUT we are inside the loop here.
+            // WORKAROUND: Use 'i' to detect chunk start? No. 
+            // Fallback: We MUST use div/mod if we can't maintain state.
+            // BUT we want to avoid div/mod.
+            
+            // Re-think: We can't easily use StrideIterator cleanly inside a simple `#pragma omp for` 
+            // without paying the initialization cost per element OR managing our own chunks.
+            // LET'S MANAGE OWN CHUNKS to ensure efficiency.
+            
+        } // End dummy loop to switch to block based
+        
+        // Manual chunking for StrideIterator efficiency
+        int tid = omp_get_thread_num();
+        int nthreads = omp_get_num_threads();
+        size_t chunk_size = (out_numel + nthreads - 1) / nthreads;
+        size_t start = std::min(tid * chunk_size, out_numel);
+        size_t end = std::min((tid + 1) * chunk_size, out_numel);
 
-        // B Load
-        __m256 vb;
-        if (b_contig) {
-            vb = masked_loadu_ps(b_ptr + vec_end, tail);
-        } else if (b_is_scalar) {
-            vb = _mm256_set1_ps(b_ptr[0]);
-        } else {
-            int32_t gidx[8] = {0};
-            for (size_t j=0; j<tail; ++j) 
-                gidx[j] = compute_offset_bytes(vec_end + j, out_shape, out_mult, b_shape, b_strides);
-            vb = _mm256_i32gather_ps(b_ptr, _mm256_loadu_si256((const __m256i*)gidx), 1);
-        }
+        if (start < end) {
+            it.init(start, multipliers);
 
-        __m256 vr = op(va, vb);
-        masked_storeu_ps(out_ptr + vec_end, vr, tail);
+            if (can_vectorize) {
+                size_t current = start;
+                while (current < end) {
+                    // How many elements left in current inner dimension row?
+                    size_t current_idx_in_inner = it.coords[ndim - 1];
+                    size_t rem_in_inner = inner_dim_size - current_idx_in_inner;
+                    
+                    // How many can we process in this batch (limit by end of chunk)
+                    size_t count = std::min(rem_in_inner, end - current);
+                    
+                    // Vectorize this segment
+                    size_t j = 0;
+                    for (; j + 8 <= count; j += 8) {
+                        __m256 va = (last_sa == 0) ? _mm256_set1_ps(*(const float*)((char*)a_ptr + it.offset_a))
+                                                   : _mm256_loadu_ps((const float*)((char*)a_ptr + it.offset_a + j * 4));
+                        __m256 vb = (last_sb == 0) ? _mm256_set1_ps(*(const float*)((char*)b_ptr + it.offset_b))
+                                                   : _mm256_loadu_ps((const float*)((char*)b_ptr + it.offset_b + j * 4));
+                        __m256 vr = op(va, vb);
+                        _mm256_storeu_ps(out_ptr + current + j, vr);
+                    }
+                    // Tail of segment
+                    for (; j < count; ++j) {
+                        float val_a = *(const float*)((char*)a_ptr + it.offset_a + j * last_sa);
+                        float val_b = *(const float*)((char*)b_ptr + it.offset_b + j * last_sb);
+                        out_ptr[current + j] = op(_mm256_set1_ps(val_a), _mm256_set1_ps(val_b))[0]; // Use scalar op fallback via AVX wrapper or simple math? 
+                        // Our op returns __m256. Extracting scalar is slow.
+                        // Better to keep scalar loop below pure scalar?
+                        // For consistency, we rely on the vector op or scalar equivalent.
+                        // Since 'op' is a lambda returning __m256, we can't easily extract scalar func.
+                        // We will use mask store for tail to keep using 'op'.
+                        // Wait, single element mask store is overkill.
+                        // We assume 'op' behavior is elementwise. 
+                        // Let's use masked load/store for tail to reuse 'op'.
+                    }
+                    
+                    // Advance generic iterator by 'count'
+                    // Since 'next' moves by 1, and we processed 'count' elements which might wrap...
+                    // Actually, since we are inside the inner dim, we just advanced indices on the last dim.
+                    // We need to carefully update 'it' to match 'current + count'.
+                    // Optimization: We know we just advanced along the last dimension.
+                    // But if 'count' hit the boundary, we wrap.
+                    // Doing 'next()' 'count' times is slow.
+                    // Fast forward:
+                    current += count;
+                    if (current < end) {
+                        // Re-sync iterator completely (safest/simplest for now)
+                        it.init(current, multipliers); 
+                    }
+                }
+            } else {
+                // Scalar Stride Iterator Loop
+                // Fallback for weird strides where we can't simple-load
+                // We use AVX logic on single elements (broadcast) to reuse the 'op' lambda
+                for (size_t i = start; i < end; ++i) {
+                    float val_a = *(const float*)((char*)a_ptr + it.offset_a);
+                    float val_b = *(const float*)((char*)b_ptr + it.offset_b);
+                    
+                    __m256 va = _mm256_set1_ps(val_a);
+                    __m256 vb = _mm256_set1_ps(val_b);
+                    __m256 vr = op(va, vb);
+                    
+                    float res;
+                    _mm_store_ss(&res, _mm256_castps256_ps128(vr));
+                    out_ptr[i] = res;
+                    
+                    it.next();
+                }
+            }
+        }
     }
 
     return out;
+}
+
+// CENTRALIZED DISPATCHER
+template <typename Func>
+Tensor binary_op_dispatch(const Tensor& A, const Tensor& B, Func op) {
+    // 1. Fully Contiguous Optimization
+    if (A.is_contiguous() && B.is_contiguous() && A.shape() == B.shape()) {
+        return binary_op_contiguous(A, B, op);
+    }
+    // 2. Scalar broadcasting (all dims 1) implicitly handled by general,
+    // but specific scalar check (numel=1) optimizes stride setup in get_strides_bytes.
+    
+    // 3. General (handles all broadcasting, including scalar, with stride iterator)
+    return binary_op_general(A, B, op);
 }
 
 //-----------------------Unary Template (AVX2)----------------------
@@ -391,39 +573,57 @@ Tensor binary_op_broadcast(const Tensor& A, const Tensor& B, Func op) {
 template <typename Func>
 Tensor unary_op_broadcast(const Tensor& A, Func op) {
     Tensor out(A.shape(), DType::Float32);
-    const float* a_ptr = get_ptr<float>(A);
-    float* out_ptr = get_ptr<float>(out);
-    size_t n = A.numel();
-    size_t vec_end = (n / 8) * 8;
-
-    
+    // Unrolling for contiguous inputs
     if (A.is_contiguous()) {
-        #pragma omp parallel for
-        for (size_t i = 0; i < vec_end; i += 8) {
-            __m256 va = _mm256_loadu_ps(a_ptr + i);
-            __m256 vr = op(va);
-            _mm256_storeu_ps(out_ptr + i, vr);
+        const float* a_ptr = get_ptr<float>(A);
+        float* out_ptr = get_ptr<float>(out);
+        size_t n = A.numel();
+        size_t vec_limit = (n / 32) * 32;
+
+        #pragma omp parallel for schedule(static)
+        for (size_t i = 0; i < vec_limit; i += 32) {
+            __m256 v0 = _mm256_loadu_ps(a_ptr + i);
+            __m256 v1 = _mm256_loadu_ps(a_ptr + i + 8);
+            __m256 v2 = _mm256_loadu_ps(a_ptr + i + 16);
+            __m256 v3 = _mm256_loadu_ps(a_ptr + i + 24);
+
+            _mm256_storeu_ps(out_ptr + i,      op(v0));
+            _mm256_storeu_ps(out_ptr + i + 8,  op(v1));
+            _mm256_storeu_ps(out_ptr + i + 16, op(v2));
+            _mm256_storeu_ps(out_ptr + i + 24, op(v3));
         }
-        if (n > vec_end) {
-            size_t tail = n - vec_end;
-            __m256 va = masked_loadu_ps(a_ptr + vec_end, tail);
+
+        for (size_t i = vec_limit; i < n; i += 8) {
+            size_t tail = (n - i < 8) ? (n - i) : 8;
+            __m256 va = masked_loadu_ps(a_ptr + i, tail);
             __m256 vr = op(va);
-            masked_storeu_ps(out_ptr + vec_end, vr, tail);
+            masked_storeu_ps(out_ptr + i, vr, tail);
         }
     } else {
+        // Fallback for non-contiguous: Make contiguous first
         Tensor A_contig = A.contiguous();
         const float* ac_ptr = get_ptr<float>(A_contig);
-        #pragma omp parallel for
-        for (size_t i = 0; i < vec_end; i += 8) {
-            __m256 va = _mm256_loadu_ps(ac_ptr + i);
-            __m256 vr = op(va);
-            _mm256_storeu_ps(out_ptr + i, vr);
+        float* out_ptr = get_ptr<float>(out);
+        size_t n = A.numel();
+        size_t vec_limit = (n / 32) * 32;
+
+        #pragma omp parallel for schedule(static)
+        for (size_t i = 0; i < vec_limit; i += 32) {
+            __m256 v0 = _mm256_loadu_ps(ac_ptr + i);
+            __m256 v1 = _mm256_loadu_ps(ac_ptr + i + 8);
+            __m256 v2 = _mm256_loadu_ps(ac_ptr + i + 16);
+            __m256 v3 = _mm256_loadu_ps(ac_ptr + i + 24);
+
+            _mm256_storeu_ps(out_ptr + i,      op(v0));
+            _mm256_storeu_ps(out_ptr + i + 8,  op(v1));
+            _mm256_storeu_ps(out_ptr + i + 16, op(v2));
+            _mm256_storeu_ps(out_ptr + i + 24, op(v3));
         }
-        if (n > vec_end) {
-            size_t tail = n - vec_end;
-            __m256 va = masked_loadu_ps(ac_ptr + vec_end, tail);
+        for (size_t i = vec_limit; i < n; i += 8) {
+            size_t tail = (n - i < 8) ? (n - i) : 8;
+            __m256 va = masked_loadu_ps(ac_ptr + i, tail);
             __m256 vr = op(va);
-            masked_storeu_ps(out_ptr + vec_end, vr, tail);
+            masked_storeu_ps(out_ptr + i, vr, tail);
         }
     }
     return out;
@@ -434,25 +634,25 @@ Tensor unary_op_broadcast(const Tensor& A, Func op) {
 // ========================================================================
 
 Tensor add_avx2_f32(const Tensor& a, const Tensor& b) {
-    return binary_op_broadcast(a, b, [](__m256 x, __m256 y){ return _mm256_add_ps(x, y); });
+    return binary_op_dispatch(a, b, [](__m256 x, __m256 y){ return _mm256_add_ps(x, y); });
 }
 Tensor sub_avx2_f32(const Tensor& a, const Tensor& b) {
-    return binary_op_broadcast(a, b, [](__m256 x, __m256 y){ return _mm256_sub_ps(x, y); });
+    return binary_op_dispatch(a, b, [](__m256 x, __m256 y){ return _mm256_sub_ps(x, y); });
 }
 Tensor mul_avx2_f32(const Tensor& a, const Tensor& b) {
-    return binary_op_broadcast(a, b, [](__m256 x, __m256 y){ return _mm256_mul_ps(x, y); });
+    return binary_op_dispatch(a, b, [](__m256 x, __m256 y){ return _mm256_mul_ps(x, y); });
 }
 Tensor div_avx2_f32(const Tensor& a, const Tensor& b) {
-    return binary_op_broadcast(a, b, [](__m256 x, __m256 y){ return _mm256_div_ps(x, y); });
+    return binary_op_dispatch(a, b, [](__m256 x, __m256 y){ return _mm256_div_ps(x, y); });
 }
 Tensor pow_avx2_f32(const Tensor& a, const Tensor& b) {
-    return binary_op_broadcast(a, b, [](__m256 x, __m256 y){ return pow256_ps(x, y); });
+    return binary_op_dispatch(a, b, [](__m256 x, __m256 y){ return pow256_ps(x, y); });
 }
 
 // Comparisons
 template<int CMP_FLAG>
 Tensor cmp_avx2_f32(const Tensor& a, const Tensor& b) {
-    return binary_op_broadcast(a, b, []( __m256 x, __m256 y){
+    return binary_op_dispatch(a, b, []( __m256 x, __m256 y){
         __m256 m = _mm256_cmp_ps(x, y, CMP_FLAG);
         return _mm256_and_ps(m, YMM_1_PS);
     });
@@ -557,16 +757,41 @@ Tensor sum_avx2_f32(const Tensor& t, int dim) {
 
     #pragma omp parallel
     {
-        __m256 vsum = YMM_0_PS;
-        #pragma omp for nowait
-        for (size_t i=0; i < n; i+=8) {
+        // 4x unrolled accumulators
+        __m256 vsum0 = YMM_0_PS;
+        __m256 vsum1 = YMM_0_PS;
+        __m256 vsum2 = YMM_0_PS;
+        __m256 vsum3 = YMM_0_PS;
+
+        size_t vec_limit = (n / 32) * 32;
+
+        #pragma omp for nowait schedule(static)
+        for(size_t i=0; i < vec_limit; i+=32) {
+             __m256 v0 = _mm256_loadu_ps(data + i);
+             __m256 v1 = _mm256_loadu_ps(data + i + 8);
+             __m256 v2 = _mm256_loadu_ps(data + i + 16);
+             __m256 v3 = _mm256_loadu_ps(data + i + 24);
+
+             vsum0 = _mm256_add_ps(vsum0, v0);
+             vsum1 = _mm256_add_ps(vsum1, v1);
+             vsum2 = _mm256_add_ps(vsum2, v2);
+             vsum3 = _mm256_add_ps(vsum3, v3);
+        }
+
+        vsum0 = _mm256_add_ps(vsum0, vsum1);
+        vsum2 = _mm256_add_ps(vsum2, vsum3);
+        vsum0 = _mm256_add_ps(vsum0, vsum2);
+
+        #pragma omp for nowait schedule(static)
+        for (size_t i=vec_limit; i < n; i+=8) {
             size_t tail = (n - i < 8) ? (n - i) : 8;
             __m256 v;
             if (tail == 8) v = _mm256_loadu_ps(data + i);
             else v = masked_loadu_ps(data + i, tail);
-            vsum = _mm256_add_ps(vsum, v);
+            vsum0 = _mm256_add_ps(vsum0, v);
         }
-        float local_sum = hsum256_ps(vsum);
+
+        float local_sum = hsum256_ps(vsum0);
         #pragma omp atomic
         global_sum += local_sum;
     }
@@ -584,31 +809,61 @@ Tensor mean_avx2_f32(const Tensor& t, int dim) {
 
 Tensor max_avx2_f32(const Tensor& t, int dim) {
     if (dim != -1) throw std::runtime_error("max_avx2: only dim=-1");
+    
+    // Ensure contiguous memory for optimal traversal
     Tensor t_c = t.is_contiguous() ? t : t.contiguous();
     const float* data = get_ptr<float>(t_c);
     size_t n = t_c.numel();
+    
+    // Initialize global max with lowest possible value
     float global_max = -std::numeric_limits<float>::infinity();
 
     #pragma omp parallel
     {
-        __m256 vmax = _mm256_set1_ps(-std::numeric_limits<float>::infinity());
-        #pragma omp for nowait
-        for(size_t i=0; i<n; i+=8) {
+        // Use multiple accumulators to break dependency chains and hide latency.
+        // Unrolling by 4 (32 floats) per step.
+        __m256 vmax0 = _mm256_set1_ps(-std::numeric_limits<float>::infinity());
+        __m256 vmax1 = _mm256_set1_ps(-std::numeric_limits<float>::infinity());
+        __m256 vmax2 = _mm256_set1_ps(-std::numeric_limits<float>::infinity());
+        __m256 vmax3 = _mm256_set1_ps(-std::numeric_limits<float>::infinity());
+
+        size_t vec_limit = (n / 32) * 32;
+
+        #pragma omp for nowait schedule(static)
+        for(size_t i = 0; i < vec_limit; i += 32) {
+            __m256 v0 = _mm256_loadu_ps(data + i);
+            __m256 v1 = _mm256_loadu_ps(data + i + 8);
+            __m256 v2 = _mm256_loadu_ps(data + i + 16);
+            __m256 v3 = _mm256_loadu_ps(data + i + 24);
+            
+            vmax0 = _mm256_max_ps(vmax0, v0);
+            vmax1 = _mm256_max_ps(vmax1, v1);
+            vmax2 = _mm256_max_ps(vmax2, v2);
+            vmax3 = _mm256_max_ps(vmax3, v3);
+        }
+
+        // Reduce accumulators
+        vmax0 = _mm256_max_ps(vmax0, vmax1);
+        vmax2 = _mm256_max_ps(vmax2, vmax3);
+        vmax0 = _mm256_max_ps(vmax0, vmax2);
+
+        #pragma omp for nowait schedule(static)
+        for (size_t i = vec_limit; i < n; i += 8) {
             size_t tail = (n - i < 8) ? (n - i) : 8;
             __m256 v;
             if (tail == 8) v = _mm256_loadu_ps(data + i);
-            else v = masked_loadu_ps(data + i, tail);
-            vmax = _mm256_max_ps(vmax, v);
+            else {
+                v = masked_loadu_ps(data + i, tail);
+                __m256i mask_idx = _mm256_set_epi32(7,6,5,4,3,2,1,0);
+                __m256i limit = _mm256_set1_epi32((int)tail);
+                __m256 mask = _mm256_castsi256_ps(_mm256_cmpgt_epi32(limit, mask_idx));
+                __m256 neg_inf = _mm256_set1_ps(-std::numeric_limits<float>::infinity());
+                v = _mm256_blendv_ps(neg_inf, v, mask);
+            }
+            vmax0 = _mm256_max_ps(vmax0, v);
         }
-        // Horizontal max
-        __m128 vlow = _mm256_castps256_ps128(vmax);
-        __m128 vhigh = _mm256_extractf128_ps(vmax, 1);
-        vlow = _mm_max_ps(vlow, vhigh);
-        __m128 shuf = _mm_movehdup_ps(vlow);
-        vlow = _mm_max_ps(vlow, shuf);
-        shuf = _mm_movehl_ps(shuf, vlow);
-        vlow = _mm_max_ss(vlow, shuf);
-        float local_max = _mm_cvtss_f32(vlow);
+
+        float local_max = hmax256_ps(vmax0);
         
         #pragma omp critical
         {
@@ -629,24 +884,47 @@ Tensor min_avx2_f32(const Tensor& t, int dim) {
 
     #pragma omp parallel
     {
-        __m256 vmin = _mm256_set1_ps(std::numeric_limits<float>::infinity());
-        #pragma omp for nowait
-        for(size_t i=0; i<n; i+=8) {
+        __m256 vmin0 = _mm256_set1_ps(std::numeric_limits<float>::infinity());
+        __m256 vmin1 = _mm256_set1_ps(std::numeric_limits<float>::infinity());
+        __m256 vmin2 = _mm256_set1_ps(std::numeric_limits<float>::infinity());
+        __m256 vmin3 = _mm256_set1_ps(std::numeric_limits<float>::infinity());
+
+        size_t vec_limit = (n / 32) * 32;
+
+        #pragma omp for nowait schedule(static)
+        for(size_t i = 0; i < vec_limit; i += 32) {
+            __m256 v0 = _mm256_loadu_ps(data + i);
+            __m256 v1 = _mm256_loadu_ps(data + i + 8);
+            __m256 v2 = _mm256_loadu_ps(data + i + 16);
+            __m256 v3 = _mm256_loadu_ps(data + i + 24);
+            
+            vmin0 = _mm256_min_ps(vmin0, v0);
+            vmin1 = _mm256_min_ps(vmin1, v1);
+            vmin2 = _mm256_min_ps(vmin2, v2);
+            vmin3 = _mm256_min_ps(vmin3, v3);
+        }
+
+        vmin0 = _mm256_min_ps(vmin0, vmin1);
+        vmin2 = _mm256_min_ps(vmin2, vmin3);
+        vmin0 = _mm256_min_ps(vmin0, vmin2);
+
+        #pragma omp for nowait schedule(static)
+        for (size_t i = vec_limit; i < n; i += 8) {
             size_t tail = (n - i < 8) ? (n - i) : 8;
             __m256 v;
             if (tail == 8) v = _mm256_loadu_ps(data + i);
-            else v = masked_loadu_ps(data + i, tail);
-            vmin = _mm256_min_ps(vmin, v);
+            else {
+                v = masked_loadu_ps(data + i, tail);
+                __m256i mask_idx = _mm256_set_epi32(7,6,5,4,3,2,1,0);
+                __m256i limit = _mm256_set1_epi32((int)tail);
+                __m256 mask = _mm256_castsi256_ps(_mm256_cmpgt_epi32(limit, mask_idx));
+                __m256 pos_inf = _mm256_set1_ps(std::numeric_limits<float>::infinity());
+                v = _mm256_blendv_ps(pos_inf, v, mask);
+            }
+            vmin0 = _mm256_min_ps(vmin0, v);
         }
-        // Horizontal min
-        __m128 vlow = _mm256_castps256_ps128(vmin);
-        __m128 vhigh = _mm256_extractf128_ps(vmin, 1);
-        vlow = _mm_min_ps(vlow, vhigh);
-        __m128 shuf = _mm_movehdup_ps(vlow);
-        vlow = _mm_min_ps(vlow, shuf);
-        shuf = _mm_movehl_ps(shuf, vlow);
-        vlow = _mm_min_ss(vlow, shuf);
-        float local_min = _mm_cvtss_f32(vlow);
+
+        float local_min = hmin256_ps(vmin0);
         
         #pragma omp critical
         {
@@ -659,3 +937,4 @@ Tensor min_avx2_f32(const Tensor& t, int dim) {
 }
 
 #endif // __AVX2__
+
