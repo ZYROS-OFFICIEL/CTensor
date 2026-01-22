@@ -118,3 +118,72 @@ Tensor BatchNorm::forward(const Tensor& input) {
 
     return output;
 }
+
+void GradBatchNorm::backward(const Tensor& self) {
+    if (!self.impl->grad->data) throw std::runtime_error("GradBatchNorm: missing self grad");
+
+    Tensor grad_output = tensor_from_grad(self);
+    
+    int ndim = (int)input.impl->ndim;
+    size_t C = gamma.numel();
+    
+    // Create broadcast shape: [1, C, 1, 1...]
+    std::vector<size_t> broadcast_shape(ndim, 1);
+    broadcast_shape[1] = C;
+    
+    Tensor gamma_bc = gamma.reshape(broadcast_shape);
+
+    // normalized = x_centered * inv_std
+    Tensor normalized = x_centered * inv_std;
+    
+    // Helper to sum over all dims EXCEPT dim 1 (Channel)
+    auto sum_exclude_dim1 = [&](const Tensor& t) -> Tensor {
+        // Permute to [C, Rest] logic
+        std::vector<size_t> perm(t.impl->ndim);
+        perm[0] = 1; 
+        perm[1] = 0;
+        for (int i = 2; i < (int)t.impl->ndim; ++i) perm[i] = i;
+        
+        Tensor t_perm = t.permute(perm);
+        Tensor t_flat = t_perm.reshape({C, t_perm.numel() / C});
+        
+        // Sum over dim 1 -> [C]
+        return sum(t_flat, 1);
+    };
+
+    // 1. Gradients for Gamma and Beta
+    if (gamma.requires_grad()) {
+        Tensor grad_gamma_full = grad_output * normalized;
+        Tensor dgamma = sum_exclude_dim1(grad_gamma_full);
+        // Reshape to [C] just in case, though sum returns [C]
+        accumulate_grad(gamma, dgamma);
+    }
+
+    if (beta.requires_grad()) {
+        Tensor dbeta = sum_exclude_dim1(grad_output);
+        accumulate_grad(beta, dbeta);
+    }
+
+    // 2. Gradient for Input
+    if (input.requires_grad()) {
+        double M = (double)(input.numel() / C);
+        
+        // dx_hat = grad_output * gamma
+        Tensor dx_hat = grad_output * gamma_bc;
+        
+        // Sums need to be broadcast back to [1, C, 1...] for elementwise math
+        Tensor sum_dx_hat = sum_exclude_dim1(dx_hat).reshape(broadcast_shape);
+        Tensor sum_dx_hat_norm = sum_exclude_dim1(dx_hat * normalized).reshape(broadcast_shape);
+        
+        // dL/dx formula for Batch Norm
+        // = (inv_std / M) * (M * dx_hat - sum_dx_hat - normalized * sum_dx_hat_norm)
+        
+        Tensor term1 = dx_hat * M;
+        Tensor term2 = sum_dx_hat;
+        Tensor term3 = normalized * sum_dx_hat_norm;
+        
+        Tensor grad_input = (term1 - term2 - term3) * (inv_std / M);
+        
+        accumulate_grad(input, grad_input);
+    }
+}
