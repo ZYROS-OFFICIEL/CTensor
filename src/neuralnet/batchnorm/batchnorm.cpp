@@ -16,3 +16,105 @@ BatchNorm::BatchNorm(int num_features, double eps, double momentum)
     running_mean = Tensor::zeros({(size_t)num_features}, DType::Float32, false);
     running_var = Tensor::full({(size_t)num_features}, 1.0, DType::Float32, false);
 }
+
+Tensor BatchNorm::forward(const Tensor& input) {
+    if (!input.impl) throw std::runtime_error("BatchNorm: null input");
+    
+    // Input must be [N, C] or [N, C, H, W] etc.
+    if (input.impl->shape[1] != (size_t)num_features) {
+        throw std::runtime_error("BatchNorm: input channels != num_features");
+    }
+
+    int ndim = (int)input.impl->ndim;
+    
+    // We need to reshape mean/var/gamma/beta to broadcast correctly.
+    // They are [C]. We need them to be [1, C, 1, 1, ...] matching input ndim.
+    std::vector<size_t> broadcast_shape(ndim, 1);
+    broadcast_shape[1] = num_features;
+
+    Tensor mean_val, var_val;
+
+    if (training) {
+        // --- TRAINING MODE ---
+        
+        // 1. Permute to put Channel at dim 0: [C, N, H, W...]
+        std::vector<size_t> perm(ndim);
+        perm[0] = 1; // C
+        perm[1] = 0; // N
+        for (int i = 2; i < ndim; ++i) perm[i] = i; // H, W...
+        
+        Tensor input_perm = input.permute(perm);
+        
+        // 2. Flatten to [C, Rest]
+        size_t C = num_features;
+        size_t rest = input.numel() / C;
+        Tensor input_flat = input_perm.reshape({C, rest});
+        
+        // 3. Compute Mean and Var over dim 1 (the flattened spatial/batch dims)
+        mean_val = mean_mp(input_flat, 1); // Shape [C]
+        
+        // Variance: mean((x - mean)^2)
+        // Broadcast mean manually for the subtraction
+        Tensor mean_reshaped = mean_val.reshape({C, 1});
+        Tensor diff = input_flat - mean_reshaped;
+        Tensor sq_diff = diff * diff;
+        var_val = mean_mp(sq_diff, 1); // Shape [C] (biased variance)
+        
+        // 4. Update running stats (momentum update)
+        // running_mean = (1-m)*running_mean + m*mean
+        // running_var  = (1-m)*running_var  + m*unbiased_var
+        
+        // We use a manual loop for now as we lack some tensor ops
+        auto* rm_data = running_mean.impl->storage->data.get();
+        auto* rv_data = running_var.impl->storage->data.get();
+        
+        // Calculate unbiased variance factor: N / (N - 1)
+        double n_count = (double)rest;
+        double unbiased_factor = (n_count > 1.0) ? (n_count / (n_count - 1.0)) : 1.0;
+
+        for(size_t i=0; i<C; ++i) {
+            double m_curr = read_scalar_at(mean_val.impl->storage->data.get(), i, DType::Float32);
+            double v_curr = read_scalar_at(var_val.impl->storage->data.get(), i, DType::Float32);
+            
+            double rm_old = read_scalar_at(rm_data, i, DType::Float32);
+            double rv_old = read_scalar_at(rv_data, i, DType::Float32);
+            
+            double unbiased_v = v_curr * unbiased_factor;
+            
+            write_scalar_at(rm_data, i, DType::Float32, (1.0 - momentum) * rm_old + momentum * m_curr);
+            write_scalar_at(rv_data, i, DType::Float32, (1.0 - momentum) * rv_old + momentum * unbiased_v);
+        }
+
+    } else {
+        // --- INFERENCE MODE ---
+        mean_val = running_mean;
+        var_val = running_var;
+    }
+
+    // --- Normalization ---
+    // y = (x - mean) / sqrt(var + eps) * gamma + beta
+    
+    // Reshape statistics for broadcasting
+    Tensor mean_bc = mean_val.reshape(broadcast_shape);
+    Tensor var_bc = var_val.reshape(broadcast_shape);
+    Tensor gamma_bc = gamma.reshape(broadcast_shape);
+    Tensor beta_bc = beta.reshape(broadcast_shape);
+
+    // x_centered = input - mean
+    Tensor x_centered = input - mean_bc;
+    
+    // inv_std = 1 / sqrt(var + eps)
+    Tensor inv_std = pow_scalar_mp(var_bc + eps, -0.5);
+    
+    // normalized = x_centered * inv_std
+    Tensor normalized = x_centered * inv_std;
+    
+    // output = normalized * gamma + beta
+    Tensor output = normalized * gamma_bc + beta_bc;
+
+    if (training && (input.requires_grad() || gamma.requires_grad() || beta.requires_grad())) {
+        output.impl->grad_fn = std::make_shared<GradBatchNorm>(input, gamma, beta, x_centered, inv_std);
+    }
+
+    return output;
+}
