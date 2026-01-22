@@ -37,7 +37,8 @@ target_include_directories(conv PRIVATE ${PROJECT_INCLUDES})
 add_library(ops_avx2 OBJECT src/cpu/AVX2/ops_avx2_d64.cpp src/cpu/AVX2/ops_avx2_f32.cpp)
 target_include_directories(ops_avx2 PRIVATE ${PROJECT_INCLUDES})
 target_compile_options(ops_avx2 PRIVATE
-    -O3 -mavx2 -mfma
+    -O3 -mavx2 -mfma -fopenmp
+
 )
 
 # AVX-512 code
@@ -68,4 +69,5 @@ target_include_directories(app PRIVATE
     src/neuralnet
     src/neuralnet/conv
 )
-target_compile_options(app PRIVATE -O3)
+target_compile_options(app PRIVATE -fopenmp )
+target_link_libraries(app PRIVATE gomp)
