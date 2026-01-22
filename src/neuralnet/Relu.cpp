@@ -9,8 +9,7 @@
 // ===========================================================================
 
 Tensor Relu::forward(const Tensor& input) {
-    // Simply delegate to the optimized functional implementation
-    return Relu(input);
+    return relu(input);
 }
 
 // ===========================================================================
@@ -63,16 +62,16 @@ Tensor LeakyRelu(const Tensor& input, double negative_slope) {
 }
 
 void GradLeakyRelu::backward(const Tensor& self) {
-    if (!self.impl->data->grad) throw std::runtime_error("GradLeakyRelu: missing self grad");
+    if (!self.impl->grad->data) throw std::runtime_error("GradLeakyRelu: missing self grad");
     
     Tensor grad_output = tensor_from_grad(self); // Stride-aware copy
     Tensor grad_input = Tensor::zeros(input.shape(), input._dtype(), false);
     
     size_t n = input.numel();
     size_t ndim = input.impl->ndim;
-    const size_t* shape = input.impl->shape;
-    const size_t* strides_in = input.impl->strides;
-    const size_t* strides_gi = grad_input.impl->strides;
+    const size_t* shape = input.impl->shape.data();
+    const size_t* strides_in = input.impl->strides.data();
+    const size_t* strides_gi = grad_input.impl->strides.data();
     // grad_output is contiguous from tensor_from_grad
     
     auto* in_data = input.impl->data->data.get();
@@ -139,10 +138,10 @@ Tensor PRelu::forward(const Tensor& input) {
 
     // Pointers
     size_t ndim = input.impl->ndim;
-    const size_t* shape = input.impl->shape;
-    const size_t* strides_in = input.impl->strides;
-    const size_t* strides_w = weight.impl->strides;
-    
+    const size_t* shape = input.impl->shape.data();
+    const size_t* strides_in = input.impl->strides.data();
+    const size_t* strides_w = weight.impl->strides.data();
+
     auto* in_data = input.impl->data->data.get();
     auto* w_data = weight.impl->data->data.get();
     auto* out_data = result.impl->data->data.get();
@@ -180,7 +179,7 @@ Tensor PRelu::forward(const Tensor& input) {
 }
 
 void GradPRelu::backward(const Tensor& self) {
-    if (!self.impl->data->grad) throw std::runtime_error("GradPRelu: missing self grad");
+    if (!self.impl->grad->data) throw std::runtime_error("GradPRelu: missing self grad");
     
     Tensor grad_output = tensor_from_grad(self); 
     Tensor grad_input = Tensor::zeros(input.shape(), input._dtype(), false);
@@ -188,12 +187,11 @@ void GradPRelu::backward(const Tensor& self) {
 
     size_t n = input.numel();
     size_t ndim = input.impl->ndim;
-    const size_t* shape = input.impl->shape;
-    const size_t* strides_in = input.impl->strides;
-    const size_t* strides_gi = grad_input.impl->strides;
-    const size_t* strides_w = weight.impl->strides;
-    const size_t* strides_gw = grad_weight.impl->strides;
-
+    const size_t* shape = input.impl->shape.data();
+    const size_t* strides_in = input.impl->strides.data();
+    const size_t* strides_gi = grad_input.impl->strides.data();
+    const size_t* strides_w = weight.impl->strides.data();
+    const size_t* strides_gw = grad_weight.impl->strides.data();
     auto* in_data = input.impl->data->data.get();
     auto* w_data = weight.impl->data->data.get();
     auto* go_data = grad_output.impl->data->data.get();
