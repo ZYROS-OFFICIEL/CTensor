@@ -51,14 +51,14 @@ Tensor BatchNorm::forward(const Tensor& input) {
         Tensor input_flat = input_perm.reshape({C, rest});
         
         // 3. Compute Mean and Var over dim 1 (the flattened spatial/batch dims)
-        mean_val = mean_mp(input_flat, 1); // Shape [C]
+        mean_val = mean(input_flat, 1); // Shape [C]
         
         // Variance: mean((x - mean)^2)
         // Broadcast mean manually for the subtraction
         Tensor mean_reshaped = mean_val.reshape({C, 1});
         Tensor diff = input_flat - mean_reshaped;
         Tensor sq_diff = diff * diff;
-        var_val = mean_mp(sq_diff, 1); // Shape [C] (biased variance)
+        var_val = mean(sq_diff, 1); // Shape [C] (biased variance)
         
         // 4. Update running stats (momentum update)
         // running_mean = (1-m)*running_mean + m*mean
@@ -104,7 +104,7 @@ Tensor BatchNorm::forward(const Tensor& input) {
     Tensor x_centered = input - mean_bc;
     
     // inv_std = 1 / sqrt(var + eps)
-    Tensor inv_std = pow_scalar_mp(var_bc + eps, -0.5);
+    Tensor inv_std = pow_scalar(var_bc + eps, -0.5);
     
     // normalized = x_centered * inv_std
     Tensor normalized = x_centered * inv_std;
