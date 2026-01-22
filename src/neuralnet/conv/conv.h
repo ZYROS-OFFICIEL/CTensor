@@ -1,7 +1,7 @@
 #pragma once
 #include "tensor.h"
 #include "autograd.h"
-#include "module.h" // Inherit from Module
+#include "module.h" 
 #include <vector>
 
 // --- Conv1d ---

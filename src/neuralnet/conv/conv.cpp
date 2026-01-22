@@ -79,8 +79,8 @@ Tensor Conv2d::forward(const Tensor& input) {
     size_t num_patches = batch * out_h * out_w;
     Tensor input_patches = Tensor::zeros({kernel_patch_size, num_patches}, input._dtype(), false);
     // --- RAW POINTER OPTIMIZATION START ---
-    const float* in_ptr = (const float*)input.impl->storage->data.get();
-    float* patch_ptr = (float*)input_patches.impl->storage->data.get();
+    const float* in_ptr = (const float*)input.impl->data->data.get();
+    float* patch_ptr = (float*)input_patches.impl->data->data.get();
     
     size_t s0 = input.impl->strides[0]; 
     size_t s1 = input.impl->strides[1]; 
@@ -207,7 +207,7 @@ Tensor Conv3d::forward(const Tensor& input) {
 // --- Backward Implementations ---
 
 void GradConv1d::backward(const Tensor& self) {
-    if (!self.impl->storage->grad) throw std::runtime_error("GradConv1d: missing self grad");
+    if (!self.impl->grad->data) throw std::runtime_error("GradConv1d: missing self grad");
     Tensor grad_output = tensor_from_grad(self);
     Tensor grad_input  = Tensor::zeros(input.shape(), input._dtype(), false);
     Tensor grad_weight = Tensor::zeros(weight.shape(), weight._dtype(), false);
@@ -254,7 +254,7 @@ void GradConv1d::backward(const Tensor& self) {
 
 // Optimized Backward for Conv2d
 void GradConv2d::backward(const Tensor& self) {
-    if (!self.impl->storage->grad) throw std::runtime_error("GradConv2d: missing self grad");
+    if (!self.impl->grad->data) throw std::runtime_error("GradConv2d: missing self grad");
 
     size_t batch = input.impl->shape[0];
     size_t in_c  = input.impl->shape[1];
@@ -287,8 +287,8 @@ void GradConv2d::backward(const Tensor& self) {
         Tensor input_patches = Tensor::zeros({kernel_patch_size, num_patches}, input._dtype(), false);
         
         // FIX 2: Use Raw Pointers (No operator[] inside OMP)
-        const float* in_ptr = (const float*)input.impl->storage->data.get();
-        float* patch_ptr = (float*)input_patches.impl->storage->data.get();
+        const float* in_ptr = (const float*)input.impl->data->data.get();
+        float* patch_ptr = (float*)input_patches.impl->data->data.get();
         
         size_t s0 = input.impl->strides[0];
         size_t s1 = input.impl->strides[1];
@@ -334,8 +334,8 @@ void GradConv2d::backward(const Tensor& self) {
             Tensor grad_input_patches = matmul(w_flat_T, grad_output_flat);
             
             Tensor grad_input = Tensor::zeros(input.shape(), input._dtype(), false);
-            auto* gi_data = grad_input.impl->storage->data.get();
-            float* g_patches_ptr = (float*)grad_input_patches.impl->storage->data.get();
+            auto* gi_data = grad_input.impl->data->data.get();
+            float* g_patches_ptr = (float*)grad_input_patches.impl->data->data.get();
             size_t gp_stride = num_patches; // Row-major stride
 
             #pragma omp parallel for
@@ -378,7 +378,7 @@ void GradConv2d::backward(const Tensor& self) {
 
 // Optimized Backward for Conv3d
 void GradConv3d::backward(const Tensor& self) {
-    if (!self.impl->storage->grad) throw std::runtime_error("GradConv3d: missing self grad");
+    if (!self.impl->grad->data) throw std::runtime_error("GradConv3d: missing self grad");
 
     size_t batch = input.impl->shape[0];
     size_t in_c  = input.impl->shape[1];
@@ -400,11 +400,11 @@ void GradConv3d::backward(const Tensor& self) {
     Tensor grad_output = tensor_from_grad(self);
     
     Tensor grad_output_reshaped = grad_output.permute({1, 0, 2, 3, 4});
-    Tensor grad_output_reshaped_con = add_scalar_mp(grad_output_reshaped,0.0); // ensure contiguous
+    Tensor grad_output_reshaped_con = add_scalar(grad_output_reshaped,0.0); // ensure contiguous
     Tensor grad_output_flat = grad_output_reshaped.reshape({out_c, num_patches});
 
     if (bias.requires_grad()) {
-        Tensor grad_bias = sum_mp(grad_output_flat, 1);
+        Tensor grad_bias = sum(grad_output_flat, 1);
         accumulate_grad(bias, grad_bias.reshape(bias.shape()));
     }
 
@@ -440,17 +440,17 @@ void GradConv3d::backward(const Tensor& self) {
 
         if (weight.requires_grad()) {
             Tensor patches_T = input_patches.t_();
-            Tensor grad_w_flat = matmul_mp(grad_output_flat, patches_T);
+            Tensor grad_w_flat = matmul(grad_output_flat, patches_T);
             accumulate_grad(weight, grad_w_flat.reshape(weight.shape()));
         }
 
         if (input.requires_grad()) {
             Tensor w_flat = weight.reshape({out_c, kernel_patch_size});
             Tensor w_flat_T = w_flat.t_();
-            Tensor grad_input_patches = matmul_mp(w_flat_T, grad_output_flat);
+            Tensor grad_input_patches = matmul(w_flat_T, grad_output_flat);
             
             Tensor grad_input = Tensor::zeros(input.shape(), input._dtype(), false);
-            auto* gi_data = grad_input.impl->storage->data.get();
+            auto* gi_data = grad_input.impl->data->data.get();
 
             #pragma omp parallel for
             for (size_t i = 0; i < num_patches; ++i) {
