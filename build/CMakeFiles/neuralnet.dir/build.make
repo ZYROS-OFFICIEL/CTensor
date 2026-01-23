@@ -116,9 +116,57 @@ CMakeFiles/neuralnet.dir/src/neuralnet/Relu.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/neuralnet.dir/src/neuralnet/Relu.cpp.s"
 	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\C programs\CTensor\src\neuralnet\Relu.cpp" -o CMakeFiles\neuralnet.dir\src\neuralnet\Relu.cpp.s
 
+CMakeFiles/neuralnet.dir/src/neuralnet/dropout/dropout.cpp.obj: CMakeFiles/neuralnet.dir/flags.make
+CMakeFiles/neuralnet.dir/src/neuralnet/dropout/dropout.cpp.obj: CMakeFiles/neuralnet.dir/includes_CXX.rsp
+CMakeFiles/neuralnet.dir/src/neuralnet/dropout/dropout.cpp.obj: D:/C\ programs/CTensor/src/neuralnet/dropout/dropout.cpp
+CMakeFiles/neuralnet.dir/src/neuralnet/dropout/dropout.cpp.obj: CMakeFiles/neuralnet.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/neuralnet.dir/src/neuralnet/dropout/dropout.cpp.obj"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/neuralnet.dir/src/neuralnet/dropout/dropout.cpp.obj -MF CMakeFiles\neuralnet.dir\src\neuralnet\dropout\dropout.cpp.obj.d -o CMakeFiles\neuralnet.dir\src\neuralnet\dropout\dropout.cpp.obj -c "D:\C programs\CTensor\src\neuralnet\dropout\dropout.cpp"
+
+CMakeFiles/neuralnet.dir/src/neuralnet/dropout/dropout.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/neuralnet.dir/src/neuralnet/dropout/dropout.cpp.i"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\C programs\CTensor\src\neuralnet\dropout\dropout.cpp" > CMakeFiles\neuralnet.dir\src\neuralnet\dropout\dropout.cpp.i
+
+CMakeFiles/neuralnet.dir/src/neuralnet/dropout/dropout.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/neuralnet.dir/src/neuralnet/dropout/dropout.cpp.s"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\C programs\CTensor\src\neuralnet\dropout\dropout.cpp" -o CMakeFiles\neuralnet.dir\src\neuralnet\dropout\dropout.cpp.s
+
+CMakeFiles/neuralnet.dir/src/neuralnet/pooling/pooling.cpp.obj: CMakeFiles/neuralnet.dir/flags.make
+CMakeFiles/neuralnet.dir/src/neuralnet/pooling/pooling.cpp.obj: CMakeFiles/neuralnet.dir/includes_CXX.rsp
+CMakeFiles/neuralnet.dir/src/neuralnet/pooling/pooling.cpp.obj: D:/C\ programs/CTensor/src/neuralnet/pooling/pooling.cpp
+CMakeFiles/neuralnet.dir/src/neuralnet/pooling/pooling.cpp.obj: CMakeFiles/neuralnet.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/neuralnet.dir/src/neuralnet/pooling/pooling.cpp.obj"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/neuralnet.dir/src/neuralnet/pooling/pooling.cpp.obj -MF CMakeFiles\neuralnet.dir\src\neuralnet\pooling\pooling.cpp.obj.d -o CMakeFiles\neuralnet.dir\src\neuralnet\pooling\pooling.cpp.obj -c "D:\C programs\CTensor\src\neuralnet\pooling\pooling.cpp"
+
+CMakeFiles/neuralnet.dir/src/neuralnet/pooling/pooling.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/neuralnet.dir/src/neuralnet/pooling/pooling.cpp.i"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\C programs\CTensor\src\neuralnet\pooling\pooling.cpp" > CMakeFiles\neuralnet.dir\src\neuralnet\pooling\pooling.cpp.i
+
+CMakeFiles/neuralnet.dir/src/neuralnet/pooling/pooling.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/neuralnet.dir/src/neuralnet/pooling/pooling.cpp.s"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\C programs\CTensor\src\neuralnet\pooling\pooling.cpp" -o CMakeFiles\neuralnet.dir\src\neuralnet\pooling\pooling.cpp.s
+
+CMakeFiles/neuralnet.dir/src/neuralnet/batchnorm/batchnorm.cpp.obj: CMakeFiles/neuralnet.dir/flags.make
+CMakeFiles/neuralnet.dir/src/neuralnet/batchnorm/batchnorm.cpp.obj: CMakeFiles/neuralnet.dir/includes_CXX.rsp
+CMakeFiles/neuralnet.dir/src/neuralnet/batchnorm/batchnorm.cpp.obj: D:/C\ programs/CTensor/src/neuralnet/batchnorm/batchnorm.cpp
+CMakeFiles/neuralnet.dir/src/neuralnet/batchnorm/batchnorm.cpp.obj: CMakeFiles/neuralnet.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object CMakeFiles/neuralnet.dir/src/neuralnet/batchnorm/batchnorm.cpp.obj"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/neuralnet.dir/src/neuralnet/batchnorm/batchnorm.cpp.obj -MF CMakeFiles\neuralnet.dir\src\neuralnet\batchnorm\batchnorm.cpp.obj.d -o CMakeFiles\neuralnet.dir\src\neuralnet\batchnorm\batchnorm.cpp.obj -c "D:\C programs\CTensor\src\neuralnet\batchnorm\batchnorm.cpp"
+
+CMakeFiles/neuralnet.dir/src/neuralnet/batchnorm/batchnorm.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/neuralnet.dir/src/neuralnet/batchnorm/batchnorm.cpp.i"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\C programs\CTensor\src\neuralnet\batchnorm\batchnorm.cpp" > CMakeFiles\neuralnet.dir\src\neuralnet\batchnorm\batchnorm.cpp.i
+
+CMakeFiles/neuralnet.dir/src/neuralnet/batchnorm/batchnorm.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/neuralnet.dir/src/neuralnet/batchnorm/batchnorm.cpp.s"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\C programs\CTensor\src\neuralnet\batchnorm\batchnorm.cpp" -o CMakeFiles\neuralnet.dir\src\neuralnet\batchnorm\batchnorm.cpp.s
+
 neuralnet: CMakeFiles/neuralnet.dir/src/neuralnet/loss.cpp.obj
 neuralnet: CMakeFiles/neuralnet.dir/src/neuralnet/layer.cpp.obj
 neuralnet: CMakeFiles/neuralnet.dir/src/neuralnet/Relu.cpp.obj
+neuralnet: CMakeFiles/neuralnet.dir/src/neuralnet/dropout/dropout.cpp.obj
+neuralnet: CMakeFiles/neuralnet.dir/src/neuralnet/pooling/pooling.cpp.obj
+neuralnet: CMakeFiles/neuralnet.dir/src/neuralnet/batchnorm/batchnorm.cpp.obj
 neuralnet: CMakeFiles/neuralnet.dir/build.make
 .PHONY : neuralnet
 

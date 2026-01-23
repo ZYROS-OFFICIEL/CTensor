@@ -446,6 +446,30 @@ src/neuralnet/Relu.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\neuralnet.dir\build.make CMakeFiles/neuralnet.dir/src/neuralnet/Relu.cpp.s
 .PHONY : src/neuralnet/Relu.cpp.s
 
+src/neuralnet/batchnorm/batchnorm.obj: src/neuralnet/batchnorm/batchnorm.cpp.obj
+.PHONY : src/neuralnet/batchnorm/batchnorm.obj
+
+# target to build an object file
+src/neuralnet/batchnorm/batchnorm.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\neuralnet.dir\build.make CMakeFiles/neuralnet.dir/src/neuralnet/batchnorm/batchnorm.cpp.obj
+.PHONY : src/neuralnet/batchnorm/batchnorm.cpp.obj
+
+src/neuralnet/batchnorm/batchnorm.i: src/neuralnet/batchnorm/batchnorm.cpp.i
+.PHONY : src/neuralnet/batchnorm/batchnorm.i
+
+# target to preprocess a source file
+src/neuralnet/batchnorm/batchnorm.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\neuralnet.dir\build.make CMakeFiles/neuralnet.dir/src/neuralnet/batchnorm/batchnorm.cpp.i
+.PHONY : src/neuralnet/batchnorm/batchnorm.cpp.i
+
+src/neuralnet/batchnorm/batchnorm.s: src/neuralnet/batchnorm/batchnorm.cpp.s
+.PHONY : src/neuralnet/batchnorm/batchnorm.s
+
+# target to generate assembly for a file
+src/neuralnet/batchnorm/batchnorm.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\neuralnet.dir\build.make CMakeFiles/neuralnet.dir/src/neuralnet/batchnorm/batchnorm.cpp.s
+.PHONY : src/neuralnet/batchnorm/batchnorm.cpp.s
+
 src/neuralnet/conv/conv.obj: src/neuralnet/conv/conv.cpp.obj
 .PHONY : src/neuralnet/conv/conv.obj
 
@@ -469,6 +493,30 @@ src/neuralnet/conv/conv.s: src/neuralnet/conv/conv.cpp.s
 src/neuralnet/conv/conv.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\conv.dir\build.make CMakeFiles/conv.dir/src/neuralnet/conv/conv.cpp.s
 .PHONY : src/neuralnet/conv/conv.cpp.s
+
+src/neuralnet/dropout/dropout.obj: src/neuralnet/dropout/dropout.cpp.obj
+.PHONY : src/neuralnet/dropout/dropout.obj
+
+# target to build an object file
+src/neuralnet/dropout/dropout.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\neuralnet.dir\build.make CMakeFiles/neuralnet.dir/src/neuralnet/dropout/dropout.cpp.obj
+.PHONY : src/neuralnet/dropout/dropout.cpp.obj
+
+src/neuralnet/dropout/dropout.i: src/neuralnet/dropout/dropout.cpp.i
+.PHONY : src/neuralnet/dropout/dropout.i
+
+# target to preprocess a source file
+src/neuralnet/dropout/dropout.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\neuralnet.dir\build.make CMakeFiles/neuralnet.dir/src/neuralnet/dropout/dropout.cpp.i
+.PHONY : src/neuralnet/dropout/dropout.cpp.i
+
+src/neuralnet/dropout/dropout.s: src/neuralnet/dropout/dropout.cpp.s
+.PHONY : src/neuralnet/dropout/dropout.s
+
+# target to generate assembly for a file
+src/neuralnet/dropout/dropout.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\neuralnet.dir\build.make CMakeFiles/neuralnet.dir/src/neuralnet/dropout/dropout.cpp.s
+.PHONY : src/neuralnet/dropout/dropout.cpp.s
 
 src/neuralnet/layer.obj: src/neuralnet/layer.cpp.obj
 .PHONY : src/neuralnet/layer.obj
@@ -517,6 +565,30 @@ src/neuralnet/loss.s: src/neuralnet/loss.cpp.s
 src/neuralnet/loss.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\neuralnet.dir\build.make CMakeFiles/neuralnet.dir/src/neuralnet/loss.cpp.s
 .PHONY : src/neuralnet/loss.cpp.s
+
+src/neuralnet/pooling/pooling.obj: src/neuralnet/pooling/pooling.cpp.obj
+.PHONY : src/neuralnet/pooling/pooling.obj
+
+# target to build an object file
+src/neuralnet/pooling/pooling.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\neuralnet.dir\build.make CMakeFiles/neuralnet.dir/src/neuralnet/pooling/pooling.cpp.obj
+.PHONY : src/neuralnet/pooling/pooling.cpp.obj
+
+src/neuralnet/pooling/pooling.i: src/neuralnet/pooling/pooling.cpp.i
+.PHONY : src/neuralnet/pooling/pooling.i
+
+# target to preprocess a source file
+src/neuralnet/pooling/pooling.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\neuralnet.dir\build.make CMakeFiles/neuralnet.dir/src/neuralnet/pooling/pooling.cpp.i
+.PHONY : src/neuralnet/pooling/pooling.cpp.i
+
+src/neuralnet/pooling/pooling.s: src/neuralnet/pooling/pooling.cpp.s
+.PHONY : src/neuralnet/pooling/pooling.s
+
+# target to generate assembly for a file
+src/neuralnet/pooling/pooling.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\neuralnet.dir\build.make CMakeFiles/neuralnet.dir/src/neuralnet/pooling/pooling.cpp.s
+.PHONY : src/neuralnet/pooling/pooling.cpp.s
 
 test/time_avx.obj: test/time_avx.cpp.obj
 .PHONY : test/time_avx.obj
@@ -587,15 +659,24 @@ help:
 	@echo ... src/neuralnet/Relu.obj
 	@echo ... src/neuralnet/Relu.i
 	@echo ... src/neuralnet/Relu.s
+	@echo ... src/neuralnet/batchnorm/batchnorm.obj
+	@echo ... src/neuralnet/batchnorm/batchnorm.i
+	@echo ... src/neuralnet/batchnorm/batchnorm.s
 	@echo ... src/neuralnet/conv/conv.obj
 	@echo ... src/neuralnet/conv/conv.i
 	@echo ... src/neuralnet/conv/conv.s
+	@echo ... src/neuralnet/dropout/dropout.obj
+	@echo ... src/neuralnet/dropout/dropout.i
+	@echo ... src/neuralnet/dropout/dropout.s
 	@echo ... src/neuralnet/layer.obj
 	@echo ... src/neuralnet/layer.i
 	@echo ... src/neuralnet/layer.s
 	@echo ... src/neuralnet/loss.obj
 	@echo ... src/neuralnet/loss.i
 	@echo ... src/neuralnet/loss.s
+	@echo ... src/neuralnet/pooling/pooling.obj
+	@echo ... src/neuralnet/pooling/pooling.i
+	@echo ... src/neuralnet/pooling/pooling.s
 	@echo ... test/time_avx.obj
 	@echo ... test/time_avx.i
 	@echo ... test/time_avx.s
