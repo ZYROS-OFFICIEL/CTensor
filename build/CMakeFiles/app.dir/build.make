@@ -104,6 +104,9 @@ app_EXTERNAL_OBJECTS = \
 "D:/C programs/CTensor/build/CMakeFiles/neuralnet.dir/src/neuralnet/loss.cpp.obj" \
 "D:/C programs/CTensor/build/CMakeFiles/neuralnet.dir/src/neuralnet/layer.cpp.obj" \
 "D:/C programs/CTensor/build/CMakeFiles/neuralnet.dir/src/neuralnet/Relu.cpp.obj" \
+"D:/C programs/CTensor/build/CMakeFiles/neuralnet.dir/src/neuralnet/dropout/dropout.cpp.obj" \
+"D:/C programs/CTensor/build/CMakeFiles/neuralnet.dir/src/neuralnet/pooling/pooling.cpp.obj" \
+"D:/C programs/CTensor/build/CMakeFiles/neuralnet.dir/src/neuralnet/batchnorm/batchnorm.cpp.obj" \
 "D:/C programs/CTensor/build/CMakeFiles/conv.dir/src/neuralnet/conv/conv.cpp.obj"
 
 app.exe: CMakeFiles/app.dir/test/time_avx.cpp.obj
@@ -119,6 +122,9 @@ app.exe: CMakeFiles/core.dir/src/core/data.cpp.obj
 app.exe: CMakeFiles/neuralnet.dir/src/neuralnet/loss.cpp.obj
 app.exe: CMakeFiles/neuralnet.dir/src/neuralnet/layer.cpp.obj
 app.exe: CMakeFiles/neuralnet.dir/src/neuralnet/Relu.cpp.obj
+app.exe: CMakeFiles/neuralnet.dir/src/neuralnet/dropout/dropout.cpp.obj
+app.exe: CMakeFiles/neuralnet.dir/src/neuralnet/pooling/pooling.cpp.obj
+app.exe: CMakeFiles/neuralnet.dir/src/neuralnet/batchnorm/batchnorm.cpp.obj
 app.exe: CMakeFiles/conv.dir/src/neuralnet/conv/conv.cpp.obj
 app.exe: CMakeFiles/app.dir/build.make
 app.exe: CMakeFiles/app.dir/linkLibs.rsp
