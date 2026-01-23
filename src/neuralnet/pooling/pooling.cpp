@@ -536,3 +536,68 @@ void GradAvgPool2d::backward(const Tensor& self) {
     }
     accumulate_grad(input, grad_input);
 }
+
+// --- AvgPool3d ---
+AvgPool3d::AvgPool3d(int kd, int kh, int kw, int sd, int sh, int sw, int pd, int ph, int pw)
+    : kernel_size_d(kd), kernel_size_h(kh), kernel_size_w(kw),
+      stride_d(sd), stride_h(sh), stride_w(sw),
+      padding_d(pd), padding_h(ph), padding_w(pw) {
+    if (stride_d == -1) stride_d = kernel_size_d;
+    if (stride_h == -1) stride_h = kernel_size_h;
+    if (stride_w == -1) stride_w = kernel_size_w;
+}
+
+Tensor AvgPool3d::forward(const Tensor& input) {
+    if (!input.impl) throw std::runtime_error("AvgPool3d: null input");
+    size_t N = input.impl->shape[0];
+    size_t C = input.impl->shape[1];
+    size_t D = input.impl->shape[2];
+    size_t H = input.impl->shape[3];
+    size_t W = input.impl->shape[4];
+
+    int out_d = (int)((D + 2 * padding_d - kernel_size_d) / stride_d + 1);
+    int out_h = (int)((H + 2 * padding_h - kernel_size_h) / stride_h + 1);
+    int out_w = (int)((W + 2 * padding_w - kernel_size_w) / stride_w + 1);
+    
+    if (out_d <= 0 || out_h <= 0 || out_w <= 0) throw std::runtime_error("AvgPool3d: invalid output dims");
+
+    Tensor output({N, C, (size_t)out_d, (size_t)out_h, (size_t)out_w}, input._dtype(), input.requires_grad());
+
+    #pragma omp parallel for collapse(2)
+    for (size_t n = 0; n < N; ++n) {
+        for (size_t c = 0; c < C; ++c) {
+            for (int od = 0; od < out_d; ++od) {
+                for (int oh = 0; oh < out_h; ++oh) {
+                    for (int ow = 0; ow < out_w; ++ow) {
+                        int d_start = std::max(0, od * stride_d - padding_d);
+                        int h_start = std::max(0, oh * stride_h - padding_h);
+                        int w_start = std::max(0, ow * stride_w - padding_w);
+                        int d_end = std::min((int)D, od * stride_d - padding_d + kernel_size_d);
+                        int h_end = std::min((int)H, oh * stride_h - padding_h + kernel_size_h);
+                        int w_end = std::min((int)W, ow * stride_w - padding_w + kernel_size_w);
+
+                        double sum_val = 0.0;
+                        int count = 0;
+                        for (int d_idx = d_start; d_idx < d_end; ++d_idx) {
+                            for (int h = h_start; h < h_end; ++h) {
+                                for (int w = w_start; w < w_end; ++w) {
+                                    size_t off = input.impl->offset + n*input.impl->strides[0] + c*input.impl->strides[1] + d_idx*input.impl->strides[2] + h*input.impl->strides[3] + w*input.impl->strides[4];
+                                    sum_val += read_scalar_at(input.impl->storage->data.get(), off, input._dtype());
+                                    count++;
+                                }
+                            }
+                        }
+                        double avg = (count > 0) ? sum_val / count : 0.0;
+                        size_t out_off = output.impl->offset + n*output.impl->strides[0] + c*output.impl->strides[1] + od*output.impl->strides[2] + oh*output.impl->strides[3] + ow*output.impl->strides[4];
+                        write_scalar_at(output.impl->storage->data.get(), out_off, output._dtype(), avg);
+                    }
+                }
+            }
+        }
+    }
+
+    if (input.requires_grad()) {
+        output.impl->grad_fn = std::make_shared<GradAvgPool3d>(input, kernel_size_d, kernel_size_h, kernel_size_w, stride_d, stride_h, stride_w, padding_d, padding_h, padding_w);
+    }
+    return output;
+}
