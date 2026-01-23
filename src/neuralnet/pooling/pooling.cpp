@@ -49,7 +49,7 @@ Tensor MaxPool1d::forward(const Tensor& input) {
                                     n * input.impl->strides[0] + 
                                     c * input.impl->strides[1] + 
                                     k * input.impl->strides[2];
-                    double val = read_scalar_at(input.impl->storage->data.get(), offset, input._dtype());
+                    double val = read_scalar_at(input.impl->data->data.get(), offset, input._dtype());
                     if (val > max_val) max_val = val;
                 }
                 
@@ -57,7 +57,7 @@ Tensor MaxPool1d::forward(const Tensor& input) {
                                     n * output.impl->strides[0] + 
                                     c * output.impl->strides[1] + 
                                     i * output.impl->strides[2];
-                write_scalar_at(output.impl->storage->data.get(), out_offset, output._dtype(), max_val);
+                write_scalar_at(output.impl->data->data.get(), out_offset, output._dtype(), max_val);
             }
         }
     }
@@ -69,7 +69,7 @@ Tensor MaxPool1d::forward(const Tensor& input) {
 }
 
 void GradMaxPool1d::backward(const Tensor& self) {
-    if (!self.impl->storage->grad) throw std::runtime_error("GradMaxPool1d: missing self grad");
+    if (!self.impl->grad->data) throw std::runtime_error("GradMaxPool1d: missing self grad");
     Tensor grad_output = tensor_from_grad(self);
     Tensor grad_input = Tensor::zeros(input.shape(), input._dtype(), false);
 
@@ -83,7 +83,7 @@ void GradMaxPool1d::backward(const Tensor& self) {
         for (size_t c = 0; c < C; ++c) {
             for (int i = 0; i < out_l; ++i) {
                 size_t go_idx = grad_output.impl->offset + n * grad_output.impl->strides[0] + c * grad_output.impl->strides[1] + i * grad_output.impl->strides[2];
-                double g = read_scalar_at(grad_output.impl->storage->data.get(), go_idx, grad_output._dtype());
+                double g = read_scalar_at(grad_output.impl->data->data.get(), go_idx, grad_output._dtype());
 
                 int start = i * stride - padding;
                 int end = std::min((int)L, start + kernel_size);
@@ -94,7 +94,7 @@ void GradMaxPool1d::backward(const Tensor& self) {
 
                 for (int k = start; k < end; ++k) {
                     size_t in_idx = input.impl->offset + n * input.impl->strides[0] + c * input.impl->strides[1] + k * input.impl->strides[2];
-                    double val = read_scalar_at(input.impl->storage->data.get(), in_idx, input._dtype());
+                    double val = read_scalar_at(input.impl->data->data.get(), in_idx, input._dtype());
                     if (val > max_val) {
                         max_val = val;
                         max_idx = k;
@@ -103,8 +103,8 @@ void GradMaxPool1d::backward(const Tensor& self) {
 
                 if (max_idx != -1) {
                     size_t in_idx = input.impl->offset + n * input.impl->strides[0] + c * input.impl->strides[1] + max_idx * input.impl->strides[2];
-                    double cur = read_scalar_at(grad_input.impl->storage->data.get(), in_idx, grad_input._dtype());
-                    write_scalar_at(grad_input.impl->storage->data.get(), in_idx, grad_input._dtype(), cur + g);
+                    double cur = read_scalar_at(grad_input.impl->data->data.get(), in_idx, grad_input._dtype());
+                    write_scalar_at(grad_input.impl->data->data.get(), in_idx, grad_input._dtype(), cur + g);
                 }
             }
         }
@@ -149,14 +149,14 @@ Tensor MaxPool2d::forward(const Tensor& input) {
                             size_t off = input.impl->offset + 
                                          n * input.impl->strides[0] + c * input.impl->strides[1] + 
                                          h * input.impl->strides[2] + w * input.impl->strides[3];
-                            double v = read_scalar_at(input.impl->storage->data.get(), off, input._dtype());
+                            double v = read_scalar_at(input.impl->data->data.get(), off, input._dtype());
                             if (v > max_val) max_val = v;
                         }
                     }
                     size_t out_off = output.impl->offset + 
                                      n * output.impl->strides[0] + c * output.impl->strides[1] + 
                                      oh * output.impl->strides[2] + ow * output.impl->strides[3];
-                    write_scalar_at(output.impl->storage->data.get(), out_off, output._dtype(), max_val);
+                    write_scalar_at(output.impl->data->data.get(), out_off, output._dtype(), max_val);
                 }
             }
         }
@@ -169,7 +169,7 @@ Tensor MaxPool2d::forward(const Tensor& input) {
 }
 
 void GradMaxPool2d::backward(const Tensor& self) {
-    if (!self.impl->storage->grad) throw std::runtime_error("GradMaxPool2d: missing self grad");
+    if (!self.impl->grad->data) throw std::runtime_error("GradMaxPool2d: missing self grad");
     Tensor grad_output = tensor_from_grad(self);
     Tensor grad_input = Tensor::zeros(input.shape(), input._dtype(), false);
 
@@ -186,7 +186,7 @@ void GradMaxPool2d::backward(const Tensor& self) {
             for (int oh = 0; oh < out_h; ++oh) {
                 for (int ow = 0; ow < out_w; ++ow) {
                     size_t g_off = grad_output.impl->offset + n * grad_output.impl->strides[0] + c * grad_output.impl->strides[1] + oh * grad_output.impl->strides[2] + ow * grad_output.impl->strides[3];
-                    double g = read_scalar_at(grad_output.impl->storage->data.get(), g_off, grad_output._dtype());
+                    double g = read_scalar_at(grad_output.impl->data->data.get(), g_off, grad_output._dtype());
 
                     int h_start = std::max(0, oh * stride_h - padding_h);
                     int w_start = std::max(0, ow * stride_w - padding_w);
@@ -199,7 +199,7 @@ void GradMaxPool2d::backward(const Tensor& self) {
                     for (int h = h_start; h < h_end; ++h) {
                         for (int w = w_start; w < w_end; ++w) {
                             size_t off = input.impl->offset + n * input.impl->strides[0] + c * input.impl->strides[1] + h * input.impl->strides[2] + w * input.impl->strides[3];
-                            double v = read_scalar_at(input.impl->storage->data.get(), off, input._dtype());
+                            double v = read_scalar_at(input.impl->data->data.get(), off, input._dtype());
                             if (v > max_val) {
                                 max_val = v;
                                 max_h = h;
@@ -210,8 +210,8 @@ void GradMaxPool2d::backward(const Tensor& self) {
 
                     if (max_h != -1) {
                         size_t in_off = input.impl->offset + n * input.impl->strides[0] + c * input.impl->strides[1] + max_h * input.impl->strides[2] + max_w * input.impl->strides[3];
-                        double cur = read_scalar_at(grad_input.impl->storage->data.get(), in_off, grad_input._dtype());
-                        write_scalar_at(grad_input.impl->storage->data.get(), in_off, grad_input._dtype(), cur + g);
+                        double cur = read_scalar_at(grad_input.impl->data->data.get(), in_off, grad_input._dtype());
+                        write_scalar_at(grad_input.impl->data->data.get(), in_off, grad_input._dtype(), cur + g);
                     }
                 }
             }
@@ -268,7 +268,7 @@ Tensor MaxPool3d::forward(const Tensor& input) {
                                     size_t off = input.impl->offset + 
                                         n*input.impl->strides[0] + c*input.impl->strides[1] + 
                                         d_idx*input.impl->strides[2] + h*input.impl->strides[3] + w*input.impl->strides[4];
-                                    double v = read_scalar_at(input.impl->storage->data.get(), off, input._dtype());
+                                    double v = read_scalar_at(input.impl->data->data.get(), off, input._dtype());
                                     if (v > max_val) max_val = v;
                                 }
                             }
@@ -276,7 +276,7 @@ Tensor MaxPool3d::forward(const Tensor& input) {
                         size_t out_off = output.impl->offset + 
                             n*output.impl->strides[0] + c*output.impl->strides[1] + 
                             od*output.impl->strides[2] + oh*output.impl->strides[3] + ow*output.impl->strides[4];
-                        write_scalar_at(output.impl->storage->data.get(), out_off, output._dtype(), max_val);
+                        write_scalar_at(output.impl->data->data.get(), out_off, output._dtype(), max_val);
                     }
                 }
             }
@@ -290,7 +290,7 @@ Tensor MaxPool3d::forward(const Tensor& input) {
 }
 
 void GradMaxPool3d::backward(const Tensor& self) {
-    if (!self.impl->storage->grad) throw std::runtime_error("GradMaxPool3d: missing self grad");
+    if (!self.impl->grad->data) throw std::runtime_error("GradMaxPool3d: missing self grad");
     Tensor grad_output = tensor_from_grad(self);
     Tensor grad_input = Tensor::zeros(input.shape(), input._dtype(), false);
 
@@ -311,7 +311,7 @@ void GradMaxPool3d::backward(const Tensor& self) {
                 for (int oh = 0; oh < out_h; ++oh) {
                     for (int ow = 0; ow < out_w; ++ow) {
                         size_t g_off = grad_output.impl->offset + n*grad_output.impl->strides[0] + c*grad_output.impl->strides[1] + od*grad_output.impl->strides[2] + oh*grad_output.impl->strides[3] + ow*grad_output.impl->strides[4];
-                        double g = read_scalar_at(grad_output.impl->storage->data.get(), g_off, grad_output._dtype());
+                        double g = read_scalar_at(grad_output.impl->data->data.get(), g_off, grad_output._dtype());
 
                         int d_start = std::max(0, od * stride_d - padding_d);
                         int h_start = std::max(0, oh * stride_h - padding_h);
@@ -327,7 +327,7 @@ void GradMaxPool3d::backward(const Tensor& self) {
                             for (int h = h_start; h < h_end; ++h) {
                                 for (int w = w_start; w < w_end; ++w) {
                                     size_t off = input.impl->offset + n*input.impl->strides[0] + c*input.impl->strides[1] + d_idx*input.impl->strides[2] + h*input.impl->strides[3] + w*input.impl->strides[4];
-                                    double v = read_scalar_at(input.impl->storage->data.get(), off, input._dtype());
+                                    double v = read_scalar_at(input.impl->data->data.get(), off, input._dtype());
                                     if (v > max_val) {
                                         max_val = v;
                                         max_d = d_idx;
@@ -340,8 +340,8 @@ void GradMaxPool3d::backward(const Tensor& self) {
 
                         if (max_d != -1) {
                             size_t in_off = input.impl->offset + n*input.impl->strides[0] + c*input.impl->strides[1] + max_d*input.impl->strides[2] + max_h*input.impl->strides[3] + max_w*input.impl->strides[4];
-                            double cur = read_scalar_at(grad_input.impl->storage->data.get(), in_off, grad_input._dtype());
-                            write_scalar_at(grad_input.impl->storage->data.get(), in_off, grad_input._dtype(), cur + g);
+                            double cur = read_scalar_at(grad_input.impl->data->data.get(), in_off, grad_input._dtype());
+                            write_scalar_at(grad_input.impl->data->data.get(), in_off, grad_input._dtype(), cur + g);
                         }
                     }
                 }
@@ -383,7 +383,7 @@ Tensor AvgPool1d::forward(const Tensor& input) {
                 int count = 0;
                 for (int k = start; k < end; ++k) {
                     size_t offset = input.impl->offset + n * input.impl->strides[0] + c * input.impl->strides[1] + k * input.impl->strides[2];
-                    sum_val += read_scalar_at(input.impl->storage->data.get(), offset, input._dtype());
+                    sum_val += read_scalar_at(input.impl->data->data.get(), offset, input._dtype());
                     count++;
                 }
                 
@@ -393,7 +393,7 @@ Tensor AvgPool1d::forward(const Tensor& input) {
                 if (count > 0) avg = sum_val / count;
 
                 size_t out_offset = output.impl->offset + n * output.impl->strides[0] + c * output.impl->strides[1] + i * output.impl->strides[2];
-                write_scalar_at(output.impl->storage->data.get(), out_offset, output._dtype(), avg);
+                write_scalar_at(output.impl->data->data.get(), out_offset, output._dtype(), avg);
             }
         }
     }
@@ -405,7 +405,7 @@ Tensor AvgPool1d::forward(const Tensor& input) {
 }
 
 void GradAvgPool1d::backward(const Tensor& self) {
-    if (!self.impl->storage->grad) throw std::runtime_error("GradAvgPool1d: missing self grad");
+    if (!self.impl->grad->data) throw std::runtime_error("GradAvgPool1d: missing self grad");
     Tensor grad_output = tensor_from_grad(self);
     Tensor grad_input = Tensor::zeros(input.shape(), input._dtype(), false);
 
@@ -419,7 +419,7 @@ void GradAvgPool1d::backward(const Tensor& self) {
         for (size_t c = 0; c < C; ++c) {
             for (int i = 0; i < out_l; ++i) {
                 size_t go_idx = grad_output.impl->offset + n * grad_output.impl->strides[0] + c * grad_output.impl->strides[1] + i * grad_output.impl->strides[2];
-                double g = read_scalar_at(grad_output.impl->storage->data.get(), go_idx, grad_output._dtype());
+                double g = read_scalar_at(grad_output.impl->data->data.get(), go_idx, grad_output._dtype());
 
                 int start = i * stride - padding;
                 int end = std::min((int)L, start + kernel_size);
@@ -430,8 +430,8 @@ void GradAvgPool1d::backward(const Tensor& self) {
                     double grad_val = g / count;
                     for (int k = start; k < end; ++k) {
                         size_t in_idx = input.impl->offset + n * input.impl->strides[0] + c * input.impl->strides[1] + k * input.impl->strides[2];
-                        double cur = read_scalar_at(grad_input.impl->storage->data.get(), in_idx, grad_input._dtype());
-                        write_scalar_at(grad_input.impl->storage->data.get(), in_idx, grad_input._dtype(), cur + grad_val);
+                        double cur = read_scalar_at(grad_input.impl->data->data.get(), in_idx, grad_input._dtype());
+                        write_scalar_at(grad_input.impl->data->data.get(), in_idx, grad_input._dtype(), cur + grad_val);
                     }
                 }
             }
@@ -475,14 +475,14 @@ Tensor AvgPool2d::forward(const Tensor& input) {
                     for (int h = h_start; h < h_end; ++h) {
                         for (int w = w_start; w < w_end; ++w) {
                             size_t off = input.impl->offset + n*input.impl->strides[0] + c*input.impl->strides[1] + h*input.impl->strides[2] + w*input.impl->strides[3];
-                            sum_val += read_scalar_at(input.impl->storage->data.get(), off, input._dtype());
+                            sum_val += read_scalar_at(input.impl->data->data.get(), off, input._dtype());
                             count++;
                         }
                     }
                     
                     double avg = (count > 0) ? sum_val / count : 0.0;
                     size_t out_off = output.impl->offset + n*output.impl->strides[0] + c*output.impl->strides[1] + oh*output.impl->strides[2] + ow*output.impl->strides[3];
-                    write_scalar_at(output.impl->storage->data.get(), out_off, output._dtype(), avg);
+                    write_scalar_at(output.impl->data->data.get(), out_off, output._dtype(), avg);
                 }
             }
         }
@@ -495,7 +495,7 @@ Tensor AvgPool2d::forward(const Tensor& input) {
 }
 
 void GradAvgPool2d::backward(const Tensor& self) {
-    if (!self.impl->storage->grad) throw std::runtime_error("GradAvgPool2d: missing self grad");
+    if (!self.impl->grad->data) throw std::runtime_error("GradAvgPool2d: missing self grad");
     Tensor grad_output = tensor_from_grad(self);
     Tensor grad_input = Tensor::zeros(input.shape(), input._dtype(), false);
 
@@ -512,7 +512,7 @@ void GradAvgPool2d::backward(const Tensor& self) {
             for (int oh = 0; oh < out_h; ++oh) {
                 for (int ow = 0; ow < out_w; ++ow) {
                     size_t g_off = grad_output.impl->offset + n*grad_output.impl->strides[0] + c*grad_output.impl->strides[1] + oh*grad_output.impl->strides[2] + ow*grad_output.impl->strides[3];
-                    double g = read_scalar_at(grad_output.impl->storage->data.get(), g_off, grad_output._dtype());
+                    double g = read_scalar_at(grad_output.impl->data->data.get(), g_off, grad_output._dtype());
 
                     int h_start = std::max(0, oh * stride_h - padding_h);
                     int w_start = std::max(0, ow * stride_w - padding_w);
@@ -525,8 +525,8 @@ void GradAvgPool2d::backward(const Tensor& self) {
                         for (int h = h_start; h < h_end; ++h) {
                             for (int w = w_start; w < w_end; ++w) {
                                 size_t off = input.impl->offset + n*input.impl->strides[0] + c*input.impl->strides[1] + h*input.impl->strides[2] + w*input.impl->strides[3];
-                                double cur = read_scalar_at(grad_input.impl->storage->data.get(), off, grad_input._dtype());
-                                write_scalar_at(grad_input.impl->storage->data.get(), off, grad_input._dtype(), cur + grad_val);
+                                double cur = read_scalar_at(grad_input.impl->data->data.get(), off, grad_input._dtype());
+                                write_scalar_at(grad_input.impl->data->data.get(), off, grad_input._dtype(), cur + grad_val);
                             }
                         }
                     }
@@ -582,14 +582,14 @@ Tensor AvgPool3d::forward(const Tensor& input) {
                             for (int h = h_start; h < h_end; ++h) {
                                 for (int w = w_start; w < w_end; ++w) {
                                     size_t off = input.impl->offset + n*input.impl->strides[0] + c*input.impl->strides[1] + d_idx*input.impl->strides[2] + h*input.impl->strides[3] + w*input.impl->strides[4];
-                                    sum_val += read_scalar_at(input.impl->storage->data.get(), off, input._dtype());
+                                    sum_val += read_scalar_at(input.impl->data->data.get(), off, input._dtype());
                                     count++;
                                 }
                             }
                         }
                         double avg = (count > 0) ? sum_val / count : 0.0;
                         size_t out_off = output.impl->offset + n*output.impl->strides[0] + c*output.impl->strides[1] + od*output.impl->strides[2] + oh*output.impl->strides[3] + ow*output.impl->strides[4];
-                        write_scalar_at(output.impl->storage->data.get(), out_off, output._dtype(), avg);
+                        write_scalar_at(output.impl->data->data.get(), out_off, output._dtype(), avg);
                     }
                 }
             }
@@ -603,7 +603,7 @@ Tensor AvgPool3d::forward(const Tensor& input) {
 }
 
 void GradAvgPool3d::backward(const Tensor& self) {
-    if (!self.impl->storage->grad) throw std::runtime_error("GradAvgPool3d: missing self grad");
+    if (!self.impl->grad->data) throw std::runtime_error("GradAvgPool3d: missing self grad");
     Tensor grad_output = tensor_from_grad(self);
     Tensor grad_input = Tensor::zeros(input.shape(), input._dtype(), false);
 
@@ -624,7 +624,7 @@ void GradAvgPool3d::backward(const Tensor& self) {
                 for (int oh = 0; oh < out_h; ++oh) {
                     for (int ow = 0; ow < out_w; ++ow) {
                         size_t g_off = grad_output.impl->offset + n*grad_output.impl->strides[0] + c*grad_output.impl->strides[1] + od*grad_output.impl->strides[2] + oh*grad_output.impl->strides[3] + ow*grad_output.impl->strides[4];
-                        double g = read_scalar_at(grad_output.impl->storage->data.get(), g_off, grad_output._dtype());
+                        double g = read_scalar_at(grad_output.impl->data->data.get(), g_off, grad_output._dtype());
 
                         int d_start = std::max(0, od * stride_d - padding_d);
                         int h_start = std::max(0, oh * stride_h - padding_h);
@@ -640,8 +640,8 @@ void GradAvgPool3d::backward(const Tensor& self) {
                                 for (int h = h_start; h < h_end; ++h) {
                                     for (int w = w_start; w < w_end; ++w) {
                                         size_t off = input.impl->offset + n*input.impl->strides[0] + c*input.impl->strides[1] + d_idx*input.impl->strides[2] + h*input.impl->strides[3] + w*input.impl->strides[4];
-                                        double cur = read_scalar_at(grad_input.impl->storage->data.get(), off, grad_input._dtype());
-                                        write_scalar_at(grad_input.impl->storage->data.get(), off, grad_input._dtype(), cur + grad_val);
+                                        double cur = read_scalar_at(grad_input.impl->data->data.get(), off, grad_input._dtype());
+                                        write_scalar_at(grad_input.impl->data->data.get(), off, grad_input._dtype(), cur + grad_val);
                                     }
                                 }
                             }
