@@ -65,16 +65,16 @@ Tensor BatchNorm::forward(const Tensor& input) {
         // running_var  = (1-m)*running_var  + m*unbiased_var
         
         // We use a manual loop for now as we lack some tensor ops
-        auto* rm_data = running_mean.impl->storage->data.get();
-        auto* rv_data = running_var.impl->storage->data.get();
+        auto* rm_data = running_mean.impl->data->data.get();
+        auto* rv_data = running_var.impl->data->data.get();
         
         // Calculate unbiased variance factor: N / (N - 1)
         double n_count = (double)rest;
         double unbiased_factor = (n_count > 1.0) ? (n_count / (n_count - 1.0)) : 1.0;
 
         for(size_t i=0; i<C; ++i) {
-            double m_curr = read_scalar_at(mean_val.impl->storage->data.get(), i, DType::Float32);
-            double v_curr = read_scalar_at(var_val.impl->storage->data.get(), i, DType::Float32);
+            double m_curr = read_scalar_at(mean_val.impl->data->data.get(), i, DType::Float32);
+            double v_curr = read_scalar_at(var_val.impl->data->data.get(), i, DType::Float32);
             
             double rm_old = read_scalar_at(rm_data, i, DType::Float32);
             double rv_old = read_scalar_at(rv_data, i, DType::Float32);
