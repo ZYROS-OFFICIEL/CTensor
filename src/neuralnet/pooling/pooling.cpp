@@ -601,3 +601,55 @@ Tensor AvgPool3d::forward(const Tensor& input) {
     }
     return output;
 }
+
+void GradAvgPool3d::backward(const Tensor& self) {
+    if (!self.impl->storage->grad) throw std::runtime_error("GradAvgPool3d: missing self grad");
+    Tensor grad_output = tensor_from_grad(self);
+    Tensor grad_input = Tensor::zeros(input.shape(), input._dtype(), false);
+
+    size_t N = input.impl->shape[0];
+    size_t C = input.impl->shape[1];
+    size_t D = input.impl->shape[2];
+    size_t H = input.impl->shape[3];
+    size_t W = input.impl->shape[4];
+    
+    int out_d = grad_output.impl->shape[2];
+    int out_h = grad_output.impl->shape[3];
+    int out_w = grad_output.impl->shape[4];
+
+    #pragma omp parallel for collapse(2)
+    for (size_t n = 0; n < N; ++n) {
+        for (size_t c = 0; c < C; ++c) {
+            for (int od = 0; od < out_d; ++od) {
+                for (int oh = 0; oh < out_h; ++oh) {
+                    for (int ow = 0; ow < out_w; ++ow) {
+                        size_t g_off = grad_output.impl->offset + n*grad_output.impl->strides[0] + c*grad_output.impl->strides[1] + od*grad_output.impl->strides[2] + oh*grad_output.impl->strides[3] + ow*grad_output.impl->strides[4];
+                        double g = read_scalar_at(grad_output.impl->storage->data.get(), g_off, grad_output._dtype());
+
+                        int d_start = std::max(0, od * stride_d - padding_d);
+                        int h_start = std::max(0, oh * stride_h - padding_h);
+                        int w_start = std::max(0, ow * stride_w - padding_w);
+                        int d_end = std::min((int)D, od * stride_d - padding_d + kernel_size_d);
+                        int h_end = std::min((int)H, oh * stride_h - padding_h + kernel_size_h);
+                        int w_end = std::min((int)W, ow * stride_w - padding_w + kernel_size_w);
+
+                        int count = (d_end - d_start) * (h_end - h_start) * (w_end - w_start);
+                        if (count > 0) {
+                            double grad_val = g / count;
+                            for (int d_idx = d_start; d_idx < d_end; ++d_idx) {
+                                for (int h = h_start; h < h_end; ++h) {
+                                    for (int w = w_start; w < w_end; ++w) {
+                                        size_t off = input.impl->offset + n*input.impl->strides[0] + c*input.impl->strides[1] + d_idx*input.impl->strides[2] + h*input.impl->strides[3] + w*input.impl->strides[4];
+                                        double cur = read_scalar_at(grad_input.impl->storage->data.get(), off, grad_input._dtype());
+                                        write_scalar_at(grad_input.impl->storage->data.get(), off, grad_input._dtype(), cur + grad_val);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    accumulate_grad(input, grad_input);
+}
