@@ -12,6 +12,7 @@ set(PROJECT_INCLUDES
     src/neuralnet/conv
     src/neuralnet/pooling
     src/neuralnet/dropout
+    src/neuralnet/batchnorm
 )
 # -------------------------------
 # Scalar 
@@ -24,7 +25,7 @@ target_include_directories(core PRIVATE ${PROJECT_INCLUDES})
 # -------------------------------
 # Neural Net
 # -------------------------------
-add_library(neuralnet OBJECT src/neuralnet/loss.cpp src/neuralnet/layer.cpp src/neuralnet/Relu.cpp)
+add_library(neuralnet OBJECT src/neuralnet/loss.cpp src/neuralnet/layer.cpp src/neuralnet/Relu.cpp src/neuralnet/dropout/dropout.cpp src/neuralnet/pooling/pooling.cpp src/neuralnet/batchnorm/batchnorm.cpp)
 target_include_directories(neuralnet PRIVATE ${PROJECT_INCLUDES})
 
 # -------------------------------
@@ -68,6 +69,9 @@ target_include_directories(app PRIVATE
     src/cpu/AVX512
     src/neuralnet
     src/neuralnet/conv
+    src/neuralnet/pooling
+    src/neuralnet/dropout
+    src/neuralnet/batchnorm
 )
 target_compile_options(app PRIVATE -fopenmp )
 target_link_libraries(app PRIVATE gomp)
