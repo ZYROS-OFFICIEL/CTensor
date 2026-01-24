@@ -16,13 +16,12 @@ enum class DType {
     Float32, 
     Int32, 
     Double64,
-    // --- New Types ---
-    UInt8,   // Byte / Unsigned Char (Image data)
-    Int8,    // Char
-    Int16,   // Short
-    Int64,   // Long (Indices)
-    Bool,    // Boolean (Masks)
-    Float16  // Half precision (storage only usually)
+    UInt8,   
+    Int8,   
+    Int16,   
+    Int64,  
+    Bool,   
+    Float16  
 };
 
 inline size_t dtype_size(DType dt) {
