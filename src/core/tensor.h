@@ -100,7 +100,6 @@ struct Tensorimpl {
     size_t offset = 0;
     size_t ndim = 0;
     
-    // IMPROVEMENT: Use vector instead of raw pointers for safety
     std::vector<size_t> shape;
     std::vector<size_t> strides;
     
@@ -127,7 +126,6 @@ struct Tensorimpl {
         : data(storage_), offset(offset_), shape(shape_), strides(strides_), 
           dtype(dtype_), requires_grad(requires_grad_), ndim(shape_.size()) {}
     
-    // Rule of Zero: No custom destructor needed thanks to std::vector and shared_ptr
 };
 
 // ----------------- Tensor (public API) -----------------
