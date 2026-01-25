@@ -10,6 +10,8 @@
 #include <iostream>
 #include <cstdint>
 #include <numeric> 
+#include <atomic>
+#include <algorithm>
 
 // ----------------- DType System -----------------
 enum class DType { 
@@ -39,7 +41,7 @@ inline size_t dtype_size(DType dt) {
     return sizeof(float);
 }
 
-// read/write helpers (Expanded to handle all types safely)
+// read/write helpers
 inline double read_scalar_at(const void* data, size_t idx, DType dt) {
     switch (dt) {
         case DType::Float32:  return static_cast<double>( static_cast<const float*>(data)[idx] );
@@ -71,6 +73,172 @@ inline void write_scalar_at(void* data, size_t idx, DType dt, double val) {
 // forward for autograd node
 struct GradFn; 
 
+// ======================================================================================
+//                              OPTIMIZATION 1: SMALL VECTOR
+// ======================================================================================
+
+// A hybrid vector that stores up to N elements on the stack, and switches to heap if larger.
+template <typename T, size_t N>
+class SmallVector {
+private:
+    size_t size_ = 0;
+    T stack_data_[N];
+    std::vector<T> heap_data_; // Only used if size_ > N
+
+public:
+    SmallVector() = default;
+    
+    SmallVector(const std::vector<T>& vec) : size_(vec.size()) {
+        if (size_ > N) {
+            heap_data_ = vec;
+        } else {
+            std::copy(vec.begin(), vec.end(), stack_data_);
+        }
+    }
+
+    SmallVector(std::initializer_list<T> list) : size_(list.size()) {
+        if (size_ > N) {
+            heap_data_ = list;
+        } else {
+            std::copy(list.begin(), list.end(), stack_data_);
+        }
+    }
+
+    // Accessors
+    T& operator[](size_t i) {
+        if (size_ > N) return heap_data_[i];
+        return stack_data_[i];
+    }
+
+    const T& operator[](size_t i) const {
+        if (size_ > N) return heap_data_[i];
+        return stack_data_[i];
+    }
+
+    const T* data() const {
+        return (size_ > N) ? heap_data_.data() : stack_data_;
+    }
+
+    T* data() {
+        return (size_ > N) ? heap_data_.data() : stack_data_;
+    }
+
+    size_t size() const { return size_; }
+    bool empty() const { return size_ == 0; }
+
+    void push_back(const T& val) {
+        if (size_ < N) {
+            stack_data_[size_++] = val;
+        } else {
+            if (size_ == N) {
+                // Transition stack -> heap
+                heap_data_.reserve(N + 1);
+                heap_data_.assign(stack_data_, stack_data_ + N);
+            }
+            heap_data_.push_back(val);
+            size_++;
+        }
+    }
+
+    // Convert to std::vector for compatibility if needed
+    std::vector<T> to_vector() const {
+        if (size_ > N) return heap_data_;
+        return std::vector<T>(stack_data_, stack_data_ + size_);
+    }
+    
+    // Iterators
+    T* begin() { return data(); }
+    T* end() { return data() + size_; }
+    const T* begin() const { return data(); }
+    const T* end() const { return data() + size_; }
+};
+
+// ======================================================================================
+//                              OPTIMIZATION 2: INTRUSIVE POINTER
+// ======================================================================================
+
+// Base class for reference counting
+class RefCounted {
+public:
+    mutable std::atomic<int32_t> ref_count_{0};
+
+    RefCounted() { ref_count_.store(0, std::memory_order_relaxed); }
+    
+    virtual ~RefCounted() = default;
+
+    void retain() const {
+        ref_count_.fetch_add(1, std::memory_order_relaxed);
+    }
+
+    // Returns true if the object should be deleted
+    bool release() const {
+        // atomic fetch_sub returns the PREVIOUS value. 
+        // If previous was 1, now it is 0, so we delete.
+        return ref_count_.fetch_sub(1, std::memory_order_acq_rel) == 1;
+    }
+};
+
+template <typename T>
+class intrusive_ptr {
+private:
+    T* ptr_ = nullptr;
+
+public:
+    intrusive_ptr() : ptr_(nullptr) {}
+    
+    // Constructor from raw pointer (adopts ownership or retains? Standard is usually adoption for raw, 
+    // but here we manually retain usually. Let's assume we pass a new object that has ref=0).
+    explicit intrusive_ptr(T* p, bool add_ref = true) : ptr_(p) {
+        if (ptr_ && add_ref) ptr_->retain();
+    }
+
+    // Copy Constructor
+    intrusive_ptr(const intrusive_ptr& other) : ptr_(other.ptr_) {
+        if (ptr_) ptr_->retain();
+    }
+
+    // Move Constructor
+    intrusive_ptr(intrusive_ptr&& other) noexcept : ptr_(other.ptr_) {
+        other.ptr_ = nullptr;
+    }
+
+    // Assignment
+    intrusive_ptr& operator=(const intrusive_ptr& other) {
+        if (this != &other) {
+            if (ptr_ && ptr_->release()) delete ptr_;
+            ptr_ = other.ptr_;
+            if (ptr_) ptr_->retain();
+        }
+        return *this;
+    }
+
+    intrusive_ptr& operator=(intrusive_ptr&& other) noexcept {
+        if (this != &other) {
+            if (ptr_ && ptr_->release()) delete ptr_;
+            ptr_ = other.ptr_;
+            other.ptr_ = nullptr;
+        }
+        return *this;
+    }
+
+    ~intrusive_ptr() {
+        if (ptr_ && ptr_->release()) {
+            delete ptr_;
+        }
+    }
+
+    T* get() const { return ptr_; }
+    T* operator->() const { return ptr_; }
+    T& operator*() const { return *ptr_; }
+    explicit operator bool() const { return ptr_ != nullptr; }
+    
+    void reset() {
+        if (ptr_ && ptr_->release()) delete ptr_;
+        ptr_ = nullptr;
+    }
+};
+
+
 // ----------------- Storage -----------------
 struct Storage {
     std::shared_ptr<void> data;
@@ -80,28 +248,38 @@ struct Storage {
 };
 
 // ----------------- Strides Helper -----------------
-inline std::vector<size_t> calc_strides(const std::vector<size_t>& shape) {
+inline SmallVector<size_t, 5> calc_strides(const SmallVector<size_t, 5>& shape) {
     if (shape.empty()) return {};
-    std::vector<size_t> strides(shape.size());
+    SmallVector<size_t, 5> strides;
+    // We cannot resize easily with the push_back logic unless we construct sizing, 
+    // but push_back is fast enough for 5 items.
+    // However, strides calculation is reverse.
+    std::vector<size_t> temp(shape.size());
     size_t current = 1;
     for (int i = (int)shape.size() - 1; i >= 0; --i) {
-        strides[i] = current;
+        temp[i] = current;
         current *= shape[i];
     }
-    return strides;
+    return SmallVector<size_t, 5>(temp);
 }
 
 // ----------------- low-level impl -----------------
-struct Tensorimpl {
+// Inherits from RefCounted for Intrusive optimization
+struct Tensorimpl : public RefCounted {
     std::shared_ptr<Storage> data;
     
-    std::shared_ptr<Tensorimpl> grad = nullptr; 
+    // Grad is tricky. It refers to another Tensorimpl. 
+    // To prevent infinite recursion in definitions, we use intrusive_ptr.
+    // However, Tensor struct isn't defined yet. We use void* or forward decl.
+    // Simplest: store it as intrusive_ptr<Tensorimpl> directly.
+    intrusive_ptr<Tensorimpl> grad = nullptr; 
     
     size_t offset = 0;
     size_t ndim = 0;
     
-    std::vector<size_t> shape;
-    std::vector<size_t> strides;
+    // OPTIMIZATION 1: SmallVector
+    SmallVector<size_t, 5> shape;
+    SmallVector<size_t, 5> strides;
     
     bool requires_grad = false;
     DType dtype = DType::Float32;
@@ -109,7 +287,7 @@ struct Tensorimpl {
 
     // Default constructor
     Tensorimpl(const std::vector<size_t>& shape_, DType dtype_, bool requires_grad_, Device dev_)
-        : shape(shape_), strides(calc_strides(shape_)), dtype(dtype_), requires_grad(requires_grad_), ndim(shape_.size()) {
+        : shape(shape_), strides(calc_strides(shape)), dtype(dtype_), requires_grad(requires_grad_), ndim(shape_.size()) {
         
         size_t total_el = 1;
         for (auto s : shape) total_el *= s;
@@ -119,18 +297,20 @@ struct Tensorimpl {
     // View constructor
     Tensorimpl(std::shared_ptr<Storage> storage_,
                size_t offset_,
-               const std::vector<size_t>& shape_,
-               const std::vector<size_t>& strides_,
+               const SmallVector<size_t, 5>& shape_,
+               const SmallVector<size_t, 5>& strides_,
                DType dtype_,
                bool requires_grad_)
         : data(storage_), offset(offset_), shape(shape_), strides(strides_), 
           dtype(dtype_), requires_grad(requires_grad_), ndim(shape_.size()) {}
     
+    virtual ~Tensorimpl() = default;
 };
 
 // ----------------- Tensor (public API) -----------------
 struct Tensor {
-    std::shared_ptr<Tensorimpl> impl;
+    // OPTIMIZATION 2: Intrusive Pointer usage
+    intrusive_ptr<Tensorimpl> impl;
 
     Device device() const;
     Tensor to(Device target_device); 
@@ -142,7 +322,6 @@ struct Tensor {
     Tensor(const size_t* shape_ptr, size_t ndim, DType dtype, bool requires_grad)
         : Tensor(std::vector<size_t>(shape_ptr, shape_ptr + ndim), dtype, requires_grad) {}
 
-    // Standard Rule of 5 defaults are fine
     Tensor(const Tensor& other) = default;
     Tensor(Tensor&& other) noexcept = default;
     Tensor& operator=(const Tensor& other) = default;
@@ -152,7 +331,7 @@ struct Tensor {
 
     size_t numel() const;
     size_t numel_() const { return numel(); }
-    std::vector<size_t> shape() const;
+    std::vector<size_t> shape() const; // Returns std::vector for user API compatibility
     inline DType _dtype() const;
     inline size_t dtype_bytes() const;
     bool requires_grad() const;
@@ -182,11 +361,11 @@ struct Tensor {
     template <bool Writable>
     struct ProxyBase {
         using TDataPtr = std::conditional_t<Writable, void*, const void*>;
-        std::shared_ptr<Tensorimpl> impl;
+        intrusive_ptr<Tensorimpl> impl;
         size_t offset;
         size_t depth;
 
-        ProxyBase(std::shared_ptr<Tensorimpl> impl_, size_t off, size_t dp = 0)
+        ProxyBase(intrusive_ptr<Tensorimpl> impl_, size_t off, size_t dp = 0)
             : impl(std::move(impl_)), offset(off), depth(dp) {}
 
         ProxyBase operator[](size_t i) const {
@@ -223,10 +402,8 @@ struct Tensor {
             if (!impl) throw std::runtime_error("Invalid tensor");
             
             if (depth == impl->ndim) {
-                // Leaf assignment
                 write_scalar_at(impl->data->data.get(), offset, impl->dtype, val);
             } else {
-                // Slice assignment (Broadcast fill)
                 recursive_fill(depth, offset, val);
             }
             return *this;
@@ -264,14 +441,12 @@ struct Tensor {
     
     std::shared_ptr<GradFn> grad_fn;
 
-    // Gradient / Autograd API
     void backward(); 
     
-    // Helper to get gradient as a Tensor (wraps the internal impl)
     Tensor grad() const {
         if (!impl || !impl->grad) return Tensor();
         Tensor g;
-        g.impl = impl->grad;
+        g.impl = impl->grad; // Copying intrusive_ptr increments count
         return g;
     }
 
@@ -310,9 +485,10 @@ inline bool Tensor::requires_grad() const {
     return impl->requires_grad;
 }
 
-// Simple implementations for constructors to make it compile with the new impl structure
 inline Tensor::Tensor(const std::vector<size_t>& shape_, DType dtype_, bool requires_grad_) {
-    impl = std::make_shared<Tensorimpl>(shape_, dtype_, requires_grad_, Device(DeviceType::CPU));
+    // Manually allocate and wrap in intrusive_ptr
+    Tensorimpl* raw = new Tensorimpl(shape_, dtype_, requires_grad_, Device(DeviceType::CPU));
+    impl = intrusive_ptr<Tensorimpl>(raw); 
 }
 
 inline Tensor::Proxy Tensor::operator[](size_t i) {
@@ -331,7 +507,7 @@ inline Tensor::ConstProxy Tensor::operator[](size_t i) const {
 
 inline std::vector<size_t> Tensor::shape() const {
     if(!impl) return {};
-    return impl->shape;
+    return impl->shape.to_vector();
 }
 
 inline size_t Tensor::numel() const {
