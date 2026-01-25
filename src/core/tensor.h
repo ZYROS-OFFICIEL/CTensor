@@ -131,7 +131,6 @@ public:
             stack_data_[size_++] = val;
         } else {
             if (size_ == N) {
-                // Transition stack -> heap
                 heap_data_.reserve(N + 1);
                 heap_data_.assign(stack_data_, stack_data_ + N);
             }
