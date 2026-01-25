@@ -1,9 +1,10 @@
 #pragma once
 #include "tensor.h"
+#include <vector>
 
-// Check CPU features (can remain inline static or move to cpp)
-static inline bool cpu_has_avx2();
-static inline bool cpu_has_avx512f();
+// -------------------------------------------------------------
+//                Traffic Controller API
+// -------------------------------------------------------------
 
 // Binary Ops
 Tensor add(const Tensor &a, const Tensor &b);
@@ -13,6 +14,8 @@ Tensor div(const Tensor &a, const Tensor &b);
 Tensor pow(const Tensor &a, const Tensor &b);
 Tensor matmul(const Tensor &a, const Tensor &b);
 
+
+// Scalar Ops
 Tensor add_scalar(const Tensor &a, double scalar);
 Tensor sub_scalar(const Tensor &a, double scalar);
 Tensor sub_scalar_rev(double scalar, const Tensor &a);
@@ -21,6 +24,7 @@ Tensor div_scalar(const Tensor &a, double scalar);
 Tensor div_scalar_rev(double scalar, const Tensor &a);
 Tensor pow_scalar(const Tensor &a, double scalar);
 Tensor pow_scalar_rev(double scalar, const Tensor &a);
+
 // Comparisons
 Tensor lt(const Tensor &a, const Tensor &b);
 Tensor le(const Tensor &a, const Tensor &b);
@@ -80,7 +84,7 @@ inline Tensor operator*(const Tensor& a, double scalar) { return mul_scalar(a, s
 inline Tensor operator*(double scalar, const Tensor& a) { return mul_scalar(a, scalar); }
 Tensor operator/(const Tensor& a, const Tensor& b);
 inline Tensor operator/(const Tensor& a, double scalar) { return sub_scalar(a, scalar); }
-inline Tensor operator/(double scalar, const Tensor& a) { return sub_scalar_rev(scalar, a); }
+inline Tensor operator/(double scalar, const Tensor& a) { return div_scalar_rev(scalar, a); } // Fixed rev
 Tensor operator^(const Tensor& a, const Tensor& b);
 inline Tensor operator^(const Tensor& a, double scalar) { return pow_scalar(a, scalar); }
 inline Tensor operator^(double scalar, const Tensor& a) { return pow_scalar_rev(scalar, a); }

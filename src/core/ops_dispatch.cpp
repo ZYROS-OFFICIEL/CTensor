@@ -9,6 +9,9 @@
 
 #include <stdexcept>
 #include <string>
+#include <array>
+#include <iostream>
+#include <cmath>
 
 #if defined(__GNUC__) || defined(__clang__)
   #if defined(__x86_64__) || defined(__i386__)
@@ -16,6 +19,7 @@
   #endif
 #endif
 
+// CPU Feature Detection
 static inline bool cpu_has_avx2() {
 #ifdef HAS_BUILTIN_CPU_SUPPORTS
     return __builtin_cpu_supports("avx2");
@@ -31,10 +35,123 @@ static inline bool cpu_has_avx512f() {
 #endif
 }
 
-// ---------- Dispatcher helpers ----------
+// ========================================================================
+//                     STATIC DISPATCH REGISTRY
+// ========================================================================
+
+enum class BinaryOp {
+    ADD, SUB, MUL, DIV, POW, MATMUL,
+    LT, LE, GT, GE, EQ, NE,
+    _COUNT
+};
+
+// Function Pointer Type
+using BinaryKernelFn = Tensor(*)(const Tensor&, const Tensor&);
+
+// The Registry Table
+struct DispatchTable {
+    // [Op][DType] -> Function Pointer
+    std::array<std::array<BinaryKernelFn, 9>, (size_t)BinaryOp::_COUNT> table;
+
+    DispatchTable() {
+        // 1. Initialize everything with Multi-Threading (MP) Fallback first
+        for (auto& row : table) row.fill(nullptr);
+
+        // Float32 Defaults
+        table[(int)BinaryOp::ADD][(int)DType::Float32] = add_mp;
+        table[(int)BinaryOp::SUB][(int)DType::Float32] = diff_mp;
+        table[(int)BinaryOp::MUL][(int)DType::Float32] = mult_mp;
+        table[(int)BinaryOp::DIV][(int)DType::Float32] = div_mp;
+        table[(int)BinaryOp::POW][(int)DType::Float32] = pow_mp;
+        table[(int)BinaryOp::MATMUL][(int)DType::Float32] = matmul_mp;
+        
+        table[(int)BinaryOp::LT][(int)DType::Float32] = lt_mp;
+        table[(int)BinaryOp::LE][(int)DType::Float32] = le_mp;
+        table[(int)BinaryOp::GT][(int)DType::Float32] = gt_mp;
+        table[(int)BinaryOp::GE][(int)DType::Float32] = ge_mp;
+        table[(int)BinaryOp::EQ][(int)DType::Float32] = eq_mp;
+        table[(int)BinaryOp::NE][(int)DType::Float32] = neq_mp;
+
+        // Double64 Defaults
+        table[(int)BinaryOp::ADD][(int)DType::Double64] = add_mp;
+        table[(int)BinaryOp::SUB][(int)DType::Double64] = diff_mp;
+        table[(int)BinaryOp::MUL][(int)DType::Double64] = mult_mp;
+        table[(int)BinaryOp::DIV][(int)DType::Double64] = div_mp;
+        table[(int)BinaryOp::POW][(int)DType::Double64] = pow_mp;
+        table[(int)BinaryOp::MATMUL][(int)DType::Double64] = matmul_mp;
+
+        // Int32 Defaults (Generic MP)
+        table[(int)BinaryOp::ADD][(int)DType::Int32] = add_mp;
+        table[(int)BinaryOp::SUB][(int)DType::Int32] = diff_mp;
+        table[(int)BinaryOp::MUL][(int)DType::Int32] = mult_mp;
+        table[(int)BinaryOp::DIV][(int)DType::Int32] = div_mp;
+        table[(int)BinaryOp::POW][(int)DType::Int32] = pow_mp;
+
+        // 2. AVX2 Overrides
+        if (cpu_has_avx2()) {
+            // Float32
+            table[(int)BinaryOp::ADD][(int)DType::Float32] = add_avx2_f32;
+            table[(int)BinaryOp::SUB][(int)DType::Float32] = sub_avx2_f32;
+            table[(int)BinaryOp::MUL][(int)DType::Float32] = mul_avx2_f32;
+            table[(int)BinaryOp::DIV][(int)DType::Float32] = div_avx2_f32;
+            table[(int)BinaryOp::POW][(int)DType::Float32] = pow_avx2_f32;
+            table[(int)BinaryOp::MATMUL][(int)DType::Float32] = matmul_avx2_f32;
+            // Comparisons F32
+            table[(int)BinaryOp::LT][(int)DType::Float32] = lt_avx2_f32;
+            table[(int)BinaryOp::LE][(int)DType::Float32] = le_avx2_f32;
+            table[(int)BinaryOp::GT][(int)DType::Float32] = gt_avx2_f32;
+            table[(int)BinaryOp::GE][(int)DType::Float32] = ge_avx2_f32;
+            table[(int)BinaryOp::EQ][(int)DType::Float32] = eq_avx2_f32;
+            table[(int)BinaryOp::NE][(int)DType::Float32] = ne_avx2_f32;
+
+            // Double64
+            table[(int)BinaryOp::ADD][(int)DType::Double64] = add_avx2_d64;
+            table[(int)BinaryOp::SUB][(int)DType::Double64] = sub_avx2_d64;
+            table[(int)BinaryOp::MUL][(int)DType::Double64] = mul_avx2_d64;
+            table[(int)BinaryOp::DIV][(int)DType::Double64] = div_avx2_d64;
+            table[(int)BinaryOp::POW][(int)DType::Double64] = pow_avx2_d64;
+            table[(int)BinaryOp::MATMUL][(int)DType::Double64] = matmul_avx2_d64;
+        }
+
+        // 3. AVX-512 Overrides (Highest Priority)
+        if (cpu_has_avx512f()) {
+            // Float32
+            table[(int)BinaryOp::ADD][(int)DType::Float32] = add_avx512_f32;
+            table[(int)BinaryOp::SUB][(int)DType::Float32] = sub_avx512_f32;
+            table[(int)BinaryOp::MUL][(int)DType::Float32] = mul_avx512_f32;
+            table[(int)BinaryOp::DIV][(int)DType::Float32] = div_avx512_f32;
+            table[(int)BinaryOp::POW][(int)DType::Float32] = pow_avx512_f32;
+            table[(int)BinaryOp::MATMUL][(int)DType::Float32] = matmul_avx512_f32;
+            // Comparisons F32
+            table[(int)BinaryOp::LT][(int)DType::Float32] = lt_avx512_f32;
+            table[(int)BinaryOp::LE][(int)DType::Float32] = le_avx512_f32;
+            table[(int)BinaryOp::GT][(int)DType::Float32] = gt_avx512_f32;
+            table[(int)BinaryOp::GE][(int)DType::Float32] = ge_avx512_f32;
+            table[(int)BinaryOp::EQ][(int)DType::Float32] = eq_avx512_f32;
+            table[(int)BinaryOp::NE][(int)DType::Float32] = ne_avx512_f32;
+            
+             // Double64
+            table[(int)BinaryOp::ADD][(int)DType::Double64] = add_avx512_d64;
+            table[(int)BinaryOp::SUB][(int)DType::Double64] = sub_avx512_d64;
+            table[(int)BinaryOp::MUL][(int)DType::Double64] = mul_avx512_d64;
+            table[(int)BinaryOp::DIV][(int)DType::Double64] = div_avx512_d64;
+            table[(int)BinaryOp::POW][(int)DType::Double64] = pow_avx512_d64;
+            table[(int)BinaryOp::MATMUL][(int)DType::Double64] = matmul_avx512_d64;
+        }
+    }
+};
+
+// Singleton Access
+static const DispatchTable& get_registry() {
+    static DispatchTable table;
+    return table;
+}
+
+// ---------- Helpers ----------
 inline void ensure_same_device(const Tensor &a, const Tensor &b, const char* opname) {
     if (a.device() != b.device()) throw std::runtime_error(std::string(opname) + ": tensors must be on same device");
 }
+
 template <typename GradFnType, typename OpFunc>
 Tensor run_binary_op(const Tensor& a, const Tensor& b, OpFunc op) {
     Tensor out = op();
@@ -44,135 +161,101 @@ Tensor run_binary_op(const Tensor& a, const Tensor& b, OpFunc op) {
     }
     return out;
 }
-// The main scheme: device -> dtype -> arch
+
+// ========================================================================
+//                     DISPATCHER IMPL
+// ========================================================================
+
+Tensor dispatch_binary(BinaryOp op, const Tensor& a, const Tensor& b, const char* name) {
+    ensure_same_device(a, b, name);
+
+    // 1. SCALAR SHORT-CIRCUIT
+    // If both are 1-element tensors, compute immediately on CPU.
+    if (a.numel() == 1 && b.numel() == 1) {
+        double va = a.read_scalar(0);
+        double vb = b.read_scalar(0);
+        double res = 0.0;
+        bool is_bool = false;
+
+        switch(op) {
+            case BinaryOp::ADD: res = va + vb; break;
+            case BinaryOp::SUB: res = va - vb; break;
+            case BinaryOp::MUL: res = va * vb; break;
+            case BinaryOp::DIV: res = va / vb; break;
+            case BinaryOp::POW: res = std::pow(va, vb); break;
+            case BinaryOp::LT:  res = (va < vb); is_bool = true; break;
+            case BinaryOp::LE:  res = (va <= vb); is_bool = true; break;
+            case BinaryOp::GT:  res = (va > vb); is_bool = true; break;
+            case BinaryOp::GE:  res = (va >= vb); is_bool = true; break;
+            case BinaryOp::EQ:  res = (va == vb); is_bool = true; break;
+            case BinaryOp::NE:  res = (va != vb); is_bool = true; break;
+            default: break; // MATMUL etc skip this
+        }
+
+        if (op != BinaryOp::MATMUL) {
+            Tensor out({1}, is_bool ? DType::Bool : a._dtype());
+            out.write_scalar(0, res);
+            return out;
+        }
+    }
+
+    // 2. Main Dispatch
+    if (a.device().is_cpu()) {
+        auto fn = get_registry().table[(int)op][(int)a._dtype()];
+        if (!fn) throw std::runtime_error(std::string(name) + ": unsupported dtype or op not registered");
+        return fn(a, b);
+    }
+
+    throw std::runtime_error(std::string(name) + ": unsupported device");
+}
+
+
+// ========================================================================
+//                     PUBLIC API
+// ========================================================================
 
 Tensor add(const Tensor &a, const Tensor &b) {
-    ensure_same_device(a,b,"add");
     return run_binary_op<GradAdd>(a, b, [&](){
-        if (a.device().is_cpu()) {
-            switch (a._dtype()) {
-                case DType::Float32:
-                    if (cpu_has_avx512f()) return add_avx512_f32(a,b);
-                    if (cpu_has_avx2())    return add_avx2_f32(a,b);
-                    return add_mp(a,b);
-                case DType::Int32:    return add_mp(a,b);
-                case DType::Double64:
-                    if (cpu_has_avx512f()) return add_avx512_d64(a,b);
-                    if (cpu_has_avx2())    return add_avx2_d64(a,b);
-                    return add_mp(a,b);
-                default: throw std::runtime_error("add: unsupported dtype");
-            }
-        }
-        throw std::runtime_error("add: unsupported device");
+        return dispatch_binary(BinaryOp::ADD, a, b, "add");
     });
 }
 
 Tensor sub(const Tensor &a, const Tensor &b) {
-    ensure_same_device(a,b,"sub");
     return run_binary_op<GradSub>(a, b, [&](){
-        if (a.device().is_cpu()) {
-            switch (a._dtype()) {
-                case DType::Float32:
-                    if (cpu_has_avx512f()) return sub_avx512_f32(a,b);
-                    if (cpu_has_avx2())    return sub_avx2_f32(a,b);
-                    return diff_mp(a,b);
-                case DType::Int32:    return diff_mp(a,b);
-                case DType::Double64:
-                    if (cpu_has_avx512f()) return sub_avx512_d64(a,b);
-                    if (cpu_has_avx2())    return sub_avx2_d64(a,b);
-                    return diff_mp(a,b);
-                default: throw std::runtime_error("sub: unsupported dtype");
-            }
-        }
-        throw std::runtime_error("sub: unsupported device");
+        return dispatch_binary(BinaryOp::SUB, a, b, "sub");
     });
 }
 
 Tensor mul(const Tensor &a, const Tensor &b) {
-    ensure_same_device(a,b,"mul");
     return run_binary_op<GradMul>(a, b, [&](){
-        if (a.device().is_cpu()) {
-            switch (a._dtype()) {
-                case DType::Float32:
-                    if (cpu_has_avx512f()) return mul_avx512_f32(a,b);
-                    if (cpu_has_avx2())    return mul_avx2_f32(a,b);
-                    return mult_mp(a,b);
-                case DType::Int32:    return mult_mp(a,b);
-                case DType::Double64:
-                    if (cpu_has_avx512f()) return mul_avx512_d64(a,b);
-                    if (cpu_has_avx2())    return mul_avx2_d64(a,b);
-                    return mult_mp(a,b);
-                default: throw std::runtime_error("mul: unsupported dtype");
-            }
-        }
-        throw std::runtime_error("mul: unsupported device");
+        return dispatch_binary(BinaryOp::MUL, a, b, "mul");
     });
 }
 
 Tensor div(const Tensor &a, const Tensor &b) {
-    ensure_same_device(a,b,"div");
     return run_binary_op<GradDiv>(a, b, [&](){
-        if (a.device().is_cpu()) {
-            switch (a._dtype()) {
-                case DType::Float32:
-                    if (cpu_has_avx512f()) return div_avx512_f32(a,b);
-                    if (cpu_has_avx2())    return div_avx2_f32(a,b);
-                    return div_mp(a,b);
-                case DType::Int32:    return div_mp(a,b);
-                case DType::Double64:
-                    if (cpu_has_avx512f()) return div_avx512_d64(a,b);
-                    if (cpu_has_avx2())    return div_avx2_d64(a,b);
-                    return div_mp(a,b);
-                default: throw std::runtime_error("div: unsupported dtype");
-            }
-        }
-        throw std::runtime_error("div: unsupported device");
+        return dispatch_binary(BinaryOp::DIV, a, b, "div");
     });
 }
 
 Tensor pow(const Tensor &a, const Tensor &b) {
-    ensure_same_device(a,b,"pow");
     return run_binary_op<GradPow>(a, b, [&](){
-        if (a.device().is_cpu()) {
-            switch (a._dtype()) {
-                case DType::Float32:
-                    if (cpu_has_avx512f()) return pow_avx512_f32(a,b);
-                    if (cpu_has_avx2())    return pow_avx2_f32(a,b);
-                    return pow_mp(a,b);
-                case DType::Int32:    return pow_mp(a,b);
-                case DType::Double64:
-                    if (cpu_has_avx512f()) return pow_avx512_d64(a,b);
-                    if (cpu_has_avx2())    return pow_avx2_d64(a,b);
-                    return pow_mp(a,b);
-                default: throw std::runtime_error("pow: unsupported dtype");
-            }
-        }
-        throw std::runtime_error("pow: unsupported device");
+        return dispatch_binary(BinaryOp::POW, a, b, "pow");
     });
 }
-
 
 Tensor matmul(const Tensor &a, const Tensor &b) {
-    ensure_same_device(a,b,"matmul");
     return run_binary_op<GradMatMul>(a, b, [&](){
-        if (a.device().is_cpu()) {
-            switch (a._dtype()) {
-                case DType::Float32:
-                    if (cpu_has_avx512f()) return matmul_avx512_f32(a,b);
-                    if (cpu_has_avx2())    return matmul_avx2_f32(a,b);
-                    return matmul_mp(a,b);
-                case DType::Double64:
-                    if (cpu_has_avx512f()) return matmul_avx512_d64(a,b);
-                    if (cpu_has_avx2())    return matmul_avx2_d64(a,b);
-                    return matmul_mp(a,b);
-                default: return matmul_mp(a,b);
-            }
-        }
-        throw std::runtime_error("matmul: unsupported device");
+        return dispatch_binary(BinaryOp::MATMUL, a, b, "matmul");
     });
 }
 
-// Scalar Ops
+
+
+// ========================================================================
+//                     SCALAR OPS
+// ========================================================================
+
 template <typename GradFnType>
 Tensor run_scalar_op(const Tensor& a, double s, Tensor(*op)(const Tensor&, double)) {
     Tensor out = op(a, s);
@@ -215,8 +298,9 @@ Tensor pow_scalar_rev(double scalar, const Tensor &a) {
 }
 
 // ========================================================================
-//                           Unary Operations
+//                     UNARY OPS
 // ========================================================================
+// Note: Keeping unary ops as standard dispatch for now (less critical for traffic control than binary)
 
 #define IMPLEMENT_UNARY_OP(NAME, GRAD_CLASS, FUNC_MP, FUNC_AVX2, FUNC_AVX512) \
 Tensor NAME(const Tensor &a) { \
@@ -267,34 +351,15 @@ Tensor Relu(const Tensor &a){
 }
 
 // ========================================================================
-//                           Comparisons (No Grad)
+//                     COMPARISONS
 // ========================================================================
 
-#define IMPLEMENT_COMPARE_OP(NAME, FUNC_MP, FUNC_AVX2, FUNC_AVX512) \
-Tensor NAME(const Tensor &a, const Tensor &b) { \
-    ensure_same_device(a,b,#NAME); \
-    if (a.device().is_cpu()) { \
-        switch (a._dtype()) { \
-            case DType::Float32: \
-                if (cpu_has_avx512f()) return FUNC_AVX512 ## _f32(a,b); \
-                if (cpu_has_avx2())    return FUNC_AVX2 ## _f32(a,b); \
-                return FUNC_MP(a,b); \
-            case DType::Double64: \
-                if (cpu_has_avx512f()) return FUNC_AVX512 ## _d64(a,b); \
-                if (cpu_has_avx2())    return FUNC_AVX2 ## _d64(a,b); \
-                return FUNC_MP(a,b); \
-            default: return FUNC_MP(a,b); \
-        } \
-    } \
-    throw std::runtime_error(std::string(#NAME) + ": unsupported device"); \
-}
-
-IMPLEMENT_COMPARE_OP(lt, lt_mp, lt_avx2, lt_avx512)
-IMPLEMENT_COMPARE_OP(le, le_mp, le_avx2, le_avx512)
-IMPLEMENT_COMPARE_OP(gt, gt_mp, gt_avx2, gt_avx512)
-IMPLEMENT_COMPARE_OP(ge, ge_mp, ge_avx2, ge_avx512)
-IMPLEMENT_COMPARE_OP(eq, eq_mp, eq_avx2, eq_avx512)
-IMPLEMENT_COMPARE_OP(ne, ne_mp, ne_avx2, ne_avx512)
+Tensor lt(const Tensor &a, const Tensor &b) { return dispatch_binary(BinaryOp::LT, a, b, "lt"); }
+Tensor le(const Tensor &a, const Tensor &b) { return dispatch_binary(BinaryOp::LE, a, b, "le"); }
+Tensor gt(const Tensor &a, const Tensor &b) { return dispatch_binary(BinaryOp::GT, a, b, "gt"); }
+Tensor ge(const Tensor &a, const Tensor &b) { return dispatch_binary(BinaryOp::GE, a, b, "ge"); }
+Tensor eq(const Tensor &a, const Tensor &b) { return dispatch_binary(BinaryOp::EQ, a, b, "eq"); }
+Tensor ne(const Tensor &a, const Tensor &b) { return dispatch_binary(BinaryOp::NE, a, b, "ne"); }
 
 Tensor lt(const Tensor &a, double b) { return lt_mp(a, b); }
 Tensor le(const Tensor &a, double b) { return le_mp(a, b); }
@@ -304,7 +369,7 @@ Tensor eq(const Tensor &a, double b) { return eq_mp(a, b); }
 Tensor ne(const Tensor &a, double b) { return neq_mp(a, b); }
 
 // ========================================================================
-//                           Reductions
+//                     REDUCTIONS
 // ========================================================================
 
 Tensor sum(const Tensor &a, int dim) {
@@ -336,12 +401,8 @@ Tensor mean(const Tensor &a, int dim) {
     Tensor s = sum(a, dim);
     double N = (double)a.numel();
     if (dim != -1 && dim < (int)a.shape().size()) N = (double)a.shape()[dim];
-    
-    // Using composite op (sum * scalar) allows reuse of GradMulScalar and GradSum logic
     return mul_scalar(s, 1.0 / N);
 }
-
-// Max/Min (No autograd yet)
 
 Tensor max(const Tensor &a, int dim) {
     if (a.device().is_cpu()) {
@@ -377,84 +438,28 @@ Tensor min(const Tensor &a, int dim) {
     throw std::runtime_error("min: unsupported device");
 }
 
-
-//                           Utilities
 Tensor cat(const std::vector<Tensor>& tensors, size_t dim) {
-    // Basic cat without grad for now, or just MP
     return cat_mp(tensors, dim);
 }
 
+// --- Operators ---
 
-// --- Compound assignment operators ---
+Tensor& operator+=(Tensor& a, const Tensor& b) { a = add(a, b); return a; }
+Tensor& operator+=(Tensor& a, double scalar) { a = add_scalar(a, scalar); return a; }
+Tensor& operator-=(Tensor& a, const Tensor& b) { a = sub(a, b); return a; }
+Tensor& operator-=(Tensor& a, double scalar) { a = sub_scalar(a, scalar); return a; }
+Tensor& operator*=(Tensor& a, const Tensor& b) { a = mul(a, b); return a; }
+Tensor& operator*=(Tensor& a, double scalar) { a = mul_scalar(a, scalar); return a; }
+Tensor& operator/=(Tensor& a, const Tensor& b) { a = div(a, b); return a; }
+Tensor& operator/=(Tensor& a, double scalar) { a = div_scalar(a, scalar); return a; }
+Tensor& operator^=(Tensor& a, const Tensor& b) { a = pow(a, b); return a; }
+Tensor& operator^=(Tensor& a, double scalar) { a = pow_scalar(a, scalar); return a; }
 
-Tensor& operator+=(Tensor& a, const Tensor& b) {
-    a = add(a, b);
-    return a;
-}
-Tensor& operator+=(Tensor& a, double scalar) {
-    a = add_scalar(a, scalar);
-    return a;
-}
+Tensor operator+(const Tensor& a, const Tensor& b) { return add(a, b); }
+Tensor operator-(const Tensor& a, const Tensor& b) { return sub(a, b); }
+Tensor operator*(const Tensor& a, const Tensor& b) { return mul(a, b); }
+Tensor operator/(const Tensor& a, const Tensor& b) { return div(a, b); }
+Tensor operator^(const Tensor& a, const Tensor& b) { return pow(a, b); }
 
-Tensor& operator-=(Tensor& a, const Tensor& b) {
-    a = sub(a, b);
-    return a;
-}
-Tensor& operator-=(Tensor& a, double scalar) {
-    a = sub_scalar(a, scalar);
-    return a;
-}
-
-Tensor& operator*=(Tensor& a, const Tensor& b) {
-    a = mul(a, b);
-    return a;
-}
-Tensor& operator*=(Tensor& a, double scalar) {
-    a = mul_scalar(a, scalar);
-    return a;
-}
-
-Tensor& operator/=(Tensor& a, const Tensor& b) {
-    a = div(a, b);
-    return a;
-}
-Tensor& operator/=(Tensor& a, double scalar) {
-    a = div_scalar(a, scalar);
-    return a;
-}
-
-Tensor& operator^=(Tensor& a, const Tensor& b) {
-    a = pow(a, b);
-    return a;
-}
-Tensor& operator^=(Tensor& a, double scalar) {
-    a = pow_scalar(a, scalar);
-    return a;
-}
-
-Tensor operator+(const Tensor& a, const Tensor& b) {
-    return add(a, b);
-}
-
-Tensor operator-(const Tensor& a, const Tensor& b) {
-    return sub(a, b);
-}
-
-Tensor operator*(const Tensor& a, const Tensor& b) {
-    return mul(a, b);
-}
-
-Tensor operator/(const Tensor& a, const Tensor& b) {
-    return div(a, b);
-}
-
-Tensor operator^(const Tensor& a, const Tensor& b) {
-    return pow(a, b);
-}
-
-Tensor operator+(double s, const Tensor& a) {
-    return add_scalar(a, s);
-}
-Tensor operator+(const Tensor& a,double s) {
-    return add_scalar(a, s);
-}
+Tensor operator+(double s, const Tensor& a) { return add_scalar(a, s); }
+Tensor operator+(const Tensor& a,double s) { return add_scalar(a, s); }
