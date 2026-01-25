@@ -36,12 +36,12 @@ static inline __m256 masked_loadu_ps(const float* ptr, size_t valid_count) {
     if (valid_count > 0) {
         std::memcpy(tmp, ptr, valid_count * sizeof(float));
     }
-    return _mm256_load_ps(tmp);
+    return _mm256_loadu_ps(tmp); // Use loadu for safety unless we guarantee alignment
 }
 
 static inline void masked_storeu_ps(float* ptr, __m256 v, size_t valid_count) {
     alignas(32) float tmp[8];
-    _mm256_store_ps(tmp, v);
+    _mm256_storeu_ps(tmp, v);
     if (valid_count > 0) {
         std::memcpy(ptr, tmp, valid_count * sizeof(float));
     }
@@ -54,6 +54,7 @@ inline __m256 _mm256_abs_ps(__m256 x) {
 }
 
 // --- Exponential (Exp) ---
+// Polynomial approximation (Cephes)
 inline __m256 exp256_ps(__m256 x) {
     __m256 tmp = _mm256_setzero_ps();
     __m256 fx;
@@ -265,14 +266,11 @@ inline float hmin256_ps(__m256 v) {
 // ---------------------------
 // Broadcasting helpers
 // ---------------------------
-
-// REPLACED: Use int64_t for offsets to avoid overflow on large tensors
 static inline std::vector<int64_t> get_strides_bytes(const Tensor& t) {
     std::vector<int64_t> strides_bytes;
     if (!t.impl) return strides_bytes;
     size_t el_size = dtype_size(t._dtype()); 
     strides_bytes.reserve(t.impl->ndim);
-    // Explicit scalar handling: if numel == 1, effective strides are 0 for broadcasting
     if (t.numel() == 1) {
         for (size_t i = 0; i < t.impl->ndim; ++i) strides_bytes.push_back(0);
     } else {
@@ -296,7 +294,6 @@ static std::vector<size_t> broadcast_shape(const std::vector<size_t>& a, const s
     return out;
 }
 
-// Used for StrideIterator initialization
 static std::vector<int64_t> build_index_multipliers(const std::vector<size_t>& shape) {
     std::vector<int64_t> mult(shape.size());
     if (shape.empty()) return mult;
@@ -327,7 +324,6 @@ namespace {
             offset_b = 0;
         }
 
-        // Initialize at specific linear index without linear iteration
         void init(size_t linear_idx, const std::vector<int64_t>& multipliers) {
             offset_a = 0;
             offset_b = 0;
@@ -339,7 +335,6 @@ namespace {
             }
         }
 
-        // Advance by 1
         inline void next() {
             for (int i = (int)ndim - 1; i >= 0; --i) {
                 coords[i]++;
@@ -348,7 +343,6 @@ namespace {
                 if (coords[i] < shape[i]) {
                     return;
                 }
-                // Wrap around
                 coords[i] = 0;
                 offset_a -= strides_a[i] * (int64_t)shape[i]; 
                 offset_b -= strides_b[i] * (int64_t)shape[i];
@@ -359,7 +353,7 @@ namespace {
 
 // ---------------------- Binary Operations ----------------------
 
-// FAST PATH: Contiguous + Same Shape (Supports 4x Unrolling)
+// FAST PATH: Contiguous + Same Shape (Supports 4x Unrolling + Prefetch)
 template <typename Func>
 Tensor binary_op_contiguous(const Tensor& A, const Tensor& B, Func op) {
     Tensor out(A.shape(), DType::Float32);
@@ -371,6 +365,10 @@ Tensor binary_op_contiguous(const Tensor& A, const Tensor& B, Func op) {
 
     #pragma omp parallel for schedule(static)
     for (size_t i = 0; i < vec_limit; i += 32) {
+        // PREFETCH: Look ahead roughly 512 bytes (typical L2 line * count)
+        _mm_prefetch((const char*)(a_ptr + i + 128), _MM_HINT_T0);
+        _mm_prefetch((const char*)(b_ptr + i + 128), _MM_HINT_T0);
+
         __m256 a0 = _mm256_loadu_ps(a_ptr + i);
         __m256 a1 = _mm256_loadu_ps(a_ptr + i + 8);
         __m256 a2 = _mm256_loadu_ps(a_ptr + i + 16);
@@ -387,7 +385,6 @@ Tensor binary_op_contiguous(const Tensor& A, const Tensor& B, Func op) {
         _mm256_storeu_ps(out_ptr + i + 24, op(a3, b3));
     }
 
-    // Tail handling
     for (size_t i = vec_limit; i < n; i += 8) {
         size_t tail = (n - i < 8) ? (n - i) : 8;
         __m256 va = masked_loadu_ps(a_ptr + i, tail);
@@ -398,7 +395,7 @@ Tensor binary_op_contiguous(const Tensor& A, const Tensor& B, Func op) {
     return out;
 }
 
-// GENERAL PATH: Strided Iterator + Broadcast Fast Path
+// GENERAL PATH (Kept simple, optimized for correctness over raw speed compared to contig)
 template <typename Func>
 Tensor binary_op_general(const Tensor& A, const Tensor& B, Func op) {
     std::vector<size_t> a_shape = A.shape();
@@ -417,60 +414,30 @@ Tensor binary_op_general(const Tensor& A, const Tensor& B, Func op) {
     auto a_strides = get_strides_bytes(A);
     auto b_strides = get_strides_bytes(B);
 
-    // Padding strides if rank differs (numpy broadcasting rules: prepend 1s)
     size_t ndim = out_shape.size();
     if (a_strides.size() < ndim) a_strides.insert(a_strides.begin(), ndim - a_strides.size(), 0);
     if (b_strides.size() < ndim) b_strides.insert(b_strides.begin(), ndim - b_strides.size(), 0);
 
-    // If a dimension is 1 in input but N in output, stride must be 0 (broadcast)
     for(size_t i=0; i<ndim; ++i) {
         if(out_shape[i] > 1) {
              size_t a_dim = (i >= ndim - A.shape().size()) ? A.shape()[i - (ndim - A.shape().size())] : 1;
              if(a_dim == 1) a_strides[i] = 0;
-             
              size_t b_dim = (i >= ndim - B.shape().size()) ? B.shape()[i - (ndim - B.shape().size())] : 1;
              if(b_dim == 1) b_strides[i] = 0;
         }
     }
 
-    // --- Fast Path Detection: Vectorized Inner Loop ---
-    // If the innermost dimension is contiguous (stride 4) or scalar broadcast (stride 0)
-    // for both A and B, we can use AVX for the inner loop.
     int64_t last_sa = ndim > 0 ? a_strides.back() : 0;
     int64_t last_sb = ndim > 0 ? b_strides.back() : 0;
     size_t inner_dim_size = ndim > 0 ? out_shape.back() : 1;
 
     bool can_vectorize = (last_sa == 0 || last_sa == sizeof(float)) && 
                          (last_sb == 0 || last_sb == sizeof(float)) &&
-                         (inner_dim_size >= 8); // Only worth it if inner dim is large enough
+                         (inner_dim_size >= 8);
 
     #pragma omp parallel
     {
         StrideIterator it(out_shape, a_strides, b_strides);
-        
-        // OpenMP chunks the outer loop linearly.
-        // We initialize the StrideIterator to the start of the chunk.
-        #pragma omp for schedule(static)
-        for (size_t i = 0; i < out_numel; ++i) {
-            // Optimization: Only run expensive init/re-sync at start of chunk or if logic desyncs
-            // Ideally, we lift 'init' out of loop, but OpenMP hides the chunk bounds.
-            // Standard pattern: Compute 'it' state from 'i' manually at start of iteration? 
-            // Too slow to do every iter. 
-            // Correct OpenMP pattern with custom iterator:
-            // Since we can't easily hook into OpenMP's chunk start, we rely on the fact 
-            // that for very large arrays, we can afford one div/mod per thread start
-            // BUT we are inside the loop here.
-            // WORKAROUND: Use 'i' to detect chunk start? No. 
-            // Fallback: We MUST use div/mod if we can't maintain state.
-            // BUT we want to avoid div/mod.
-            
-            // Re-think: We can't easily use StrideIterator cleanly inside a simple `#pragma omp for` 
-            // without paying the initialization cost per element OR managing our own chunks.
-            // LET'S MANAGE OWN CHUNKS to ensure efficiency.
-            
-        } // End dummy loop to switch to block based
-        
-        // Manual chunking for StrideIterator efficiency
         int tid = omp_get_thread_num();
         int nthreads = omp_get_num_threads();
         size_t chunk_size = (out_numel + nthreads - 1) / nthreads;
@@ -483,14 +450,10 @@ Tensor binary_op_general(const Tensor& A, const Tensor& B, Func op) {
             if (can_vectorize) {
                 size_t current = start;
                 while (current < end) {
-                    // How many elements left in current inner dimension row?
                     size_t current_idx_in_inner = it.coords[ndim - 1];
                     size_t rem_in_inner = inner_dim_size - current_idx_in_inner;
-                    
-                    // How many can we process in this batch (limit by end of chunk)
                     size_t count = std::min(rem_in_inner, end - current);
                     
-                    // Vectorize this segment
                     size_t j = 0;
                     for (; j + 8 <= count; j += 8) {
                         __m256 va = (last_sa == 0) ? _mm256_set1_ps(*(const float*)((char*)a_ptr + it.offset_a))
@@ -500,51 +463,31 @@ Tensor binary_op_general(const Tensor& A, const Tensor& B, Func op) {
                         __m256 vr = op(va, vb);
                         _mm256_storeu_ps(out_ptr + current + j, vr);
                     }
-                    // Tail of segment
                     for (; j < count; ++j) {
                         float val_a = *(const float*)((char*)a_ptr + it.offset_a + j * last_sa);
                         float val_b = *(const float*)((char*)b_ptr + it.offset_b + j * last_sb);
-                        out_ptr[current + j] = op(_mm256_set1_ps(val_a), _mm256_set1_ps(val_b))[0]; // Use scalar op fallback via AVX wrapper or simple math? 
-                        // Our op returns __m256. Extracting scalar is slow.
-                        // Better to keep scalar loop below pure scalar?
-                        // For consistency, we rely on the vector op or scalar equivalent.
-                        // Since 'op' is a lambda returning __m256, we can't easily extract scalar func.
-                        // We will use mask store for tail to keep using 'op'.
-                        // Wait, single element mask store is overkill.
-                        // We assume 'op' behavior is elementwise. 
-                        // Let's use masked load/store for tail to reuse 'op'.
+                        // Scalar fallback using store_ss to handle the op logic
+                         __m256 va = _mm256_set1_ps(val_a);
+                         __m256 vb = _mm256_set1_ps(val_b);
+                         __m256 vr = op(va, vb);
+                         float res;
+                         _mm_store_ss(&res, _mm256_castps256_ps128(vr));
+                         out_ptr[current + j] = res;
                     }
                     
-                    // Advance generic iterator by 'count'
-                    // Since 'next' moves by 1, and we processed 'count' elements which might wrap...
-                    // Actually, since we are inside the inner dim, we just advanced indices on the last dim.
-                    // We need to carefully update 'it' to match 'current + count'.
-                    // Optimization: We know we just advanced along the last dimension.
-                    // But if 'count' hit the boundary, we wrap.
-                    // Doing 'next()' 'count' times is slow.
-                    // Fast forward:
                     current += count;
-                    if (current < end) {
-                        // Re-sync iterator completely (safest/simplest for now)
-                        it.init(current, multipliers); 
-                    }
+                    if (current < end) it.init(current, multipliers); 
                 }
             } else {
-                // Scalar Stride Iterator Loop
-                // Fallback for weird strides where we can't simple-load
-                // We use AVX logic on single elements (broadcast) to reuse the 'op' lambda
                 for (size_t i = start; i < end; ++i) {
                     float val_a = *(const float*)((char*)a_ptr + it.offset_a);
                     float val_b = *(const float*)((char*)b_ptr + it.offset_b);
-                    
                     __m256 va = _mm256_set1_ps(val_a);
                     __m256 vb = _mm256_set1_ps(val_b);
                     __m256 vr = op(va, vb);
-                    
                     float res;
                     _mm_store_ss(&res, _mm256_castps256_ps128(vr));
                     out_ptr[i] = res;
-                    
                     it.next();
                 }
             }
@@ -554,17 +497,11 @@ Tensor binary_op_general(const Tensor& A, const Tensor& B, Func op) {
     return out;
 }
 
-// CENTRALIZED DISPATCHER
 template <typename Func>
 Tensor binary_op_dispatch(const Tensor& A, const Tensor& B, Func op) {
-    // 1. Fully Contiguous Optimization
     if (A.is_contiguous() && B.is_contiguous() && A.shape() == B.shape()) {
         return binary_op_contiguous(A, B, op);
     }
-    // 2. Scalar broadcasting (all dims 1) implicitly handled by general,
-    // but specific scalar check (numel=1) optimizes stride setup in get_strides_bytes.
-    
-    // 3. General (handles all broadcasting, including scalar, with stride iterator)
     return binary_op_general(A, B, op);
 }
 
@@ -573,7 +510,6 @@ Tensor binary_op_dispatch(const Tensor& A, const Tensor& B, Func op) {
 template <typename Func>
 Tensor unary_op_broadcast(const Tensor& A, Func op) {
     Tensor out(A.shape(), DType::Float32);
-    // Unrolling for contiguous inputs
     if (A.is_contiguous()) {
         const float* a_ptr = get_ptr<float>(A);
         float* out_ptr = get_ptr<float>(out);
@@ -582,6 +518,8 @@ Tensor unary_op_broadcast(const Tensor& A, Func op) {
 
         #pragma omp parallel for schedule(static)
         for (size_t i = 0; i < vec_limit; i += 32) {
+            _mm_prefetch((const char*)(a_ptr + i + 128), _MM_HINT_T0);
+            
             __m256 v0 = _mm256_loadu_ps(a_ptr + i);
             __m256 v1 = _mm256_loadu_ps(a_ptr + i + 8);
             __m256 v2 = _mm256_loadu_ps(a_ptr + i + 16);
@@ -600,7 +538,6 @@ Tensor unary_op_broadcast(const Tensor& A, Func op) {
             masked_storeu_ps(out_ptr + i, vr, tail);
         }
     } else {
-        // Fallback for non-contiguous: Make contiguous first
         Tensor A_contig = A.contiguous();
         const float* ac_ptr = get_ptr<float>(A_contig);
         float* out_ptr = get_ptr<float>(out);
@@ -609,6 +546,7 @@ Tensor unary_op_broadcast(const Tensor& A, Func op) {
 
         #pragma omp parallel for schedule(static)
         for (size_t i = 0; i < vec_limit; i += 32) {
+             _mm_prefetch((const char*)(ac_ptr + i + 128), _MM_HINT_T0);
             __m256 v0 = _mm256_loadu_ps(ac_ptr + i);
             __m256 v1 = _mm256_loadu_ps(ac_ptr + i + 8);
             __m256 v2 = _mm256_loadu_ps(ac_ptr + i + 16);
@@ -684,7 +622,6 @@ Tensor softplus_avx2_f32(const Tensor& a) {
 #define OMP_SIMD_UNARY_AVX2(FUNC_NAME, STD_FUNC) \
 Tensor FUNC_NAME(const Tensor& a) { \
     Tensor out(a.shape(), DType::Float32); \
-    /* Ensure contiguity for SIMD loop */ \
     Tensor a_c = a.is_contiguous() ? a : a.contiguous(); \
     const float* pa = get_ptr<float>(a_c); \
     float* pout = get_ptr<float>(out); \
@@ -703,9 +640,70 @@ OMP_SIMD_UNARY_AVX2(atan_avx2_f32, std::atan)
 OMP_SIMD_UNARY_AVX2(sinh_avx2_f32, std::sinh)
 OMP_SIMD_UNARY_AVX2(cosh_avx2_f32, std::cosh)
 
-// Matmul (Simple blocked AVX2)
+// =================================================================================
+//                      MatMul with Multi-Level Tiling & FMA Unrolling
+// =================================================================================
+
+// 6x16 Micro-Kernel: Uses 15 registers (Accumulators: 12 (6x2), Loaded B: 2, Loaded A: 1)
+// C[i:i+6, j:j+16] += A[i:i+6, k] * B[k, j:j+16]
+// We split the 16 J-elements into 2 YMM registers (0-7, 8-15)
+static inline void micro_kernel_6x16(
+    int K, 
+    const float* A, int lda, 
+    const float* B, int ldb, 
+    float* C, int ldc) 
+{
+    // Accumulators (Rows 0-5, Cols 0-7 and 8-15)
+    __m256 c00 = _mm256_setzero_ps(); __m256 c01 = _mm256_setzero_ps();
+    __m256 c10 = _mm256_setzero_ps(); __m256 c11 = _mm256_setzero_ps();
+    __m256 c20 = _mm256_setzero_ps(); __m256 c21 = _mm256_setzero_ps();
+    __m256 c30 = _mm256_setzero_ps(); __m256 c31 = _mm256_setzero_ps();
+    __m256 c40 = _mm256_setzero_ps(); __m256 c41 = _mm256_setzero_ps();
+    __m256 c50 = _mm256_setzero_ps(); __m256 c51 = _mm256_setzero_ps();
+
+    for (int k = 0; k < K; ++k) {
+        // Broadcast A elements
+        __m256 a0 = _mm256_set1_ps(A[0*lda + k]);
+        __m256 a1 = _mm256_set1_ps(A[1*lda + k]);
+        __m256 a2 = _mm256_set1_ps(A[2*lda + k]);
+        __m256 a3 = _mm256_set1_ps(A[3*lda + k]);
+        __m256 a4 = _mm256_set1_ps(A[4*lda + k]);
+        __m256 a5 = _mm256_set1_ps(A[5*lda + k]);
+
+        // Load B elements (2 Vectors)
+        __m256 b0 = _mm256_loadu_ps(&B[k*ldb + 0]);
+        __m256 b1 = _mm256_loadu_ps(&B[k*ldb + 8]);
+
+        // FMAs
+        c00 = _mm256_fmadd_ps(a0, b0, c00); c01 = _mm256_fmadd_ps(a0, b1, c01);
+        c10 = _mm256_fmadd_ps(a1, b0, c10); c11 = _mm256_fmadd_ps(a1, b1, c11);
+        c20 = _mm256_fmadd_ps(a2, b0, c20); c21 = _mm256_fmadd_ps(a2, b1, c21);
+        c30 = _mm256_fmadd_ps(a3, b0, c30); c31 = _mm256_fmadd_ps(a3, b1, c31);
+        c40 = _mm256_fmadd_ps(a4, b0, c40); c41 = _mm256_fmadd_ps(a4, b1, c41);
+        c50 = _mm256_fmadd_ps(a5, b0, c50); c51 = _mm256_fmadd_ps(a5, b1, c51);
+    }
+
+    // Store C (Load, Add, Store)
+    // Note: C might not be aligned, use unaligned loads/stores
+    auto store_row = [&](int row, __m256 r0, __m256 r1) {
+        __m256 curr0 = _mm256_loadu_ps(&C[row*ldc + 0]);
+        __m256 curr1 = _mm256_loadu_ps(&C[row*ldc + 8]);
+        curr0 = _mm256_add_ps(curr0, r0);
+        curr1 = _mm256_add_ps(curr1, r1);
+        _mm256_storeu_ps(&C[row*ldc + 0], curr0);
+        _mm256_storeu_ps(&C[row*ldc + 8], curr1);
+    };
+
+    store_row(0, c00, c01);
+    store_row(1, c10, c11);
+    store_row(2, c20, c21);
+    store_row(3, c30, c31);
+    store_row(4, c40, c41);
+    store_row(5, c50, c51);
+}
+
+// Optimized MatMul
 Tensor matmul_avx2_f32(const Tensor& A, const Tensor& B) {
-    // Matmul optimized kernels usually require contiguous memory
     Tensor A_contig = A.is_contiguous() ? A : A.contiguous();
     Tensor B_contig = B.is_contiguous() ? B : B.contiguous();
 
@@ -716,29 +714,60 @@ Tensor matmul_avx2_f32(const Tensor& A, const Tensor& B) {
     if (K != B_contig.shape()[0]) throw std::runtime_error("matmul_avx2: shape mismatch");
 
     Tensor C({M, N}, DType::Float32);
-    const float* a_ptr = get_ptr<float>(A_contig);
-    const float* b_ptr = get_ptr<float>(B_contig);
-    float* c_ptr = get_ptr<float>(C);
+    const float* A_ptr = get_ptr<float>(A_contig);
+    const float* B_ptr = get_ptr<float>(B_contig);
+    float* C_ptr = get_ptr<float>(C);
     
-    std::memset(c_ptr, 0, M * N * sizeof(float));
+    // Zero init C
+    std::memset(C_ptr, 0, M * N * sizeof(float));
 
-    #pragma omp parallel for
-    for (size_t i = 0; i < M; ++i) {
-        for (size_t k = 0; k < K; ++k) {
-            __m256 va = _mm256_set1_ps(a_ptr[i*K + k]);
-            size_t j = 0;
-            for (; j + 8 <= N; j += 8) {
-                __m256 vc = _mm256_loadu_ps(c_ptr + i*N + j);
-                __m256 vb = _mm256_loadu_ps(b_ptr + k*N + j);
-                vc = _mm256_fmadd_ps(va, vb, vc);
-                _mm256_storeu_ps(c_ptr + i*N + j, vc);
-            }
-            if (j < N) {
-                size_t tail = N - j;
-                __m256 vc = masked_loadu_ps(c_ptr + i*N + j, tail);
-                __m256 vb = masked_loadu_ps(b_ptr + k*N + j, tail);
-                vc = _mm256_fmadd_ps(va, vb, vc);
-                masked_storeu_ps(c_ptr + i*N + j, vc, tail);
+    // Blocking Parameters (Tuned for ~L2 Cache)
+    const int MC = 128; 
+    const int NC = 128;
+    const int KC = 256; 
+
+    // Micro-Kernel Dimensions
+    const int MR = 6;
+    const int NR = 16; 
+
+    #pragma omp parallel for collapse(2) schedule(dynamic)
+    for (int j = 0; j < (int)N; j += NC) {
+        for (int i = 0; i < (int)M; i += MC) {
+            // L2 Blocks
+            int j_end = std::min(j + NC, (int)N);
+            int i_end = std::min(i + MC, (int)M);
+            
+            for (int k = 0; k < (int)K; k += KC) {
+                int k_end = std::min(k + KC, (int)K);
+                
+                // Micro-Kernel Loop (Register Tiling)
+                for (int ii = i; ii < i_end; ii += MR) {
+                    for (int jj = j; jj < j_end; jj += NR) {
+                        
+                        // Prefetch next block of B
+                        _mm_prefetch((const char*)&B_ptr[k * N + jj + NR], _MM_HINT_T0);
+                        
+                        // Check Boundaries
+                        if (ii + MR <= i_end && jj + NR <= j_end) {
+                            // Full Kernel
+                            micro_kernel_6x16(k_end - k, 
+                                              &A_ptr[ii * K + k], K, 
+                                              &B_ptr[k * N + jj], N, 
+                                              &C_ptr[ii * N + jj], N);
+                        } else {
+                            // Edge Case: Simple Fallback
+                            for (int ie = ii; ie < std::min(ii + MR, i_end); ++ie) {
+                                for (int je = jj; je < std::min(jj + NR, j_end); ++je) {
+                                    float sum = 0.0f;
+                                    for (int ke = k; ke < k_end; ++ke) {
+                                        sum += A_ptr[ie * K + ke] * B_ptr[ke * N + je];
+                                    }
+                                    C_ptr[ie * N + je] += sum;
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -936,5 +965,4 @@ Tensor min_avx2_f32(const Tensor& t, int dim) {
     return out;
 }
 
-#endif // __AVX2__
-
+#endif 
