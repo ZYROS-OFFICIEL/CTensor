@@ -14,7 +14,6 @@ Tensor div(const Tensor &a, const Tensor &b);
 Tensor pow(const Tensor &a, const Tensor &b);
 Tensor matmul(const Tensor &a, const Tensor &b);
 
-
 // Scalar Ops
 Tensor add_scalar(const Tensor &a, double scalar);
 Tensor sub_scalar(const Tensor &a, double scalar);
@@ -69,7 +68,6 @@ Tensor min(const Tensor &a, int dim = -1);
 // Utils
 Tensor cat(const std::vector<Tensor>& tensors, size_t dim);
 
-
 //------------------ Operator Overloads ----------------------------------
 
 Tensor operator+(const Tensor& a, const Tensor& b);
@@ -84,7 +82,7 @@ inline Tensor operator*(const Tensor& a, double scalar) { return mul_scalar(a, s
 inline Tensor operator*(double scalar, const Tensor& a) { return mul_scalar(a, scalar); }
 Tensor operator/(const Tensor& a, const Tensor& b);
 inline Tensor operator/(const Tensor& a, double scalar) { return sub_scalar(a, scalar); }
-inline Tensor operator/(double scalar, const Tensor& a) { return div_scalar_rev(scalar, a); } // Fixed rev
+inline Tensor operator/(double scalar, const Tensor& a) { return div_scalar_rev(scalar, a); }
 Tensor operator^(const Tensor& a, const Tensor& b);
 inline Tensor operator^(const Tensor& a, double scalar) { return pow_scalar(a, scalar); }
 inline Tensor operator^(double scalar, const Tensor& a) { return pow_scalar_rev(scalar, a); }
