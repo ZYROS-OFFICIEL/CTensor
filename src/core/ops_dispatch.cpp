@@ -1,4 +1,4 @@
-#include "dispatch.h"
+#include "ops_dispatch.h"
 #include "tensor.h"
 #include "opsmp.h" 
 #include "autograd.h"
@@ -45,16 +45,14 @@ enum class BinaryOp {
     _COUNT
 };
 
-// Function Pointer Type
 using BinaryKernelFn = Tensor(*)(const Tensor&, const Tensor&);
 
-// The Registry Table
 struct DispatchTable {
     // [Op][DType] -> Function Pointer
     std::array<std::array<BinaryKernelFn, 9>, (size_t)BinaryOp::_COUNT> table;
 
     DispatchTable() {
-        // 1. Initialize everything with Multi-Threading (MP) Fallback first
+        // 1. Initialize everything with Multi-Threading (MP) Fallback
         for (auto& row : table) row.fill(nullptr);
 
         // Float32 Defaults
@@ -96,7 +94,7 @@ struct DispatchTable {
             table[(int)BinaryOp::DIV][(int)DType::Float32] = div_avx2_f32;
             table[(int)BinaryOp::POW][(int)DType::Float32] = pow_avx2_f32;
             table[(int)BinaryOp::MATMUL][(int)DType::Float32] = matmul_avx2_f32;
-            // Comparisons F32
+            
             table[(int)BinaryOp::LT][(int)DType::Float32] = lt_avx2_f32;
             table[(int)BinaryOp::LE][(int)DType::Float32] = le_avx2_f32;
             table[(int)BinaryOp::GT][(int)DType::Float32] = gt_avx2_f32;
@@ -122,7 +120,7 @@ struct DispatchTable {
             table[(int)BinaryOp::DIV][(int)DType::Float32] = div_avx512_f32;
             table[(int)BinaryOp::POW][(int)DType::Float32] = pow_avx512_f32;
             table[(int)BinaryOp::MATMUL][(int)DType::Float32] = matmul_avx512_f32;
-            // Comparisons F32
+            
             table[(int)BinaryOp::LT][(int)DType::Float32] = lt_avx512_f32;
             table[(int)BinaryOp::LE][(int)DType::Float32] = le_avx512_f32;
             table[(int)BinaryOp::GT][(int)DType::Float32] = gt_avx512_f32;
@@ -141,7 +139,6 @@ struct DispatchTable {
     }
 };
 
-// Singleton Access
 static const DispatchTable& get_registry() {
     static DispatchTable table;
     return table;
@@ -170,7 +167,6 @@ Tensor dispatch_binary(BinaryOp op, const Tensor& a, const Tensor& b, const char
     ensure_same_device(a, b, name);
 
     // 1. SCALAR SHORT-CIRCUIT
-    // If both are 1-element tensors, compute immediately on CPU.
     if (a.numel() == 1 && b.numel() == 1) {
         double va = a.read_scalar(0);
         double vb = b.read_scalar(0);
@@ -189,7 +185,7 @@ Tensor dispatch_binary(BinaryOp op, const Tensor& a, const Tensor& b, const char
             case BinaryOp::GE:  res = (va >= vb); is_bool = true; break;
             case BinaryOp::EQ:  res = (va == vb); is_bool = true; break;
             case BinaryOp::NE:  res = (va != vb); is_bool = true; break;
-            default: break; // MATMUL etc skip this
+            default: break; 
         }
 
         if (op != BinaryOp::MATMUL) {
@@ -209,48 +205,33 @@ Tensor dispatch_binary(BinaryOp op, const Tensor& a, const Tensor& b, const char
     throw std::runtime_error(std::string(name) + ": unsupported device");
 }
 
-
 // ========================================================================
 //                     PUBLIC API
 // ========================================================================
 
 Tensor add(const Tensor &a, const Tensor &b) {
-    return run_binary_op<GradAdd>(a, b, [&](){
-        return dispatch_binary(BinaryOp::ADD, a, b, "add");
-    });
+    return run_binary_op<GradAdd>(a, b, [&](){ return dispatch_binary(BinaryOp::ADD, a, b, "add"); });
 }
 
 Tensor sub(const Tensor &a, const Tensor &b) {
-    return run_binary_op<GradSub>(a, b, [&](){
-        return dispatch_binary(BinaryOp::SUB, a, b, "sub");
-    });
+    return run_binary_op<GradSub>(a, b, [&](){ return dispatch_binary(BinaryOp::SUB, a, b, "sub"); });
 }
 
 Tensor mul(const Tensor &a, const Tensor &b) {
-    return run_binary_op<GradMul>(a, b, [&](){
-        return dispatch_binary(BinaryOp::MUL, a, b, "mul");
-    });
+    return run_binary_op<GradMul>(a, b, [&](){ return dispatch_binary(BinaryOp::MUL, a, b, "mul"); });
 }
 
 Tensor div(const Tensor &a, const Tensor &b) {
-    return run_binary_op<GradDiv>(a, b, [&](){
-        return dispatch_binary(BinaryOp::DIV, a, b, "div");
-    });
+    return run_binary_op<GradDiv>(a, b, [&](){ return dispatch_binary(BinaryOp::DIV, a, b, "div"); });
 }
 
 Tensor pow(const Tensor &a, const Tensor &b) {
-    return run_binary_op<GradPow>(a, b, [&](){
-        return dispatch_binary(BinaryOp::POW, a, b, "pow");
-    });
+    return run_binary_op<GradPow>(a, b, [&](){ return dispatch_binary(BinaryOp::POW, a, b, "pow"); });
 }
 
 Tensor matmul(const Tensor &a, const Tensor &b) {
-    return run_binary_op<GradMatMul>(a, b, [&](){
-        return dispatch_binary(BinaryOp::MATMUL, a, b, "matmul");
-    });
+    return run_binary_op<GradMatMul>(a, b, [&](){ return dispatch_binary(BinaryOp::MATMUL, a, b, "matmul"); });
 }
-
-
 
 // ========================================================================
 //                     SCALAR OPS
@@ -300,7 +281,6 @@ Tensor pow_scalar_rev(double scalar, const Tensor &a) {
 // ========================================================================
 //                     UNARY OPS
 // ========================================================================
-// Note: Keeping unary ops as standard dispatch for now (less critical for traffic control than binary)
 
 #define IMPLEMENT_UNARY_OP(NAME, GRAD_CLASS, FUNC_MP, FUNC_AVX2, FUNC_AVX512) \
 Tensor NAME(const Tensor &a) { \
@@ -346,9 +326,8 @@ IMPLEMENT_UNARY_OP(cosh, GradCosh, cosh_mp, cosh_avx2, cosh_avx512)
 IMPLEMENT_UNARY_OP(sigmoid, GradSigmoid, sigmoid_mp, sigmoid_avx2, sigmoid_avx512)
 IMPLEMENT_UNARY_OP(relu, GradRelu, Relu_mp, relu_avx2, relu_avx512) 
 IMPLEMENT_UNARY_OP(softplus, GradSoftplus, softplus_mp, softplus_avx2, softplus_avx512)
-Tensor Relu(const Tensor &a){
-    return relu(a);
-}
+
+Tensor Relu(const Tensor &a){ return relu(a); }
 
 // ========================================================================
 //                     COMPARISONS
@@ -456,10 +435,9 @@ Tensor& operator^=(Tensor& a, const Tensor& b) { a = pow(a, b); return a; }
 Tensor& operator^=(Tensor& a, double scalar) { a = pow_scalar(a, scalar); return a; }
 
 Tensor operator+(const Tensor& a, const Tensor& b) { return add(a, b); }
+Tensor operator+(const Tensor& a, double scalar) { return add_scalar(a, scalar); }
+Tensor operator+(double scalar, const Tensor& a) { return add_scalar(a, scalar); }
 Tensor operator-(const Tensor& a, const Tensor& b) { return sub(a, b); }
 Tensor operator*(const Tensor& a, const Tensor& b) { return mul(a, b); }
 Tensor operator/(const Tensor& a, const Tensor& b) { return div(a, b); }
 Tensor operator^(const Tensor& a, const Tensor& b) { return pow(a, b); }
-
-Tensor operator+(double s, const Tensor& a) { return add_scalar(a, s); }
-Tensor operator+(const Tensor& a,double s) { return add_scalar(a, s); }
