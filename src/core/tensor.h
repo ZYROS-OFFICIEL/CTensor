@@ -12,6 +12,7 @@
 #include <numeric> 
 #include <atomic>
 #include <algorithm>
+#include <initializer_list>
 
 // ----------------- DType System -----------------
 enum class DType { 
@@ -36,22 +37,22 @@ inline size_t dtype_size(DType dt) {
         case DType::Int16:   return sizeof(int16_t);
         case DType::Int64:   return sizeof(int64_t);
         case DType::Bool:    return sizeof(bool); 
-        case DType::Float16: return 2; 
+        case DType::Float16: return 2;
     }
     return sizeof(float);
 }
 
-// read/write helpers
+// ----------------- Read/Write Helpers -----------------
 inline double read_scalar_at(const void* data, size_t idx, DType dt) {
     switch (dt) {
-        case DType::Float32:  return static_cast<double>( static_cast<const float*>(data)[idx] );
-        case DType::Int32:    return static_cast<double>( static_cast<const int32_t*>(data)[idx] );
-        case DType::Double64: return static_cast<double>( static_cast<const double*>(data)[idx] );
-        case DType::UInt8:    return static_cast<double>( static_cast<const uint8_t*>(data)[idx] );
-        case DType::Int8:     return static_cast<double>( static_cast<const int8_t*>(data)[idx] );
-        case DType::Int16:    return static_cast<double>( static_cast<const int16_t*>(data)[idx] );
-        case DType::Int64:    return static_cast<double>( static_cast<const int64_t*>(data)[idx] );
-        case DType::Bool:     return static_cast<double>( static_cast<const bool*>(data)[idx] );
+        case DType::Float32:  return static_cast<double>(static_cast<const float*>(data)[idx]);
+        case DType::Int32:    return static_cast<double>(static_cast<const int32_t*>(data)[idx]);
+        case DType::Double64: return static_cast<double>(static_cast<const double*>(data)[idx]);
+        case DType::UInt8:    return static_cast<double>(static_cast<const uint8_t*>(data)[idx]);
+        case DType::Int8:     return static_cast<double>(static_cast<const int8_t*>(data)[idx]);
+        case DType::Int16:    return static_cast<double>(static_cast<const int16_t*>(data)[idx]);
+        case DType::Int64:    return static_cast<double>(static_cast<const int64_t*>(data)[idx]);
+        case DType::Bool:     return static_cast<double>(static_cast<const bool*>(data)[idx]);
         default: return 0.0;
     }
 }
@@ -70,20 +71,19 @@ inline void write_scalar_at(void* data, size_t idx, DType dt, double val) {
     }
 }
 
-// forward for autograd node
+// Forward declarations
 struct GradFn; 
 
 // ======================================================================================
 //                              OPTIMIZATION 1: SMALL VECTOR
 // ======================================================================================
 
-// A hybrid vector that stores up to N elements on the stack, and switches to heap if larger.
 template <typename T, size_t N>
 class SmallVector {
 private:
     size_t size_ = 0;
     T stack_data_[N];
-    std::vector<T> heap_data_; // Only used if size_ > N
+    std::vector<T> heap_data_; 
 
 public:
     SmallVector() = default;
@@ -104,7 +104,6 @@ public:
         }
     }
 
-    // Accessors
     T& operator[](size_t i) {
         if (size_ > N) return heap_data_[i];
         return stack_data_[i];
@@ -115,13 +114,8 @@ public:
         return stack_data_[i];
     }
 
-    const T* data() const {
-        return (size_ > N) ? heap_data_.data() : stack_data_;
-    }
-
-    T* data() {
-        return (size_ > N) ? heap_data_.data() : stack_data_;
-    }
+    const T* data() const { return (size_ > N) ? heap_data_.data() : stack_data_; }
+    T* data() { return (size_ > N) ? heap_data_.data() : stack_data_; }
 
     size_t size() const { return size_; }
     bool empty() const { return size_ == 0; }
@@ -139,13 +133,11 @@ public:
         }
     }
 
-    // Convert to std::vector for compatibility if needed
     std::vector<T> to_vector() const {
         if (size_ > N) return heap_data_;
         return std::vector<T>(stack_data_, stack_data_ + size_);
     }
     
-    // Iterators
     T* begin() { return data(); }
     T* end() { return data() + size_; }
     const T* begin() const { return data(); }
@@ -156,23 +148,18 @@ public:
 //                              OPTIMIZATION 2: INTRUSIVE POINTER
 // ======================================================================================
 
-// Base class for reference counting
 class RefCounted {
 public:
     mutable std::atomic<int32_t> ref_count_{0};
 
     RefCounted() { ref_count_.store(0, std::memory_order_relaxed); }
-    
     virtual ~RefCounted() = default;
 
     void retain() const {
         ref_count_.fetch_add(1, std::memory_order_relaxed);
     }
 
-    // Returns true if the object should be deleted
     bool release() const {
-        // atomic fetch_sub returns the PREVIOUS value. 
-        // If previous was 1, now it is 0, so we delete.
         return ref_count_.fetch_sub(1, std::memory_order_acq_rel) == 1;
     }
 };
@@ -185,23 +172,18 @@ private:
 public:
     intrusive_ptr() : ptr_(nullptr) {}
     
-    // Constructor from raw pointer (adopts ownership or retains? Standard is usually adoption for raw, 
-    // but here we manually retain usually. Let's assume we pass a new object that has ref=0).
     explicit intrusive_ptr(T* p, bool add_ref = true) : ptr_(p) {
         if (ptr_ && add_ref) ptr_->retain();
     }
 
-    // Copy Constructor
     intrusive_ptr(const intrusive_ptr& other) : ptr_(other.ptr_) {
         if (ptr_) ptr_->retain();
     }
 
-    // Move Constructor
     intrusive_ptr(intrusive_ptr&& other) noexcept : ptr_(other.ptr_) {
         other.ptr_ = nullptr;
     }
 
-    // Assignment
     intrusive_ptr& operator=(const intrusive_ptr& other) {
         if (this != &other) {
             if (ptr_ && ptr_->release()) delete ptr_;
@@ -221,9 +203,7 @@ public:
     }
 
     ~intrusive_ptr() {
-        if (ptr_ && ptr_->release()) {
-            delete ptr_;
-        }
+        if (ptr_ && ptr_->release()) delete ptr_;
     }
 
     T* get() const { return ptr_; }
@@ -237,46 +217,23 @@ public:
     }
 };
 
-
 // ----------------- Storage -----------------
 struct Storage {
     std::shared_ptr<void> data;
     size_t size = 0;
     Device device;
-    static std::shared_ptr<Storage> allocate(size_t n, DType dt, bool requires_grad = false, Device dev = Device(DeviceType::CPU));
+    
+    static std::shared_ptr<Storage> allocate(size_t n, DType dt, Device dev = Device(DeviceType::CPU));
 };
 
-// ----------------- Strides Helper -----------------
-inline SmallVector<size_t, 5> calc_strides(const SmallVector<size_t, 5>& shape) {
-    if (shape.empty()) return {};
-    SmallVector<size_t, 5> strides;
-    // We cannot resize easily with the push_back logic unless we construct sizing, 
-    // but push_back is fast enough for 5 items.
-    // However, strides calculation is reverse.
-    std::vector<size_t> temp(shape.size());
-    size_t current = 1;
-    for (int i = (int)shape.size() - 1; i >= 0; --i) {
-        temp[i] = current;
-        current *= shape[i];
-    }
-    return SmallVector<size_t, 5>(temp);
-}
-
-// ----------------- low-level impl -----------------
-// Inherits from RefCounted for Intrusive optimization
+// ----------------- Tensor Implementation -----------------
 struct Tensorimpl : public RefCounted {
     std::shared_ptr<Storage> data;
-    
-    // Grad is tricky. It refers to another Tensorimpl. 
-    // To prevent infinite recursion in definitions, we use intrusive_ptr.
-    // However, Tensor struct isn't defined yet. We use void* or forward decl.
-    // Simplest: store it as intrusive_ptr<Tensorimpl> directly.
     intrusive_ptr<Tensorimpl> grad = nullptr; 
     
     size_t offset = 0;
     size_t ndim = 0;
     
-    // OPTIMIZATION 1: SmallVector
     SmallVector<size_t, 5> shape;
     SmallVector<size_t, 5> strides;
     
@@ -284,31 +241,20 @@ struct Tensorimpl : public RefCounted {
     DType dtype = DType::Float32;
     std::shared_ptr<GradFn> grad_fn;
 
-    // Default constructor
-    Tensorimpl(const std::vector<size_t>& shape_, DType dtype_, bool requires_grad_, Device dev_)
-        : shape(shape_), strides(calc_strides(shape)), dtype(dtype_), requires_grad(requires_grad_), ndim(shape_.size()) {
-        
-        size_t total_el = 1;
-        for (auto s : shape) total_el *= s;
-        data = Storage::allocate(total_el, dtype, requires_grad, dev_);
-    }
+    Tensorimpl(const std::vector<size_t>& shape_, DType dtype_, bool requires_grad_, Device dev_);
 
-    // View constructor
     Tensorimpl(std::shared_ptr<Storage> storage_,
                size_t offset_,
                const SmallVector<size_t, 5>& shape_,
                const SmallVector<size_t, 5>& strides_,
                DType dtype_,
-               bool requires_grad_)
-        : data(storage_), offset(offset_), shape(shape_), strides(strides_), 
-          dtype(dtype_), requires_grad(requires_grad_), ndim(shape_.size()) {}
-    
+               bool requires_grad_);
+               
     virtual ~Tensorimpl() = default;
 };
 
-// ----------------- Tensor (public API) -----------------
+// ----------------- Tensor (Public API) -----------------
 struct Tensor {
-    // OPTIMIZATION 2: Intrusive Pointer usage
     intrusive_ptr<Tensorimpl> impl;
 
     Device device() const;
@@ -316,8 +262,8 @@ struct Tensor {
 
     Tensor() = default;
     
-    // Constructor declarations
     Tensor(const std::vector<size_t>& shape_, DType dtype_ = DType::Float32, bool requires_grad_ = false);
+    
     Tensor(const size_t* shape_ptr, size_t ndim, DType dtype, bool requires_grad)
         : Tensor(std::vector<size_t>(shape_ptr, shape_ptr + ndim), dtype, requires_grad) {}
 
@@ -330,31 +276,51 @@ struct Tensor {
 
     size_t numel() const;
     size_t numel_() const { return numel(); }
-    std::vector<size_t> shape() const; // Returns std::vector for user API compatibility
-    inline DType _dtype() const;
-    inline size_t dtype_bytes() const;
-    bool requires_grad() const;
+    std::vector<size_t> shape() const; 
+    
+    inline DType _dtype() const {
+        if (!impl) throw std::runtime_error("Tensor is empty");
+        return impl->dtype;
+    }
+    
+    inline size_t dtype_bytes() const {
+        if (!impl) throw std::runtime_error("Tensor is empty");
+        return dtype_size(impl->dtype);
+    }
+    
+    inline bool requires_grad() const {
+        if (!impl) return false;
+        return impl->requires_grad;
+    }
 
-    // --- Contiguity Helpers ---
+    Tensor& requires_grad_(bool b) {
+        if (impl) impl->requires_grad = b;
+        return *this;
+    }
+
     bool is_contiguous() const;
     Tensor contiguous() const; 
+    Tensor clone() const;
+    Tensor detach() const;
 
-    // data read / write helpers
-    inline double read_scalar(size_t idx) const;
-    inline void write_scalar(size_t idx, double val);
+    // Helper to read/write for internal ops
+    inline double read_scalar(size_t idx) const {
+        if (!impl) throw std::runtime_error("Tensor is empty");
+        return read_scalar_at(impl->data->data.get(), idx, impl->dtype);
+    }
 
-    // convenience constructors
+    inline void write_scalar(size_t idx, double val) {
+        if (!impl) throw std::runtime_error("Tensor is empty");
+        write_scalar_at(impl->data->data.get(), idx, impl->dtype, val);
+    }
+
+    // Constructors
     static Tensor ones(const std::vector<size_t>& shape_, DType dt = DType::Float32, bool requires_grad_ = false);
     static Tensor zeros(const std::vector<size_t>& shape_, DType dt = DType::Float32, bool requires_grad_ = false);
     static Tensor full(const std::vector<size_t>& shape_, double value, DType dt = DType::Float32, bool requires_grad_ = false);
     static Tensor rand(const std::vector<size_t>& shape_, DType dt = DType::Float32, bool requires_grad_ = false);
     static Tensor empty(const std::vector<size_t>& shape_, DType dt = DType::Float32, bool requires_grad_ = false);
     static Tensor from_vector(const std::vector<double>& data, const std::vector<size_t>& shape, DType dtype = DType::Float32, bool requires_grad = false);
-
-    Tensor clone() const;
-    Tensor detach() const;
-    Tensor detach() ;
-    Tensor& requires_grad_(bool b);
 
     // ---------------- Templated Proxy ----------------
     template <bool Writable>
@@ -382,7 +348,6 @@ struct Tensor {
             return read_scalar_at(impl->data->data.get(), offset, impl->dtype);
         }
 
-        // Helper to recursively fill a sub-tensor
         void recursive_fill(size_t current_depth, size_t current_offset, double val) {
             if (current_depth == impl->ndim) {
                 write_scalar_at(impl->data->data.get(), current_offset, impl->dtype, val);
@@ -399,7 +364,6 @@ struct Tensor {
         template <bool W = Writable, typename = std::enable_if_t<W>>
         ProxyBase& operator=(double val) {
             if (!impl) throw std::runtime_error("Invalid tensor");
-            
             if (depth == impl->ndim) {
                 write_scalar_at(impl->data->data.get(), offset, impl->dtype, val);
             } else {
@@ -420,7 +384,7 @@ struct Tensor {
     Proxy operator[](size_t i);
     ConstProxy operator[](size_t i) const;
 
-    // shape ops
+    // Ops
     Tensor astype(DType new_dtype) const;
     void to_(DType new_dtype);
     Tensor& t_(); 
@@ -433,11 +397,13 @@ struct Tensor {
     Tensor flatten() const;
     void print_shape() const;
     
+    // I/O
     static Tensor from_image(const std::string& path, DType dt = DType::Float32);
     void save_image(const std::string& path) const;
 
     Tensor gather(const Tensor& index, size_t dim=1) const;
     
+    // Autograd
     std::shared_ptr<GradFn> grad_fn;
 
     void backward(); 
@@ -445,93 +411,37 @@ struct Tensor {
     Tensor grad() const {
         if (!impl || !impl->grad) return Tensor();
         Tensor g;
-        g.impl = impl->grad; // Copying intrusive_ptr increments count
+        g.impl = impl->grad; 
         return g;
     }
 
     void zero_grad();
 };
 
-
-#ifdef USE_CUDA
-    #include <cuda_runtime.h>
-#endif
-
-
-// ---------- inline small wrappers ----------
-inline DType Tensor::_dtype() const {
-    if (!impl) throw std::runtime_error("Tensor is empty");
-    return impl->dtype;
-}
-
-inline size_t Tensor::dtype_bytes() const {
-    if (!impl) throw std::runtime_error("Tensor is empty");
-    return dtype_size(impl->dtype);
-}
-
-inline double Tensor::read_scalar(size_t idx) const {
-    if (!impl) throw std::runtime_error("Tensor is empty");
-    return read_scalar_at(impl->data->data.get(), idx, impl->dtype);
-}
-
-inline void Tensor::write_scalar(size_t idx, double val) {
-    if (!impl) throw std::runtime_error("Tensor is empty");
-    write_scalar_at(impl->data->data.get(), idx, impl->dtype, val);
-}
-
-inline bool Tensor::requires_grad() const {
-    if (!impl) throw std::runtime_error("Tensor is empty");
-    return impl->requires_grad;
-}
-
-inline Tensor::Tensor(const std::vector<size_t>& shape_, DType dtype_, bool requires_grad_) {
-    // Manually allocate and wrap in intrusive_ptr
-    Tensorimpl* raw = new Tensorimpl(shape_, dtype_, requires_grad_, Device(DeviceType::CPU));
-    impl = intrusive_ptr<Tensorimpl>(raw); 
-}
-
-inline Tensor::Proxy Tensor::operator[](size_t i) {
-    if (!impl) throw std::runtime_error("Invalid tensor");
-    if (impl->ndim == 0) throw std::out_of_range("Cannot index scalar");
-    if (i >= impl->shape[0]) throw std::out_of_range("Index out of bounds");
-    return Proxy(impl, impl->offset + i * impl->strides[0], 1);
-}
-
-inline Tensor::ConstProxy Tensor::operator[](size_t i) const {
-    if (!impl) throw std::runtime_error("Invalid tensor");
-    if (impl->ndim == 0) throw std::out_of_range("Cannot index scalar");
-    if (i >= impl->shape[0]) throw std::out_of_range("Index out of bounds");
-    return ConstProxy(impl, impl->offset + i * impl->strides[0], 1);
-}
-
-inline std::vector<size_t> Tensor::shape() const {
-    if(!impl) return {};
-    return impl->shape.to_vector();
-}
-
-inline size_t Tensor::numel() const {
-    if(!impl) return 0;
-    size_t n = 1;
-    for(auto s : impl->shape) n *= s;
-    return n;
-}
 inline void print_t(const Tensor& t) {
+    if (!t.impl) { std::cout << "Empty Tensor\n"; return; }
     size_t n = t.numel_();
     std::cout << "[";
     for (size_t i = 0; i < n; i++) {
+        if (i > 20) { std::cout << "..."; break; }
         double v = read_scalar_at(t.impl->data->data.get(), i, t.impl->dtype);
         std::cout << v;
         if (i != n - 1) std::cout << ", ";
     }
     std::cout << "]\n";
-    
 }
+
 inline const char* dtype_to_str(DType dt) {
     switch (dt) {
         case DType::Float32: return "float32";
         case DType::Double64: return "double64";
         case DType::Int32:   return "int32";
         case DType::Int64:   return "int64";
+        case DType::Bool:    return "bool";
+        case DType::UInt8:   return "uint8";
+        case DType::Int8:    return "int8";
+        case DType::Int16:   return "int16";
+        case DType::Float16: return "float16";
         default:             return "unknown";
     }
 }
