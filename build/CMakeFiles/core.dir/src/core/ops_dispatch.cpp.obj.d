@@ -1,6 +1,6 @@
 CMakeFiles/core.dir/src/core/ops_dispatch.cpp.obj: \
  D:\C\ programs\CTensor\src\core\ops_dispatch.cpp \
- D:\C\ programs\CTensor\src\core\dispatch.h \
+ D:\C\ programs\CTensor\src\core\ops_dispatch.h \
  D:\C\ programs\CTensor\src\core\tensor.h \
  D:\C\ programs\CTensor\src\core\device.h \
  C:/msys64/mingw64/include/c++/15.2.0/string \
@@ -201,6 +201,14 @@ CMakeFiles/core.dir/src/core/ops_dispatch.cpp.obj: \
  C:/msys64/mingw64/include/c++/15.2.0/numeric \
  C:/msys64/mingw64/include/c++/15.2.0/bits/stl_numeric.h \
  C:/msys64/mingw64/include/c++/15.2.0/pstl/glue_numeric_defs.h \
+ C:/msys64/mingw64/include/c++/15.2.0/atomic \
+ C:/msys64/mingw64/include/c++/15.2.0/algorithm \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/stl_algo.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/algorithmfwd.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/stl_heap.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/uniform_int_dist.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/ranges_algo.h \
+ C:/msys64/mingw64/include/c++/15.2.0/pstl/glue_algorithm_defs.h \
  D:\C\ programs\CTensor\src\core\opsmp.h \
  C:/msys64/mingw64/include/c++/15.2.0/cstring \
  C:/msys64/mingw64/include/string.h \
@@ -337,14 +345,6 @@ CMakeFiles/core.dir/src/core/ops_dispatch.cpp.obj: \
  C:/msys64/mingw64/include/c++/15.2.0/bits/stl_tree.h \
  C:/msys64/mingw64/include/c++/15.2.0/bits/stl_set.h \
  C:/msys64/mingw64/include/c++/15.2.0/bits/stl_multiset.h \
- C:/msys64/mingw64/include/c++/15.2.0/algorithm \
- C:/msys64/mingw64/include/c++/15.2.0/bits/stl_algo.h \
- C:/msys64/mingw64/include/c++/15.2.0/bits/algorithmfwd.h \
- C:/msys64/mingw64/include/c++/15.2.0/bits/stl_heap.h \
- C:/msys64/mingw64/include/c++/15.2.0/bits/uniform_int_dist.h \
- C:/msys64/mingw64/include/c++/15.2.0/bits/ranges_algo.h \
- C:/msys64/mingw64/include/c++/15.2.0/pstl/glue_algorithm_defs.h \
- D:\C\ programs\CTensor\src\core\ops_dispatch.h \
  D:/C\ programs/CTensor/src/cpu/AVX2/ops_avx2_d64.h \
  D:/C\ programs/CTensor/src/cpu/AVX2/ops_avx2_f32.h \
  D:/C\ programs/CTensor/src/cpu/AVX512/ops_avx512_f32.h \

@@ -10,6 +10,7 @@ CMakeFiles/core.dir/src/core/autograd.cpp.obj: D:/C\ programs/CTensor/src/core/a
   C:/msys64/mingw64/include/_timeval.h \
   C:/msys64/mingw64/include/c++/15.2.0/algorithm \
   C:/msys64/mingw64/include/c++/15.2.0/array \
+  C:/msys64/mingw64/include/c++/15.2.0/atomic \
   C:/msys64/mingw64/include/c++/15.2.0/backward/auto_ptr.h \
   C:/msys64/mingw64/include/c++/15.2.0/backward/binders.h \
   C:/msys64/mingw64/include/c++/15.2.0/bit \
@@ -507,6 +508,7 @@ CMakeFiles/core.dir/src/core/ops_dispatch.cpp.obj: D:/C\ programs/CTensor/src/co
   C:/msys64/mingw64/include/_timeval.h \
   C:/msys64/mingw64/include/c++/15.2.0/algorithm \
   C:/msys64/mingw64/include/c++/15.2.0/array \
+  C:/msys64/mingw64/include/c++/15.2.0/atomic \
   C:/msys64/mingw64/include/c++/15.2.0/backward/auto_ptr.h \
   C:/msys64/mingw64/include/c++/15.2.0/backward/binders.h \
   C:/msys64/mingw64/include/c++/15.2.0/bit \
@@ -847,7 +849,6 @@ CMakeFiles/core.dir/src/core/ops_dispatch.cpp.obj: D:/C\ programs/CTensor/src/co
   D:/C\ programs/CTensor/src/cpu/AVX512/ops_avx512_f32.h \
   D:/C\ programs/CTensor/src/core/autograd.h \
   D:/C\ programs/CTensor/src/core/device.h \
-  D:/C\ programs/CTensor/src/core/dispatch.h \
   D:/C\ programs/CTensor/src/core/ops_dispatch.h \
   D:/C\ programs/CTensor/src/core/opsmp.h \
   D:/C\ programs/CTensor/src/core/tensor.h
@@ -861,6 +862,7 @@ CMakeFiles/core.dir/src/core/tensor.cpp.obj: D:/C\ programs/CTensor/src/core/ten
   C:/msys64/mingw64/include/_timeval.h \
   C:/msys64/mingw64/include/c++/15.2.0/algorithm \
   C:/msys64/mingw64/include/c++/15.2.0/array \
+  C:/msys64/mingw64/include/c++/15.2.0/atomic \
   C:/msys64/mingw64/include/c++/15.2.0/backward/auto_ptr.h \
   C:/msys64/mingw64/include/c++/15.2.0/backward/binders.h \
   C:/msys64/mingw64/include/c++/15.2.0/bit \
@@ -974,7 +976,6 @@ CMakeFiles/core.dir/src/core/tensor.cpp.obj: D:/C\ programs/CTensor/src/core/ten
   C:/msys64/mingw64/include/c++/15.2.0/cstdio \
   C:/msys64/mingw64/include/c++/15.2.0/cstdlib \
   C:/msys64/mingw64/include/c++/15.2.0/cstring \
-  C:/msys64/mingw64/include/c++/15.2.0/ctime \
   C:/msys64/mingw64/include/c++/15.2.0/cwchar \
   C:/msys64/mingw64/include/c++/15.2.0/cwctype \
   C:/msys64/mingw64/include/c++/15.2.0/debug/assertions.h \
@@ -1081,14 +1082,11 @@ CMakeFiles/core.dir/src/core/tensor.cpp.obj: D:/C\ programs/CTensor/src/core/ten
   C:/msys64/mingw64/include/wctype.h \
   C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/limits.h \
   C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/mm_malloc.h \
-  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/omp.h \
   C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/stddef.h \
   C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/stdint.h \
   C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/syslimits.h \
   D:/C\ programs/CTensor/src/core/autograd.h \
-  D:/C\ programs/CTensor/src/core/data.h \
   D:/C\ programs/CTensor/src/core/device.h \
-  D:/C\ programs/CTensor/src/core/dispatch.h \
   D:/C\ programs/CTensor/src/core/ops_dispatch.h \
   D:/C\ programs/CTensor/src/core/tensor.h
 
@@ -1124,6 +1122,10 @@ C:/msys64/mingw64/include/_mingw_stat64.h:
 C:/msys64/mingw64/include/malloc.h:
 
 C:/msys64/mingw64/include/c++/15.2.0/array:
+
+C:/msys64/mingw64/include/c++/15.2.0/bits/erase_if.h:
+
+C:/msys64/mingw64/include/c++/15.2.0/atomic:
 
 C:/msys64/mingw64/include/c++/15.2.0/backward/auto_ptr.h:
 
@@ -1211,8 +1213,6 @@ C:/msys64/mingw64/include/c++/15.2.0/bits/cxxabi_init_exception.h:
 
 C:/msys64/mingw64/include/c++/15.2.0/bits/enable_special_members.h:
 
-C:/msys64/mingw64/include/c++/15.2.0/bits/erase_if.h:
-
 C:/msys64/mingw64/include/c++/15.2.0/bits/exception.h:
 
 C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/amxtf32intrin.h:
@@ -1245,10 +1245,6 @@ C:/msys64/mingw64/include/c++/15.2.0/bits/locale_classes.h:
 
 C:/msys64/mingw64/include/c++/15.2.0/bits/memory_resource.h:
 
-C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/avx10_2-512convertintrin.h:
-
-C:/msys64/mingw64/include/c++/15.2.0/bits/range_access.h:
-
 C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/fxsrintrin.h:
 
 D:/C\ programs/CTensor/src/core/stb_image_write.h:
@@ -1270,6 +1266,10 @@ C:/msys64/mingw64/include/c++/15.2.0/bits/ostream.h:
 C:/msys64/mingw64/include/c++/15.2.0/bits/locale_facets_nonio.h:
 
 C:/msys64/mingw64/include/c++/15.2.0/bits/ostream_insert.h:
+
+C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/avx10_2-512convertintrin.h:
+
+C:/msys64/mingw64/include/c++/15.2.0/bits/range_access.h:
 
 C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/wbnoinvdintrin.h:
 
@@ -1880,5 +1880,3 @@ C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/xsavesintrin.h:
 C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/xtestintrin.h:
 
 D:/C\ programs/CTensor/src/cpu/AVX2/ops_avx2_f32.h:
-
-D:/C\ programs/CTensor/src/core/dispatch.h:
