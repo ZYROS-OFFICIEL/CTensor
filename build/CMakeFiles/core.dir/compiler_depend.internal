@@ -11,6 +11,7 @@ CMakeFiles/core.dir/src/core/autograd.cpp.obj
  C:/msys64/mingw64/include/_timeval.h
  C:/msys64/mingw64/include/c++/15.2.0/algorithm
  C:/msys64/mingw64/include/c++/15.2.0/array
+ C:/msys64/mingw64/include/c++/15.2.0/atomic
  C:/msys64/mingw64/include/c++/15.2.0/backward/auto_ptr.h
  C:/msys64/mingw64/include/c++/15.2.0/backward/binders.h
  C:/msys64/mingw64/include/c++/15.2.0/bit
@@ -510,6 +511,7 @@ CMakeFiles/core.dir/src/core/ops_dispatch.cpp.obj
  C:/msys64/mingw64/include/_timeval.h
  C:/msys64/mingw64/include/c++/15.2.0/algorithm
  C:/msys64/mingw64/include/c++/15.2.0/array
+ C:/msys64/mingw64/include/c++/15.2.0/atomic
  C:/msys64/mingw64/include/c++/15.2.0/backward/auto_ptr.h
  C:/msys64/mingw64/include/c++/15.2.0/backward/binders.h
  C:/msys64/mingw64/include/c++/15.2.0/bit
@@ -850,7 +852,6 @@ CMakeFiles/core.dir/src/core/ops_dispatch.cpp.obj
  D:/C programs/CTensor/src/cpu/AVX512/ops_avx512_f32.h
  D:/C programs/CTensor/src/core/autograd.h
  D:/C programs/CTensor/src/core/device.h
- D:/C programs/CTensor/src/core/dispatch.h
  D:/C programs/CTensor/src/core/ops_dispatch.h
  D:/C programs/CTensor/src/core/opsmp.h
  D:/C programs/CTensor/src/core/tensor.h
@@ -865,6 +866,7 @@ CMakeFiles/core.dir/src/core/tensor.cpp.obj
  C:/msys64/mingw64/include/_timeval.h
  C:/msys64/mingw64/include/c++/15.2.0/algorithm
  C:/msys64/mingw64/include/c++/15.2.0/array
+ C:/msys64/mingw64/include/c++/15.2.0/atomic
  C:/msys64/mingw64/include/c++/15.2.0/backward/auto_ptr.h
  C:/msys64/mingw64/include/c++/15.2.0/backward/binders.h
  C:/msys64/mingw64/include/c++/15.2.0/bit
@@ -978,7 +980,6 @@ CMakeFiles/core.dir/src/core/tensor.cpp.obj
  C:/msys64/mingw64/include/c++/15.2.0/cstdio
  C:/msys64/mingw64/include/c++/15.2.0/cstdlib
  C:/msys64/mingw64/include/c++/15.2.0/cstring
- C:/msys64/mingw64/include/c++/15.2.0/ctime
  C:/msys64/mingw64/include/c++/15.2.0/cwchar
  C:/msys64/mingw64/include/c++/15.2.0/cwctype
  C:/msys64/mingw64/include/c++/15.2.0/debug/assertions.h
@@ -1085,14 +1086,11 @@ CMakeFiles/core.dir/src/core/tensor.cpp.obj
  C:/msys64/mingw64/include/wctype.h
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/limits.h
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/mm_malloc.h
- C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/omp.h
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/stddef.h
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/stdint.h
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/syslimits.h
  D:/C programs/CTensor/src/core/autograd.h
- D:/C programs/CTensor/src/core/data.h
  D:/C programs/CTensor/src/core/device.h
- D:/C programs/CTensor/src/core/dispatch.h
  D:/C programs/CTensor/src/core/ops_dispatch.h
  D:/C programs/CTensor/src/core/tensor.h
 

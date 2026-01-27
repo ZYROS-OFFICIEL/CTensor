@@ -10,6 +10,7 @@ CMakeFiles/opsmp.dir/src/core/opsmp.cpp.obj: D:/C\ programs/CTensor/src/core/ops
   C:/msys64/mingw64/include/_timeval.h \
   C:/msys64/mingw64/include/c++/15.2.0/algorithm \
   C:/msys64/mingw64/include/c++/15.2.0/array \
+  C:/msys64/mingw64/include/c++/15.2.0/atomic \
   C:/msys64/mingw64/include/c++/15.2.0/backward/auto_ptr.h \
   C:/msys64/mingw64/include/c++/15.2.0/backward/binders.h \
   C:/msys64/mingw64/include/c++/15.2.0/bit \
@@ -386,6 +387,10 @@ C:/msys64/mingw64/include/malloc.h:
 
 C:/msys64/mingw64/include/c++/15.2.0/array:
 
+C:/msys64/mingw64/include/c++/15.2.0/bits/erase_if.h:
+
+C:/msys64/mingw64/include/c++/15.2.0/atomic:
+
 C:/msys64/mingw64/include/c++/15.2.0/backward/auto_ptr.h:
 
 C:/msys64/mingw64/include/c++/15.2.0/bits/hashtable.h:
@@ -470,8 +475,6 @@ C:/msys64/mingw64/include/c++/15.2.0/bits/cxxabi_init_exception.h:
 
 C:/msys64/mingw64/include/c++/15.2.0/bits/enable_special_members.h:
 
-C:/msys64/mingw64/include/c++/15.2.0/bits/erase_if.h:
-
 C:/msys64/mingw64/include/c++/15.2.0/bits/exception.h:
 
 C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/amxtf32intrin.h:
@@ -502,10 +505,6 @@ C:/msys64/mingw64/include/c++/15.2.0/bits/locale_classes.h:
 
 C:/msys64/mingw64/include/c++/15.2.0/bits/memory_resource.h:
 
-C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/avx10_2-512convertintrin.h:
-
-C:/msys64/mingw64/include/c++/15.2.0/bits/range_access.h:
-
 C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/fxsrintrin.h:
 
 C:/msys64/mingw64/include/c++/15.2.0/bits/memoryfwd.h:
@@ -523,6 +522,10 @@ C:/msys64/mingw64/include/c++/15.2.0/x86_64-w64-mingw32/bits/os_defines.h:
 C:/msys64/mingw64/include/c++/15.2.0/bits/ostream.h:
 
 C:/msys64/mingw64/include/c++/15.2.0/bits/ostream_insert.h:
+
+C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/avx10_2-512convertintrin.h:
+
+C:/msys64/mingw64/include/c++/15.2.0/bits/range_access.h:
 
 C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/wbnoinvdintrin.h:
 
