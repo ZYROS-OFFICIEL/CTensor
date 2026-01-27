@@ -1,5 +1,4 @@
-#include "opsmp.h"
-#include "autograd.h"
+// Standard headers FIRST to prevent issues if local headers are malformed
 #include <algorithm>
 #include <stdexcept>
 #include <omp.h>
@@ -7,6 +6,10 @@
 #include <limits>
 #include <iostream>
 #include <cstring> 
+
+// Local headers AFTER
+#include "opsmp.h"
+#include "autograd.h"
 
 // ======================================================================================
 //                                      HELPERS
