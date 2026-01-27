@@ -1,8 +1,8 @@
 #include <iostream>
 #include <chrono>
-#include "tensor.h"
-#include "opsmp.h"
-#include "ops_dispatch.h"
+#include "core/tensor.h"
+#include "core/opsmp.h"
+#include "core/ops_dispatch.h"
 main(){
     
     Tensor a = Tensor::rand({1000, 1000}, DType::Float32);
