@@ -1,318 +1,296 @@
 #include "tensor.h"
-#include <cstdlib>
+#include "autograd.h"
 #include <cstring>
-#include <random>
 #include <iostream>
-#include <omp.h>
+#include <numeric>
+#include <algorithm>
+#include <cstdlib>
 
-#ifdef _WIN32
-    #include <malloc.h>
-    #define aligned_alloc(alignment, size) _aligned_malloc(size, alignment)
-    #define aligned_free _aligned_free
-#else
-    #define aligned_free free
-#endif
-
-// ----------------- Storage Implementation -----------------
-
-std::shared_ptr<Storage> Storage::allocate(size_t n, DType dt, Device dev) {
+// ==========================================================
+// Storage Implementation
+// ==========================================================
+std::shared_ptr<Storage> Storage::allocate(size_t n, DType dt, bool requires_grad, Device dev) {
     auto s = std::make_shared<Storage>();
     s->size = n;
     s->device = dev;
+    size_t bytes = n * dtype_size(dt);
     
-    size_t nbytes = n * dtype_size(dt);
-    
-    if (dev.is_cpu()) {
-        if (nbytes == 0) {
-            s->data = nullptr;
-        } else {
-            // Allocate 64-byte aligned memory for AVX-512
-            void* ptr = nullptr;
-            #ifdef _WIN32
-                ptr = _aligned_malloc(nbytes, 64);
-            #else
-                if (posix_memalign(&ptr, 64, nbytes) != 0) ptr = nullptr;
-            #endif
-            
-            if (!ptr) throw std::runtime_error("Memory allocation failed");
-            
-            // Custom deleter for shared_ptr
-            s->data = std::shared_ptr<void>(ptr, [](void* p) { 
-                #ifdef _WIN32
-                    _aligned_free(p);
-                #else
-                    free(p);
-                #endif
-            });
-        }
-    } else {
-        throw std::runtime_error("CUDA/GPU not implemented in this build");
+    if (dev.type == DeviceType::CPU) {
+        // Allocate zero-initialized memory
+        void* ptr = std::calloc(n, dtype_size(dt));
+        if (!ptr && n > 0) throw std::runtime_error("Memory allocation failed");
+        s->data = std::shared_ptr<void>(ptr, std::free);
     }
-    
+    // CUDA allocation would go here
     return s;
 }
 
-// ----------------- Helper: Strides -----------------
-static SmallVector<size_t, 5> calc_strides(const SmallVector<size_t, 5>& shape) {
-    if (shape.empty()) return {};
-    std::vector<size_t> temp(shape.size());
-    size_t current = 1;
-    for (int i = (int)shape.size() - 1; i >= 0; --i) {
-        temp[i] = current;
-        current *= shape[i];
-    }
-    return SmallVector<size_t, 5>(temp);
+// ==========================================================
+// Tensor Methods
+// ==========================================================
+
+Device Tensor::device() const {
+    if(!impl) return Device(DeviceType::CPU);
+    return impl->data->device;
 }
 
-// ----------------- Tensorimpl Constructors -----------------
-
-Tensorimpl::Tensorimpl(const std::vector<size_t>& shape_, DType dtype_, bool requires_grad_, Device dev_)
-    : shape(shape_), dtype(dtype_), requires_grad(requires_grad_), ndim(shape_.size()) 
-{
-    strides = calc_strides(shape);
-    size_t total_el = 1;
-    for (auto s : shape) total_el *= s;
-    data = Storage::allocate(total_el, dtype, dev_);
+Tensor Tensor::to(Device target_device) {
+    if (device().type == target_device.type) return *this;
+    // Placeholder: Clone for now (real impl would move data between CPU/GPU)
+    return clone(); 
 }
 
-Tensorimpl::Tensorimpl(std::shared_ptr<Storage> storage_,
-                       size_t offset_,
-                       const SmallVector<size_t, 5>& shape_,
-                       const SmallVector<size_t, 5>& strides_,
-                       DType dtype_,
-                       bool requires_grad_)
-    : data(storage_), offset(offset_), shape(shape_), strides(strides_), 
-      dtype(dtype_), requires_grad(requires_grad_), ndim(shape_.size()) {}
-
-// ----------------- Tensor Implementation -----------------
-
-Tensor::Tensor(const std::vector<size_t>& shape_, DType dtype_, bool requires_grad_) {
-    Tensorimpl* raw = new Tensorimpl(shape_, dtype_, requires_grad_, Device(DeviceType::CPU));
-    impl = intrusive_ptr<Tensorimpl>(raw); 
-}
-
-size_t Tensor::numel() const {
-    if(!impl) return 0;
-    size_t n = 1;
-    for(size_t i=0; i<impl->ndim; ++i) n *= impl->shape[i];
-    return n;
-}
-
-std::vector<size_t> Tensor::shape() const {
-    if(!impl) return {};
-    return impl->shape.to_vector();
-}
-
-Device Tensor::device() const { 
-    return impl ? impl->data->device : Device(DeviceType::CPU); 
-}
-
-Tensor::Proxy Tensor::operator[](size_t i) {
-    if (!impl) throw std::runtime_error("Invalid tensor");
-    if (impl->ndim == 0) throw std::out_of_range("Cannot index scalar");
-    if (i >= impl->shape[0]) throw std::out_of_range("Index out of bounds");
-    return Proxy(impl, impl->offset + i * impl->strides[0], 1);
-}
-
-Tensor::ConstProxy Tensor::operator[](size_t i) const {
-    if (!impl) throw std::runtime_error("Invalid tensor");
-    if (impl->ndim == 0) throw std::out_of_range("Cannot index scalar");
-    if (i >= impl->shape[0]) throw std::out_of_range("Index out of bounds");
-    return ConstProxy(impl, impl->offset + i * impl->strides[0], 1);
-}
-
-// ----------------- Tensor Factories -----------------
-
-Tensor Tensor::empty(const std::vector<size_t>& shape_, DType dt, bool requires_grad) {
-    return Tensor(shape_, dt, requires_grad);
-}
-
-Tensor Tensor::zeros(const std::vector<size_t>& shape_, DType dt, bool requires_grad) {
-    Tensor t(shape_, dt, requires_grad);
-    size_t n = t.numel();
-    size_t nb = n * dtype_size(dt);
-    if (nb > 0 && t.impl->data->data) {
-        std::memset(t.impl->data->data.get(), 0, nb);
-    }
-    return t;
-}
-
-Tensor Tensor::ones(const std::vector<size_t>& shape_, DType dt, bool requires_grad) {
-    return full(shape_, 1.0, dt, requires_grad);
-}
-
-Tensor Tensor::full(const std::vector<size_t>& shape_, double value, DType dt, bool requires_grad) {
-    Tensor t(shape_, dt, requires_grad);
-    size_t n = t.numel();
-    auto* ptr = t.impl->data->data.get();
+Tensor Tensor::clone() const {
+    if (!impl) return Tensor();
+    // Create new tensor with same properties
+    Tensor out(impl->shape.to_vector(), impl->dtype, impl->requires_grad);
     
-    // Parallel fill
-    #pragma omp parallel for
-    for(size_t i=0; i<n; ++i) {
-        write_scalar_at(ptr, i, dt, value);
-    }
-    return t;
-}
-
-Tensor Tensor::rand(const std::vector<size_t>& shape_, DType dt, bool requires_grad) {
-    Tensor t(shape_, dt, requires_grad);
-    size_t n = t.numel();
-    auto* ptr = t.impl->data->data.get();
-    
-    // Thread-safe random generation
-    #pragma omp parallel
-    {
-        std::mt19937 rng(std::random_device{}() + omp_get_thread_num());
-        std::uniform_real_distribution<double> dist(0.0, 1.0);
-        
-        #pragma omp for
-        for(size_t i=0; i<n; ++i) {
-            write_scalar_at(ptr, i, dt, dist(rng));
-        }
-    }
-    return t;
-}
-
-Tensor Tensor::from_vector(const std::vector<double>& data, const std::vector<size_t>& shape, DType dtype, bool requires_grad) {
-    Tensor t(shape, dtype, requires_grad);
-    if (t.numel() != data.size()) throw std::runtime_error("Size mismatch in from_vector");
-    
-    size_t n = data.size();
-    auto* ptr = t.impl->data->data.get();
-    
-    #pragma omp parallel for
-    for(size_t i=0; i<n; ++i) {
-        write_scalar_at(ptr, i, dtype, data[i]);
-    }
-    return t;
-}
-
-// ----------------- Contiguity & Reshape -----------------
-
-bool Tensor::is_contiguous() const {
-    if (!impl) return false;
-    size_t z = 1;
-    for (int i = (int)impl->ndim - 1; i >= 0; --i) {
-        if (impl->strides[i] != z) return false;
-        z *= impl->shape[i];
-    }
-    return true;
-}
-
-Tensor Tensor::contiguous() const {
-    if (is_contiguous()) return *this;
-    
-    Tensor out(shape(), _dtype(), false); // New packed tensor
-    out.requires_grad_(requires_grad());
-    
-    // Generic copy with stride logic
-    // Flatten loop using index mapping
-    size_t n = numel();
-    auto* out_ptr = out.impl->data->data.get();
-    auto* in_ptr = impl->data->data.get();
-    size_t in_offset = impl->offset;
-    DType dt = _dtype();
-    
-    const size_t* shape_ptr = impl->shape.data();
-    const size_t* stride_ptr = impl->strides.data();
-    size_t ndim = impl->ndim;
-
-    #pragma omp parallel for
-    for (size_t i = 0; i < n; ++i) {
-        size_t temp = i;
-        size_t current_idx = in_offset;
-        for (int d = (int)ndim - 1; d >= 0; --d) {
-            size_t sz = shape_ptr[d];
-            size_t coord = temp % sz;
-            temp /= sz;
-            current_idx += coord * stride_ptr[d];
-        }
-        double val = read_scalar_at(in_ptr, current_idx, dt);
-        write_scalar_at(out_ptr, i, dt, val);
+    // Deep copy data
+    size_t bytes = numel() * dtype_bytes();
+    if (impl->data && impl->data->data && out.impl->data && out.impl->data->data) {
+        std::memcpy(out.impl->data->data.get(), impl->data->data.get(), bytes);
     }
     return out;
 }
 
-Tensor Tensor::reshape(const std::vector<size_t>& new_shape) const {
-    size_t n = numel();
-    size_t new_n = 1;
-    bool has_minus = false;
-    int minus_idx = -1;
-    
-    std::vector<size_t> final_shape = new_shape;
-    for(size_t i=0; i<new_shape.size(); ++i) {
-        if (new_shape[i] == (size_t)-1) {
-            if (has_minus) throw std::runtime_error("Only one dim can be -1");
-            has_minus = true;
-            minus_idx = i;
-        } else {
-            new_n *= new_shape[i];
-        }
-    }
-    
-    if (has_minus) {
-        if (n % new_n != 0) throw std::runtime_error("Invalid reshape");
-        final_shape[minus_idx] = n / new_n;
-    } else {
-        if (n != new_n) throw std::runtime_error("Numel mismatch");
-    }
+Tensor Tensor::detach() const {
+    if (!impl) return Tensor();
+    Tensor out;
+    // Create new impl pointing to SAME storage, but no grad history
+    out.impl = intrusive_ptr<Tensorimpl>(new Tensorimpl(
+        impl->data,
+        impl->offset,
+        impl->shape,
+        impl->strides,
+        impl->dtype,
+        false // requires_grad = false
+    ));
+    return out;
+}
 
-    if (is_contiguous()) {
-        // Create view
-        Tensorimpl* view = new Tensorimpl(
-            impl->data, impl->offset, 
-            SmallVector<size_t, 5>(final_shape), 
-            calc_strides(SmallVector<size_t, 5>(final_shape)), 
-            impl->dtype, impl->requires_grad
-        );
-        Tensor t;
-        t.impl = intrusive_ptr<Tensorimpl>(view);
-        return t;
-    } else {
-        return contiguous().reshape(final_shape);
+Tensor Tensor::detach() {
+   return static_cast<const Tensor*>(this)->detach();
+}
+
+void Tensor::backward() {
+    if (impl && impl->requires_grad) {
+        ::backward(*this); 
     }
 }
 
+void Tensor::zero_grad() {
+    if (!impl || !impl->grad) return;
+    // Zero out grad buffer
+    size_t bytes = numel() * dtype_bytes();
+    if (impl->grad->data && impl->grad->data->data) {
+        std::memset(impl->grad->data->data.get(), 0, bytes);
+    }
+}
+
+// --- Shape Manipulations ---
+
+Tensor Tensor::reshape(const std::vector<size_t>& new_shape) const {
+    if (!impl) throw std::runtime_error("Reshape on empty tensor");
+    
+    size_t new_n = 1;
+    for(auto s : new_shape) new_n *= s;
+    if (new_n != numel()) throw std::runtime_error("Reshape size mismatch");
+    
+    // If not contiguous, we must clone to pack data before reshaping
+    if (!is_contiguous()) {
+        return contiguous().reshape(new_shape);
+    }
+
+    Tensor out;
+    out.impl = intrusive_ptr<Tensorimpl>(new Tensorimpl(
+        impl->data,
+        impl->offset,
+        SmallVector<size_t, 5>(new_shape),
+        calc_strides(SmallVector<size_t, 5>(new_shape)), // Recalculate strides for standard C-order
+        impl->dtype,
+        impl->requires_grad
+    ));
+    return out;
+}
+
 Tensor Tensor::permute(const std::vector<size_t>& dims) const {
-    if (dims.size() != impl->ndim) throw std::runtime_error("Permute dims mismatch");
+    if (!impl) throw std::runtime_error("Permute on empty tensor");
+    if (dims.size() != impl->ndim) throw std::runtime_error("Permute dim mismatch");
     
     SmallVector<size_t, 5> new_shape;
     SmallVector<size_t, 5> new_strides;
     
-    for(size_t d : dims) {
-        if (d >= impl->ndim) throw std::out_of_range("Permute dim OOB");
+    for(auto d : dims) {
+        if (d >= impl->ndim) throw std::out_of_range("Permute dimension out of range");
         new_shape.push_back(impl->shape[d]);
         new_strides.push_back(impl->strides[d]);
     }
     
-    Tensorimpl* view = new Tensorimpl(
-        impl->data, impl->offset, new_shape, new_strides, impl->dtype, impl->requires_grad
-    );
-    Tensor t;
-    t.impl = intrusive_ptr<Tensorimpl>(view);
+    Tensor out;
+    out.impl = intrusive_ptr<Tensorimpl>(new Tensorimpl(
+        impl->data,
+        impl->offset,
+        new_shape,
+        new_strides,
+        impl->dtype,
+        impl->requires_grad
+    ));
+    return out;
+}
+
+Tensor Tensor::contiguous() const {
+    if (is_contiguous()) return *this;
+    return clone(); // clone() performs a packed deep copy
+}
+
+bool Tensor::is_contiguous() const {
+    if (!impl) return true;
+    size_t z = 1;
+    for (int i = (int)impl->ndim - 1; i >= 0; --i) {
+        if (impl->shape[i] > 1) {
+            if (impl->strides[i] != z) return false;
+            z *= impl->shape[i];
+        }
+    }
+    return true;
+}
+
+// --- Constructors ---
+
+Tensor Tensor::ones(const std::vector<size_t>& shape, DType dt, bool req) {
+    Tensor t(shape, dt, req);
+    size_t n = t.numel();
+    
+    // Simple fill loop
+    if (dt == DType::Float32) {
+        float* ptr = (float*)t.impl->data->data.get();
+        std::fill(ptr, ptr+n, 1.0f);
+    } else {
+        // Fallback for double
+        double* ptr = (double*)t.impl->data->data.get();
+        std::fill(ptr, ptr+n, 1.0);
+    }
     return t;
 }
 
-void Tensor::zero_grad() {
-    if (impl && impl->grad) {
-        size_t nbytes = numel() * dtype_bytes();
-        if (impl->grad->data && impl->grad->data->data) {
-             std::memset(impl->grad->data->data.get(), 0, nbytes);
-        }
+Tensor Tensor::zeros(const std::vector<size_t>& shape, DType dt, bool req) {
+     // calloc in Storage::allocate already handles zero initialization
+     return Tensor(shape, dt, req);
+}
+
+Tensor Tensor::rand(const std::vector<size_t>& shape, DType dt, bool req) {
+    Tensor t(shape, dt, req);
+    size_t n = t.numel();
+    if (dt == DType::Float32) {
+        float* ptr = (float*)t.impl->data->data.get();
+        for(size_t i=0; i<n; ++i) ptr[i] = (float)std::rand() / RAND_MAX;
+    } else {
+        double* ptr = (double*)t.impl->data->data.get();
+        for(size_t i=0; i<n; ++i) ptr[i] = (double)std::rand() / RAND_MAX;
     }
+    return t;
 }
 
-Tensor Tensor::clone() const {
-    return contiguous(); // Contiguous creates a copy
-}
-
-Tensor Tensor::detach() const {
-    Tensor t = *this; // Share data
-    // Create new impl that points to same data but no grad history
-    Tensorimpl* det = new Tensorimpl(
-        impl->data, impl->offset, impl->shape, impl->strides, impl->dtype, false
-    );
-    Tensor out;
-    out.impl = intrusive_ptr<Tensorimpl>(det);
+Tensor Tensor::astype(DType new_dtype) const {
+    if (_dtype() == new_dtype) return *this;
+    
+    // Create new tensor
+    Tensor out(shape(), new_dtype, requires_grad());
+    size_t n = numel();
+    
+    // Slow element-wise cast
+    for(size_t i=0; i<n; ++i) {
+        double v = read_scalar(i);
+        out.write_scalar(i, v);
+    }
     return out;
+}
+
+void Tensor::to_(DType new_dtype) {
+    if (!impl) return;
+    if (impl->dtype == new_dtype) return;
+    *this = astype(new_dtype); // Replace self with converted version
+}
+
+Tensor& Tensor::requires_grad_(bool b) {
+    if (impl) impl->requires_grad = b;
+    return *this;
+}
+
+Tensor& Tensor::t_() {
+    if (!impl) return *this;
+    if (impl->ndim != 2) throw std::runtime_error("t_() only supports 2D tensors");
+    
+    // Swap dims and strides in place
+    std::swap(impl->shape[0], impl->shape[1]);
+    std::swap(impl->strides[0], impl->strides[1]);
+    return *this;
+}
+
+// Placeholder implementations for image ops to prevent linker errors
+Tensor Tensor::from_image(const std::string& path, DType dt) {
+    std::cerr << "Image loading not implemented\n";
+    return Tensor();
+}
+void Tensor::save_image(const std::string& path) const {
+    std::cerr << "Image saving not implemented\n";
+}
+Tensor Tensor::gather(const Tensor& index, size_t dim) const {
+    throw std::runtime_error("Gather not implemented yet");
+}
+Tensor Tensor::select(size_t dim, size_t index) const {
+    throw std::runtime_error("Select not implemented yet");
+}
+Tensor Tensor::squeeze() const {
+    // Basic impl: remove dims of size 1
+    std::vector<size_t> new_shape;
+    for(auto s : impl->shape) if (s != 1) new_shape.push_back(s);
+    if(new_shape.empty()) new_shape.push_back(1);
+    return reshape(new_shape);
+}
+Tensor Tensor::unsqueeze(size_t dim) const {
+    std::vector<size_t> new_shape = shape();
+    if(dim > new_shape.size()) dim = new_shape.size();
+    new_shape.insert(new_shape.begin() + dim, 1);
+    return reshape(new_shape);
+}
+Tensor Tensor::flatten() const {
+    return reshape({numel()});
+}
+void Tensor::print_shape() const {
+    std::cout << "(";
+    auto s = shape();
+    for(size_t i=0; i<s.size(); ++i) {
+        std::cout << s[i] << (i<s.size()-1 ? ", " : "");
+    }
+    std::cout << ")\n";
+}
+
+// Ranges
+Tensor Tensor::arange(double start, double end, double step, DType dtype) {
+    size_t steps = (size_t)std::ceil((end - start) / step);
+    Tensor t({steps}, dtype);
+    for(size_t i=0; i<steps; ++i) {
+        t.write_scalar(i, start + i * step);
+    }
+    return t;
+}
+
+Tensor Tensor::full(const std::vector<size_t>& shape_, double value, DType dt, bool requires_grad_) {
+    Tensor t(shape_, dt, requires_grad_);
+    size_t n = t.numel();
+    // Manual fill
+    for(size_t i=0; i<n; ++i) t.write_scalar(i, value);
+    return t;
+}
+
+Tensor Tensor::empty(const std::vector<size_t>& shape_, DType dt, bool requires_grad_) {
+    return Tensor(shape_, dt, requires_grad_);
+}
+
+Tensor Tensor::from_vector(const std::vector<double>& data, const std::vector<size_t>& shape, DType dtype, bool requires_grad) {
+    Tensor t(shape, dtype, requires_grad);
+    if (t.numel() != data.size()) throw std::runtime_error("from_vector size mismatch");
+    for(size_t i=0; i<data.size(); ++i) t.write_scalar(i, data[i]);
+    return t;
 }
