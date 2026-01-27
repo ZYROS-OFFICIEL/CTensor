@@ -11,6 +11,7 @@ CMakeFiles/ops_avx512.dir/src/cpu/AVX512/ops_avx512_d64.cpp.obj
  C:/msys64/mingw64/include/_timeval.h
  C:/msys64/mingw64/include/c++/15.2.0/algorithm
  C:/msys64/mingw64/include/c++/15.2.0/array
+ C:/msys64/mingw64/include/c++/15.2.0/atomic
  C:/msys64/mingw64/include/c++/15.2.0/backward/auto_ptr.h
  C:/msys64/mingw64/include/c++/15.2.0/backward/binders.h
  C:/msys64/mingw64/include/c++/15.2.0/bit
@@ -351,6 +352,7 @@ CMakeFiles/ops_avx512.dir/src/cpu/AVX512/ops_avx512_f32.cpp.obj
  C:/msys64/mingw64/include/_timeval.h
  C:/msys64/mingw64/include/c++/15.2.0/algorithm
  C:/msys64/mingw64/include/c++/15.2.0/array
+ C:/msys64/mingw64/include/c++/15.2.0/atomic
  C:/msys64/mingw64/include/c++/15.2.0/backward/auto_ptr.h
  C:/msys64/mingw64/include/c++/15.2.0/backward/binders.h
  C:/msys64/mingw64/include/c++/15.2.0/bit

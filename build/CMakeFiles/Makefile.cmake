@@ -12,6 +12,7 @@ set(CMAKE_MAKEFILE_DEPENDS
   "C:/Program Files/CMake/share/cmake-4.1/Modules/CMakeGenericSystem.cmake"
   "C:/Program Files/CMake/share/cmake-4.1/Modules/CMakeInitializeConfigs.cmake"
   "C:/Program Files/CMake/share/cmake-4.1/Modules/CMakeLanguageInformation.cmake"
+  "C:/Program Files/CMake/share/cmake-4.1/Modules/CMakePackageConfigHelpers.cmake"
   "C:/Program Files/CMake/share/cmake-4.1/Modules/CMakeRCInformation.cmake"
   "C:/Program Files/CMake/share/cmake-4.1/Modules/CMakeSystemSpecificInformation.cmake"
   "C:/Program Files/CMake/share/cmake-4.1/Modules/CMakeSystemSpecificInitialize.cmake"
@@ -32,10 +33,12 @@ set(CMAKE_MAKEFILE_DEPENDS
   "C:/Program Files/CMake/share/cmake-4.1/Modules/Platform/Windows-windres.cmake"
   "C:/Program Files/CMake/share/cmake-4.1/Modules/Platform/Windows.cmake"
   "C:/Program Files/CMake/share/cmake-4.1/Modules/Platform/WindowsPaths.cmake"
+  "C:/Program Files/CMake/share/cmake-4.1/Modules/WriteBasicConfigVersionFile.cmake"
   "D:/C programs/CTensor/CMakeLists.txt"
   "CMakeFiles/4.1.0-rc1/CMakeCXXCompiler.cmake"
   "CMakeFiles/4.1.0-rc1/CMakeRCCompiler.cmake"
   "CMakeFiles/4.1.0-rc1/CMakeSystem.cmake"
+  "D:/C programs/CTensor/cmake/MyProjectConfig.cmake.in"
   )
 
 # The corresponding makefile is:
@@ -46,6 +49,7 @@ set(CMAKE_MAKEFILE_OUTPUTS
 
 # Byproducts of CMake generate step:
 set(CMAKE_MAKEFILE_PRODUCTS
+  "MyProjectConfig.cmake"
   "CMakeFiles/CMakeDirectoryInformation.cmake"
   )
 
@@ -57,5 +61,6 @@ set(CMAKE_DEPEND_INFO_FILES
   "CMakeFiles/conv.dir/DependInfo.cmake"
   "CMakeFiles/ops_avx2.dir/DependInfo.cmake"
   "CMakeFiles/ops_avx512.dir/DependInfo.cmake"
+  "CMakeFiles/myproject.dir/DependInfo.cmake"
   "CMakeFiles/app.dir/DependInfo.cmake"
   )

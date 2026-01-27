@@ -91,42 +91,11 @@ app_OBJECTS = \
 "CMakeFiles/app.dir/test/time_avx.cpp.obj"
 
 # External object files for target app
-app_EXTERNAL_OBJECTS = \
-"D:/C programs/CTensor/build/CMakeFiles/opsmp.dir/src/core/opsmp.cpp.obj" \
-"D:/C programs/CTensor/build/CMakeFiles/ops_avx2.dir/src/cpu/AVX2/ops_avx2_d64.cpp.obj" \
-"D:/C programs/CTensor/build/CMakeFiles/ops_avx2.dir/src/cpu/AVX2/ops_avx2_f32.cpp.obj" \
-"D:/C programs/CTensor/build/CMakeFiles/ops_avx512.dir/src/cpu/AVX512/ops_avx512_d64.cpp.obj" \
-"D:/C programs/CTensor/build/CMakeFiles/ops_avx512.dir/src/cpu/AVX512/ops_avx512_f32.cpp.obj" \
-"D:/C programs/CTensor/build/CMakeFiles/core.dir/src/core/autograd.cpp.obj" \
-"D:/C programs/CTensor/build/CMakeFiles/core.dir/src/core/ops_dispatch.cpp.obj" \
-"D:/C programs/CTensor/build/CMakeFiles/core.dir/src/core/tensor.cpp.obj" \
-"D:/C programs/CTensor/build/CMakeFiles/core.dir/src/core/data.cpp.obj" \
-"D:/C programs/CTensor/build/CMakeFiles/neuralnet.dir/src/neuralnet/loss.cpp.obj" \
-"D:/C programs/CTensor/build/CMakeFiles/neuralnet.dir/src/neuralnet/layer.cpp.obj" \
-"D:/C programs/CTensor/build/CMakeFiles/neuralnet.dir/src/neuralnet/Relu.cpp.obj" \
-"D:/C programs/CTensor/build/CMakeFiles/neuralnet.dir/src/neuralnet/dropout/dropout.cpp.obj" \
-"D:/C programs/CTensor/build/CMakeFiles/neuralnet.dir/src/neuralnet/pooling/pooling.cpp.obj" \
-"D:/C programs/CTensor/build/CMakeFiles/neuralnet.dir/src/neuralnet/batchnorm/batchnorm.cpp.obj" \
-"D:/C programs/CTensor/build/CMakeFiles/conv.dir/src/neuralnet/conv/conv.cpp.obj"
+app_EXTERNAL_OBJECTS =
 
 app.exe: CMakeFiles/app.dir/test/time_avx.cpp.obj
-app.exe: CMakeFiles/opsmp.dir/src/core/opsmp.cpp.obj
-app.exe: CMakeFiles/ops_avx2.dir/src/cpu/AVX2/ops_avx2_d64.cpp.obj
-app.exe: CMakeFiles/ops_avx2.dir/src/cpu/AVX2/ops_avx2_f32.cpp.obj
-app.exe: CMakeFiles/ops_avx512.dir/src/cpu/AVX512/ops_avx512_d64.cpp.obj
-app.exe: CMakeFiles/ops_avx512.dir/src/cpu/AVX512/ops_avx512_f32.cpp.obj
-app.exe: CMakeFiles/core.dir/src/core/autograd.cpp.obj
-app.exe: CMakeFiles/core.dir/src/core/ops_dispatch.cpp.obj
-app.exe: CMakeFiles/core.dir/src/core/tensor.cpp.obj
-app.exe: CMakeFiles/core.dir/src/core/data.cpp.obj
-app.exe: CMakeFiles/neuralnet.dir/src/neuralnet/loss.cpp.obj
-app.exe: CMakeFiles/neuralnet.dir/src/neuralnet/layer.cpp.obj
-app.exe: CMakeFiles/neuralnet.dir/src/neuralnet/Relu.cpp.obj
-app.exe: CMakeFiles/neuralnet.dir/src/neuralnet/dropout/dropout.cpp.obj
-app.exe: CMakeFiles/neuralnet.dir/src/neuralnet/pooling/pooling.cpp.obj
-app.exe: CMakeFiles/neuralnet.dir/src/neuralnet/batchnorm/batchnorm.cpp.obj
-app.exe: CMakeFiles/conv.dir/src/neuralnet/conv/conv.cpp.obj
 app.exe: CMakeFiles/app.dir/build.make
+app.exe: libmyproject.a
 app.exe: CMakeFiles/app.dir/linkLibs.rsp
 app.exe: CMakeFiles/app.dir/objects1.rsp
 app.exe: CMakeFiles/app.dir/link.txt

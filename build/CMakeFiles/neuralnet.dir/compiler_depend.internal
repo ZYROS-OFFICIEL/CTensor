@@ -11,6 +11,7 @@ CMakeFiles/neuralnet.dir/src/neuralnet/Relu.cpp.obj
  C:/msys64/mingw64/include/_timeval.h
  C:/msys64/mingw64/include/c++/15.2.0/algorithm
  C:/msys64/mingw64/include/c++/15.2.0/array
+ C:/msys64/mingw64/include/c++/15.2.0/atomic
  C:/msys64/mingw64/include/c++/15.2.0/backward/auto_ptr.h
  C:/msys64/mingw64/include/c++/15.2.0/backward/binders.h
  C:/msys64/mingw64/include/c++/15.2.0/bit
@@ -251,6 +252,7 @@ CMakeFiles/neuralnet.dir/src/neuralnet/batchnorm/batchnorm.cpp.obj
  C:/msys64/mingw64/include/_timeval.h
  C:/msys64/mingw64/include/c++/15.2.0/algorithm
  C:/msys64/mingw64/include/c++/15.2.0/array
+ C:/msys64/mingw64/include/c++/15.2.0/atomic
  C:/msys64/mingw64/include/c++/15.2.0/backward/auto_ptr.h
  C:/msys64/mingw64/include/c++/15.2.0/backward/binders.h
  C:/msys64/mingw64/include/c++/15.2.0/bit
@@ -489,6 +491,7 @@ CMakeFiles/neuralnet.dir/src/neuralnet/dropout/dropout.cpp.obj
  C:/msys64/mingw64/include/_timeval.h
  C:/msys64/mingw64/include/c++/15.2.0/algorithm
  C:/msys64/mingw64/include/c++/15.2.0/array
+ C:/msys64/mingw64/include/c++/15.2.0/atomic
  C:/msys64/mingw64/include/c++/15.2.0/backward/auto_ptr.h
  C:/msys64/mingw64/include/c++/15.2.0/backward/binders.h
  C:/msys64/mingw64/include/c++/15.2.0/bit
@@ -739,6 +742,7 @@ CMakeFiles/neuralnet.dir/src/neuralnet/layer.cpp.obj
  C:/msys64/mingw64/include/_timeval.h
  C:/msys64/mingw64/include/c++/15.2.0/algorithm
  C:/msys64/mingw64/include/c++/15.2.0/array
+ C:/msys64/mingw64/include/c++/15.2.0/atomic
  C:/msys64/mingw64/include/c++/15.2.0/backward/auto_ptr.h
  C:/msys64/mingw64/include/c++/15.2.0/backward/binders.h
  C:/msys64/mingw64/include/c++/15.2.0/bit
@@ -1091,6 +1095,7 @@ CMakeFiles/neuralnet.dir/src/neuralnet/loss.cpp.obj
  C:/msys64/mingw64/include/_timeval.h
  C:/msys64/mingw64/include/c++/15.2.0/algorithm
  C:/msys64/mingw64/include/c++/15.2.0/array
+ C:/msys64/mingw64/include/c++/15.2.0/atomic
  C:/msys64/mingw64/include/c++/15.2.0/backward/auto_ptr.h
  C:/msys64/mingw64/include/c++/15.2.0/backward/binders.h
  C:/msys64/mingw64/include/c++/15.2.0/bit
@@ -1441,6 +1446,7 @@ CMakeFiles/neuralnet.dir/src/neuralnet/pooling/pooling.cpp.obj
  C:/msys64/mingw64/include/_timeval.h
  C:/msys64/mingw64/include/c++/15.2.0/algorithm
  C:/msys64/mingw64/include/c++/15.2.0/array
+ C:/msys64/mingw64/include/c++/15.2.0/atomic
  C:/msys64/mingw64/include/c++/15.2.0/backward/auto_ptr.h
  C:/msys64/mingw64/include/c++/15.2.0/backward/binders.h
  C:/msys64/mingw64/include/c++/15.2.0/bit

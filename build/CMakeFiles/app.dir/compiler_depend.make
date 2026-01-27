@@ -8,7 +8,9 @@ CMakeFiles/app.dir/test/time_avx.cpp.obj: D:/C\ programs/CTensor/test/time_avx.c
   C:/msys64/mingw64/include/_mingw_secapi.h \
   C:/msys64/mingw64/include/_mingw_stat64.h \
   C:/msys64/mingw64/include/_timeval.h \
+  C:/msys64/mingw64/include/c++/15.2.0/algorithm \
   C:/msys64/mingw64/include/c++/15.2.0/array \
+  C:/msys64/mingw64/include/c++/15.2.0/atomic \
   C:/msys64/mingw64/include/c++/15.2.0/backward/auto_ptr.h \
   C:/msys64/mingw64/include/c++/15.2.0/backward/binders.h \
   C:/msys64/mingw64/include/c++/15.2.0/bit \
@@ -73,6 +75,7 @@ CMakeFiles/app.dir/test/time_avx.cpp.obj: D:/C\ programs/CTensor/test/time_avx.c
   C:/msys64/mingw64/include/c++/15.2.0/bits/ptr_traits.h \
   C:/msys64/mingw64/include/c++/15.2.0/bits/quoted_string.h \
   C:/msys64/mingw64/include/c++/15.2.0/bits/range_access.h \
+  C:/msys64/mingw64/include/c++/15.2.0/bits/ranges_algo.h \
   C:/msys64/mingw64/include/c++/15.2.0/bits/ranges_algobase.h \
   C:/msys64/mingw64/include/c++/15.2.0/bits/ranges_base.h \
   C:/msys64/mingw64/include/c++/15.2.0/bits/ranges_cmp.h \
@@ -160,6 +163,7 @@ CMakeFiles/app.dir/test/time_avx.cpp.obj: D:/C\ programs/CTensor/test/time_avx.c
   C:/msys64/mingw64/include/c++/15.2.0/optional \
   C:/msys64/mingw64/include/c++/15.2.0/ostream \
   C:/msys64/mingw64/include/c++/15.2.0/pstl/execution_defs.h \
+  C:/msys64/mingw64/include/c++/15.2.0/pstl/glue_algorithm_defs.h \
   C:/msys64/mingw64/include/c++/15.2.0/pstl/glue_memory_defs.h \
   C:/msys64/mingw64/include/c++/15.2.0/pstl/glue_numeric_defs.h \
   C:/msys64/mingw64/include/c++/15.2.0/pstl/pstl_config.h \
@@ -375,11 +379,13 @@ C:/msys64/mingw64/include/c++/15.2.0/bits/ios_base.h:
 
 C:/msys64/mingw64/include/_mingw.h:
 
-C:/msys64/mingw64/include/_mingw_mac.h:
+C:/msys64/mingw64/include/c++/15.2.0/bits/max_size_type.h:
 
 C:/msys64/mingw64/include/c++/15.2.0/bits/node_handle.h:
 
-C:/msys64/mingw64/include/c++/15.2.0/bits/max_size_type.h:
+C:/msys64/mingw64/include/_mingw_mac.h:
+
+C:/msys64/mingw64/include/c++/15.2.0/algorithm:
 
 C:/msys64/mingw64/include/c++/15.2.0/bits/ptr_traits.h:
 
@@ -392,6 +398,14 @@ C:/msys64/mingw64/include/_timeval.h:
 C:/msys64/mingw64/include/malloc.h:
 
 C:/msys64/mingw64/include/c++/15.2.0/array:
+
+C:/msys64/mingw64/include/c++/15.2.0/bits/monostate.h:
+
+C:/msys64/mingw64/include/c++/15.2.0/bits/formatfwd.h:
+
+C:/msys64/mingw64/include/c++/15.2.0/bits/erase_if.h:
+
+C:/msys64/mingw64/include/c++/15.2.0/atomic:
 
 C:/msys64/mingw64/include/c++/15.2.0/backward/auto_ptr.h:
 
@@ -483,12 +497,6 @@ C:/msys64/mingw64/include/c++/15.2.0/bits/cxxabi_init_exception.h:
 
 C:/msys64/mingw64/include/c++/15.2.0/bits/enable_special_members.h:
 
-C:/msys64/mingw64/include/c++/15.2.0/bits/monostate.h:
-
-C:/msys64/mingw64/include/c++/15.2.0/bits/formatfwd.h:
-
-C:/msys64/mingw64/include/c++/15.2.0/bits/erase_if.h:
-
 C:/msys64/mingw64/include/c++/15.2.0/bits/exception.h:
 
 C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/amxtf32intrin.h:
@@ -554,6 +562,10 @@ C:/msys64/mingw64/include/c++/15.2.0/bits/predefined_ops.h:
 C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/avx10_2-512convertintrin.h:
 
 C:/msys64/mingw64/include/c++/15.2.0/bits/range_access.h:
+
+C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/wbnoinvdintrin.h:
+
+C:/msys64/mingw64/include/c++/15.2.0/bits/ranges_algo.h:
 
 C:/msys64/mingw64/include/c++/15.2.0/x86_64-w64-mingw32/bits/cpu_defines.h:
 
@@ -772,6 +784,8 @@ C:/msys64/mingw64/include/c++/15.2.0/optional:
 C:/msys64/mingw64/include/c++/15.2.0/ostream:
 
 C:/msys64/mingw64/include/c++/15.2.0/pstl/execution_defs.h:
+
+C:/msys64/mingw64/include/c++/15.2.0/pstl/glue_algorithm_defs.h:
 
 C:/msys64/mingw64/include/c++/15.2.0/system_error:
 
@@ -1064,8 +1078,6 @@ C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/wmmintrin.h:
 C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/usermsrintrin.h:
 
 C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/waitpkgintrin.h:
-
-C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/wbnoinvdintrin.h:
 
 C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/x86gprintrin.h:
 
