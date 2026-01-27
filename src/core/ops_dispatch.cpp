@@ -68,7 +68,7 @@ struct DispatchTable {
         table[(int)BinaryOp::GT][(int)DType::Float32] = gt_mp;
         table[(int)BinaryOp::GE][(int)DType::Float32] = ge_mp;
         table[(int)BinaryOp::EQ][(int)DType::Float32] = eq_mp;
-        table[(int)BinaryOp::NE][(int)DType::Float32] = neq_mp;
+        table[(int)BinaryOp::NE][(int)DType::Float32] = ne_mp;
 
         // Double64 Defaults
         table[(int)BinaryOp::ADD][(int)DType::Double64] = add_mp;
