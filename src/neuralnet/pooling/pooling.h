@@ -1,10 +1,10 @@
 #pragma once
-#include "tensor.h"
+#include "core/tensor.h"
 #include <vector>
 #include <stdexcept>
 #include <cmath>
-#include "autograd.h"
-#include "module.h"
+#include "core/autograd.h"
+#include "neuralnet/module.h"
 
 // ... helpers ...
 
