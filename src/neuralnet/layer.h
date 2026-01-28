@@ -1,8 +1,8 @@
 #pragma once
-#include "tensor.h"
-#include "ops_dispatch.h"
-#include "autograd.h"
-#include "module.h" // Inherit from Module
+#include "core/tensor.h"
+#include "core/ops_dispatch.h"
+#include "core/autograd.h"
+#include "neuralnet/module.h" // Inherit from Module
 #include <string>
 #include <vector>
 
