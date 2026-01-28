@@ -277,6 +277,19 @@ testmnist/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\testmnist.dir\build.make CMakeFiles/testmnist.dir/build
 .PHONY : testmnist/fast
 
+#=============================================================================
+# Target rules for targets named trainmnist
+
+# Build rule for target.
+trainmnist: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\Makefile2 trainmnist
+.PHONY : trainmnist
+
+# fast build rule for target.
+trainmnist/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\trainmnist.dir\build.make CMakeFiles/trainmnist.dir/build
+.PHONY : trainmnist/fast
+
 src/core/autograd.obj: src/core/autograd.cpp.obj
 .PHONY : src/core/autograd.obj
 
@@ -541,6 +554,30 @@ src/neuralnet/batchnorm/batchnorm.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\neuralnet.dir\build.make CMakeFiles/neuralnet.dir/src/neuralnet/batchnorm/batchnorm.cpp.s
 .PHONY : src/neuralnet/batchnorm/batchnorm.cpp.s
 
+src/neuralnet/check.obj: src/neuralnet/check.cpp.obj
+.PHONY : src/neuralnet/check.obj
+
+# target to build an object file
+src/neuralnet/check.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\neuralnet.dir\build.make CMakeFiles/neuralnet.dir/src/neuralnet/check.cpp.obj
+.PHONY : src/neuralnet/check.cpp.obj
+
+src/neuralnet/check.i: src/neuralnet/check.cpp.i
+.PHONY : src/neuralnet/check.i
+
+# target to preprocess a source file
+src/neuralnet/check.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\neuralnet.dir\build.make CMakeFiles/neuralnet.dir/src/neuralnet/check.cpp.i
+.PHONY : src/neuralnet/check.cpp.i
+
+src/neuralnet/check.s: src/neuralnet/check.cpp.s
+.PHONY : src/neuralnet/check.s
+
+# target to generate assembly for a file
+src/neuralnet/check.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\neuralnet.dir\build.make CMakeFiles/neuralnet.dir/src/neuralnet/check.cpp.s
+.PHONY : src/neuralnet/check.cpp.s
+
 src/neuralnet/conv/conv.obj: src/neuralnet/conv/conv.cpp.obj
 .PHONY : src/neuralnet/conv/conv.obj
 
@@ -709,6 +746,30 @@ test/time_avx.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\app.dir\build.make CMakeFiles/app.dir/test/time_avx.cpp.s
 .PHONY : test/time_avx.cpp.s
 
+test/train_mnist.obj: test/train_mnist.cpp.obj
+.PHONY : test/train_mnist.obj
+
+# target to build an object file
+test/train_mnist.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\trainmnist.dir\build.make CMakeFiles/trainmnist.dir/test/train_mnist.cpp.obj
+.PHONY : test/train_mnist.cpp.obj
+
+test/train_mnist.i: test/train_mnist.cpp.i
+.PHONY : test/train_mnist.i
+
+# target to preprocess a source file
+test/train_mnist.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\trainmnist.dir\build.make CMakeFiles/trainmnist.dir/test/train_mnist.cpp.i
+.PHONY : test/train_mnist.cpp.i
+
+test/train_mnist.s: test/train_mnist.cpp.s
+.PHONY : test/train_mnist.s
+
+# target to generate assembly for a file
+test/train_mnist.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\trainmnist.dir\build.make CMakeFiles/trainmnist.dir/test/train_mnist.cpp.s
+.PHONY : test/train_mnist.cpp.s
+
 # Help Target
 help:
 	@echo The following are some of the valid targets for this Makefile:
@@ -730,6 +791,7 @@ help:
 	@echo ... ops_avx512
 	@echo ... opsmp
 	@echo ... testmnist
+	@echo ... trainmnist
 	@echo ... src/core/autograd.obj
 	@echo ... src/core/autograd.i
 	@echo ... src/core/autograd.s
@@ -763,6 +825,9 @@ help:
 	@echo ... src/neuralnet/batchnorm/batchnorm.obj
 	@echo ... src/neuralnet/batchnorm/batchnorm.i
 	@echo ... src/neuralnet/batchnorm/batchnorm.s
+	@echo ... src/neuralnet/check.obj
+	@echo ... src/neuralnet/check.i
+	@echo ... src/neuralnet/check.s
 	@echo ... src/neuralnet/conv/conv.obj
 	@echo ... src/neuralnet/conv/conv.i
 	@echo ... src/neuralnet/conv/conv.s
@@ -784,6 +849,9 @@ help:
 	@echo ... test/time_avx.obj
 	@echo ... test/time_avx.i
 	@echo ... test/time_avx.s
+	@echo ... test/train_mnist.obj
+	@echo ... test/train_mnist.i
+	@echo ... test/train_mnist.s
 .PHONY : help
 
 
