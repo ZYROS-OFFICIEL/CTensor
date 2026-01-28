@@ -1,5 +1,5 @@
 #pragma once
-#include "tensor.h"
+#include "core/tensor.h"
 #include <fstream>
 #include <vector>
 #include <string>
@@ -88,17 +88,17 @@ inline MNISTData load_mnist(const std::string& image_path, const std::string& la
         lbl_buffer.clear();
     }
 
-    // Pointers to underlying storage (may be non-float-layout in some builds)
-    auto* img_storage_ptr = images.impl->storage->data.get();
-    auto* lbl_storage_ptr = labels.impl->storage->data.get();
+    // Pointers to underlying data (may be non-float-layout in some builds)
+    auto* img_data_ptr = images.impl->data->data.get();
+    auto* lbl_data_ptr = labels.impl->data->data.get();
 
-    // Use dtype-aware helpers to write into tensor storage to avoid layout assumptions
+    // Use dtype-aware helpers to write into tensor data to avoid layout assumptions
     if (!img_buffer.empty() && img_buffer.size() == num_pixels) {
         // Bulk conversion (safe cast to float)
         #pragma omp parallel for
         for (size_t i = 0; i < num_pixels; ++i) {
             float v = static_cast<float>(img_buffer[i]) / 255.0f; // ensure float division
-            write_scalar_at(img_storage_ptr, i, DType::Float32, static_cast<double>(v));
+            write_scalar_at(img_data_ptr, i, DType::Float32, static_cast<double>(v));
         }
 
         // Labels (bulk if available)
@@ -107,7 +107,7 @@ inline MNISTData load_mnist(const std::string& image_path, const std::string& la
             for (size_t i = 0; i < (size_t)num_imgs; ++i) {
                 int32_t lab = static_cast<int32_t>(lbl_buffer[i]);
                 // labels shape [N,1] -> linear index i
-                write_scalar_at(lbl_storage_ptr, i, DType::Int32, static_cast<double>(lab));
+                write_scalar_at(lbl_data_ptr, i, DType::Int32, static_cast<double>(lab));
             }
         } else {
             // fallback to per-label read from file (seek to labels data)
@@ -117,7 +117,7 @@ inline MNISTData load_mnist(const std::string& image_path, const std::string& la
                 unsigned char lb = 0;
                 lbl_file.read(reinterpret_cast<char*>(&lb), 1);
                 int32_t lab = static_cast<int32_t>(lb);
-                write_scalar_at(lbl_storage_ptr, i, DType::Int32, static_cast<double>(lab));
+                write_scalar_at(lbl_data_ptr, i, DType::Int32, static_cast<double>(lab));
             }
         }
 
@@ -138,7 +138,7 @@ inline MNISTData load_mnist(const std::string& image_path, const std::string& la
             }
             for (size_t p = 0; p < (size_t)rows * (size_t)cols; ++p) {
                 float v = static_cast<float>(tmp[p]) / 255.0f;
-                write_scalar_at(img_storage_ptr, offset + p, DType::Float32, static_cast<double>(v));
+                write_scalar_at(img_data_ptr, offset + p, DType::Float32, static_cast<double>(v));
             }
             offset += (size_t)rows * (size_t)cols;
         }
@@ -151,7 +151,7 @@ inline MNISTData load_mnist(const std::string& image_path, const std::string& la
             lbl_file.read(reinterpret_cast<char*>(&lb), 1);
             if (!lbl_file) throw std::runtime_error("Failed reading label " + std::to_string(i));
             int32_t lab = static_cast<int32_t>(lb);
-            write_scalar_at(lbl_storage_ptr, i, DType::Int32, static_cast<double>(lab));
+            write_scalar_at(lbl_data_ptr, i, DType::Int32, static_cast<double>(lab));
         }
     }
 
@@ -167,14 +167,14 @@ inline MNISTData load_mnist(const std::string& image_path, const std::string& la
 
     std::cout << "First 40 converted image floats: ";
     for (size_t i = 0; i < 40 && i < num_pixels; ++i) {
-        double val = read_scalar_at(img_storage_ptr, i, DType::Float32);
+        double val = read_scalar_at(img_data_ptr, i, DType::Float32);
         std::cout << val << " ";
     }
     std::cout << "\n";
 
     std::cout << "First 20 converted labels: ";
     for (size_t i = 0; i < 20 && i < (size_t)num_imgs; ++i) {
-        double labv = read_scalar_at(lbl_storage_ptr, i, DType::Int32);
+        double labv = read_scalar_at(lbl_data_ptr, i, DType::Int32);
         std::cout << (int)labv << " ";
     }
     std::cout << "\n";
