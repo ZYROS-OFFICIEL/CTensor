@@ -233,7 +233,7 @@ CMakeFiles/neuralnet.dir/src/neuralnet/layer.cpp.obj: \
  C:/msys64/mingw64/include/c++/15.2.0/cstring \
  C:/msys64/mingw64/include/string.h \
  C:/msys64/mingw64/include/sec_api/string_s.h \
- D:\C\ programs\CTensor\src\neuralnet\module.h \
+ D:/C\ programs/CTensor/src/neuralnet/module.h \
  D:/C\ programs/CTensor/src/core/opsmp.h \
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/immintrin.h \
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/x86gprintrin.h \

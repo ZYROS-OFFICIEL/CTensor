@@ -88,6 +88,7 @@ myproject_EXTERNAL_OBJECTS = \
 "D:/C programs/CTensor/build/CMakeFiles/neuralnet.dir/src/neuralnet/loss.cpp.obj" \
 "D:/C programs/CTensor/build/CMakeFiles/neuralnet.dir/src/neuralnet/layer.cpp.obj" \
 "D:/C programs/CTensor/build/CMakeFiles/neuralnet.dir/src/neuralnet/Relu.cpp.obj" \
+"D:/C programs/CTensor/build/CMakeFiles/neuralnet.dir/src/neuralnet/check.cpp.obj" \
 "D:/C programs/CTensor/build/CMakeFiles/neuralnet.dir/src/neuralnet/dropout/dropout.cpp.obj" \
 "D:/C programs/CTensor/build/CMakeFiles/neuralnet.dir/src/neuralnet/pooling/pooling.cpp.obj" \
 "D:/C programs/CTensor/build/CMakeFiles/neuralnet.dir/src/neuralnet/batchnorm/batchnorm.cpp.obj" \
@@ -105,6 +106,7 @@ libmyproject.a: CMakeFiles/core.dir/src/core/data.cpp.obj
 libmyproject.a: CMakeFiles/neuralnet.dir/src/neuralnet/loss.cpp.obj
 libmyproject.a: CMakeFiles/neuralnet.dir/src/neuralnet/layer.cpp.obj
 libmyproject.a: CMakeFiles/neuralnet.dir/src/neuralnet/Relu.cpp.obj
+libmyproject.a: CMakeFiles/neuralnet.dir/src/neuralnet/check.cpp.obj
 libmyproject.a: CMakeFiles/neuralnet.dir/src/neuralnet/dropout/dropout.cpp.obj
 libmyproject.a: CMakeFiles/neuralnet.dir/src/neuralnet/pooling/pooling.cpp.obj
 libmyproject.a: CMakeFiles/neuralnet.dir/src/neuralnet/batchnorm/batchnorm.cpp.obj
