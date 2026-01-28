@@ -11,6 +11,7 @@ set(PROJECT_INCLUDES
     src/cpu/AVX512
     src/neuralnet
     src/neuralnet/conv
+    src/neuralnet/dataset
     src/neuralnet/pooling
     src/neuralnet/dropout
     src/neuralnet/batchnorm
@@ -88,7 +89,9 @@ option(MYPROJECT_BUILD_TESTS "Build benchmarks/tests" ON)
 
 if (MYPROJECT_BUILD_TESTS)
     add_executable(app test/time_avx.cpp)
+    add_executable(testmnist test/testmnist.cpp)
     target_link_libraries(app PRIVATE myproject)
+    target_link_libraries(testmnist PRIVATE myproject)
 endif()
 
 install(
