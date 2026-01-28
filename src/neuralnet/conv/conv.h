@@ -1,7 +1,7 @@
 #pragma once
-#include "tensor.h"
-#include "autograd.h"
-#include "module.h" 
+#include "core/tensor.h"
+#include "core/autograd.h"
+#include "neuralnet/module.h" 
 #include <vector>
 
 // --- Conv1d ---
