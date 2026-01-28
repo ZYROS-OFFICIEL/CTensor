@@ -327,7 +327,6 @@ IMPLEMENT_UNARY_OP(sigmoid, GradSigmoid, sigmoid_mp, sigmoid_avx2, sigmoid_avx51
 IMPLEMENT_UNARY_OP(relu, GradRelu, Relu_mp, relu_avx2, relu_avx512) 
 IMPLEMENT_UNARY_OP(softplus, GradSoftplus, softplus_mp, softplus_avx2, softplus_avx512)
 
-Tensor Relu(const Tensor &a){ return relu(a); }
 
 // ========================================================================
 //                     COMPARISONS

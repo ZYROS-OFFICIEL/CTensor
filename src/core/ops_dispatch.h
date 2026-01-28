@@ -56,7 +56,6 @@ Tensor cosh(const Tensor &a);
 Tensor tanh(const Tensor &a);
 Tensor sigmoid(const Tensor &a);
 Tensor relu(const Tensor &a);
-Tensor Relu(const Tensor &a);
 Tensor softplus(const Tensor &a);
 
 // Reductions
