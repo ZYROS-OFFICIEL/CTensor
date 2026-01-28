@@ -5,20 +5,19 @@
 #include <cstring> // for memcpy
 #include <ctime>   // for time
 #include <cstdint>
-#include "tensor1.h"
-#include "opsmp.h"
-#include "autograd.h"
-#include "conv.h"
-#include "pooling.h"
-#include "layer.h"
-#include "Relu.h"
-#include "dropout.h"
-#include "loss.h"
-#include "train_utils.h"
-#include "mnist.h"
-#include "check.h"
-#include "dataloader.h"
-
+#include "core/tensor.h"
+#include "core/ops_dispatch.h"
+#include "core/autograd.h"
+#include "neuralnet/conv/conv.h"
+#include "neuralnet/pooling/pooling.h"
+#include "neuralnet/layer.h"
+#include "neuralnet/Relu.h"
+#include "neuralnet/dropout/dropout.h"
+#include "neuralnet/loss.h"
+#include "neuralnet/train_utils.h"
+#include "neuralnet/dataset/mnist.h"
+#include "neuralnet/check.h"
+#include "neuralnet/dataloader/dataloader.h"
 // --- Model Definition ---
 class ConvNet : public Module {
 public:
@@ -113,7 +112,7 @@ int main(int argc, char** argv) {
                     if (!p->impl) continue;
                     p->requires_grad_(true); 
                     size_t n = p->numel();
-                    float* ptr = (float*)p->impl->storage->data.get();
+                    float* ptr = (float*)p->impl->data->data.get();
                     for (size_t i = 0; i < n; ++i) ptr[i] = (static_cast<float>(std::rand()) / RAND_MAX - 0.5f) * 0.1f;
                 }
             }
@@ -125,11 +124,11 @@ int main(int argc, char** argv) {
                 if (!p->impl) continue;
                 p->requires_grad_(true); 
                 size_t n = p->numel();
-                float* ptr = (float*)p->impl->storage->data.get();
+                float* ptr = (float*)p->impl->data->data.get();
                 for (size_t i = 0; i < n; ++i) ptr[i] = (static_cast<float>(std::rand()) / RAND_MAX - 0.5f) * 0.1f;
             }
         }
-        Optimizer optim(model.parameters(), 0.01);
+        SGD optim(model.parameters(), 0.01);
         
         int EPOCHS = 5;
 
