@@ -1,7 +1,7 @@
 #pragma once
-#include "tensor.h"
-#include "autograd.h"
-#include "module.h" // Inherit from Module
+#include "core/tensor.h"
+#include "core/autograd.h"
+#include "neuralnet/module.h" // Inherit from Module
 
 // --- Standard ReLU (Layer) ---
 // Wrapper around the functional Relu_mp for Module compatibility
