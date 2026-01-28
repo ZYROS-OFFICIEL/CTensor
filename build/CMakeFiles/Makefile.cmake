@@ -63,4 +63,5 @@ set(CMAKE_DEPEND_INFO_FILES
   "CMakeFiles/ops_avx512.dir/DependInfo.cmake"
   "CMakeFiles/myproject.dir/DependInfo.cmake"
   "CMakeFiles/app.dir/DependInfo.cmake"
+  "CMakeFiles/testmnist.dir/DependInfo.cmake"
   )
