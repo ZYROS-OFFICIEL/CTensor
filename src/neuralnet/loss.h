@@ -1,13 +1,13 @@
 #pragma once
-#include "tensor.h"
+#include "core/tensor.h"
 #include <vector>
 #include <string>
 #include <stdexcept>
 #include <cmath>
-#include "autograd.h"
+#include "core/autograd.h"
 #include <immintrin.h>
 #include <cstring>
-#include "ops_dispatch.h"
+#include "core/ops_dispatch.h"
 
 // Base class containing all available loss functions
 class Loss {
