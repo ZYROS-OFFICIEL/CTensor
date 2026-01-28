@@ -1,5 +1,5 @@
 #include <iostream>
-#include "mnist.h"
+#include "neuralnet/dataset/mnist.h"
 
 int main() {
     MNISTData data = load_mnist(
@@ -21,11 +21,11 @@ int main() {
 
     // ---- Check first label ----
     int32_t first_label =
-        *((int32_t*)labels.impl->storage->data.get());
+        *((int32_t*)labels.impl->data->data.get());
     std::cout << "First label = " << first_label << "\n";
 
     // ---- Check first image ----
-    float* img0 = (float*)images.impl->storage->data.get();
+    float* img0 = (float*)images.impl->data->data.get();
 
     float mn = 1e9, mx = -1e9;
     for (int i = 0; i < 28 * 28; i++) {
