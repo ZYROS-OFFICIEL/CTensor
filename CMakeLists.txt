@@ -14,6 +14,7 @@ set(PROJECT_INCLUDES
     src/neuralnet/dataset
     src/neuralnet/pooling
     src/neuralnet/dropout
+    src/neuralnet/dataloader
     src/neuralnet/batchnorm
 )
 
@@ -38,6 +39,7 @@ add_library(neuralnet OBJECT
     src/neuralnet/loss.cpp
     src/neuralnet/layer.cpp
     src/neuralnet/Relu.cpp
+    src/neuralnet/check.cpp
     src/neuralnet/dropout/dropout.cpp
     src/neuralnet/pooling/pooling.cpp
     src/neuralnet/batchnorm/batchnorm.cpp
@@ -90,8 +92,10 @@ option(MYPROJECT_BUILD_TESTS "Build benchmarks/tests" ON)
 if (MYPROJECT_BUILD_TESTS)
     add_executable(app test/time_avx.cpp)
     add_executable(testmnist test/testmnist.cpp)
+    add_executable(trainmnist test/train_mnist.cpp)
     target_link_libraries(app PRIVATE myproject)
     target_link_libraries(testmnist PRIVATE myproject)
+    target_link_libraries(trainmnist PRIVATE myproject)
 endif()
 
 install(
