@@ -46,7 +46,7 @@ namespace checkpoints {
             uint64_t data_bytes = numel * type_size;
 
             outfile.write(reinterpret_cast<const char*>(&data_bytes), sizeof(data_bytes));
-            outfile.write(reinterpret_cast<const char*>(t->impl->storage->data.get()), data_bytes);
+            outfile.write(reinterpret_cast<const char*>(t->impl->data->data.get()), data_bytes);
         }
 
         outfile.close();
@@ -109,8 +109,8 @@ namespace checkpoints {
                 throw std::runtime_error("Data size mismatch. DType change?");
             }
 
-            // Read Raw Data directly into tensor storage
-            infile.read(reinterpret_cast<char*>(t->impl->storage->data.get()), data_bytes);
+            // Read Raw Data directly into tensor data
+            infile.read(reinterpret_cast<char*>(t->impl->data->data.get()), data_bytes);
         }
 
         infile.close();
