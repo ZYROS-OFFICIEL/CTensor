@@ -290,7 +290,7 @@ Tensor HingeLoss(const Tensor& pred, const Tensor& target,std::string reduction)
     // Compute Hinge Loss
     Tensor one = Tensor::full(pred.shape(), 1.0, pred._dtype(), false);
     Tensor margin = one - target * pred;
-    Tensor hinge_loss = Relu(margin);
+    Tensor hinge_loss = relu(margin);
 
     // Sum all elements
     Tensor summed = sum(hinge_loss);
@@ -322,7 +322,7 @@ Tensor MarginRankingLoss(const Tensor& input1, const Tensor& input2, const Tenso
     // Compute Margin Ranking Loss
     Tensor diff = input1 - input2;
     Tensor margin_tensor = margin - target * diff;
-    Tensor loss = Relu(margin_tensor);
+    Tensor loss = relu(margin_tensor);
 
     // Sum all elements
     Tensor summed = sum(loss);
