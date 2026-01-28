@@ -6,6 +6,7 @@ D:/C programs/CTensor/build/CMakeFiles/ops_avx2.dir
 D:/C programs/CTensor/build/CMakeFiles/ops_avx512.dir
 D:/C programs/CTensor/build/CMakeFiles/myproject.dir
 D:/C programs/CTensor/build/CMakeFiles/app.dir
+D:/C programs/CTensor/build/CMakeFiles/testmnist.dir
 D:/C programs/CTensor/build/CMakeFiles/edit_cache.dir
 D:/C programs/CTensor/build/CMakeFiles/rebuild_cache.dir
 D:/C programs/CTensor/build/CMakeFiles/list_install_components.dir

@@ -264,6 +264,19 @@ app/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\app.dir\build.make CMakeFiles/app.dir/build
 .PHONY : app/fast
 
+#=============================================================================
+# Target rules for targets named testmnist
+
+# Build rule for target.
+testmnist: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\Makefile2 testmnist
+.PHONY : testmnist
+
+# fast build rule for target.
+testmnist/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\testmnist.dir\build.make CMakeFiles/testmnist.dir/build
+.PHONY : testmnist/fast
+
 src/core/autograd.obj: src/core/autograd.cpp.obj
 .PHONY : src/core/autograd.obj
 
@@ -648,6 +661,30 @@ src/neuralnet/pooling/pooling.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\neuralnet.dir\build.make CMakeFiles/neuralnet.dir/src/neuralnet/pooling/pooling.cpp.s
 .PHONY : src/neuralnet/pooling/pooling.cpp.s
 
+test/testmnist.obj: test/testmnist.cpp.obj
+.PHONY : test/testmnist.obj
+
+# target to build an object file
+test/testmnist.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\testmnist.dir\build.make CMakeFiles/testmnist.dir/test/testmnist.cpp.obj
+.PHONY : test/testmnist.cpp.obj
+
+test/testmnist.i: test/testmnist.cpp.i
+.PHONY : test/testmnist.i
+
+# target to preprocess a source file
+test/testmnist.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\testmnist.dir\build.make CMakeFiles/testmnist.dir/test/testmnist.cpp.i
+.PHONY : test/testmnist.cpp.i
+
+test/testmnist.s: test/testmnist.cpp.s
+.PHONY : test/testmnist.s
+
+# target to generate assembly for a file
+test/testmnist.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\testmnist.dir\build.make CMakeFiles/testmnist.dir/test/testmnist.cpp.s
+.PHONY : test/testmnist.cpp.s
+
 test/time_avx.obj: test/time_avx.cpp.obj
 .PHONY : test/time_avx.obj
 
@@ -692,6 +729,7 @@ help:
 	@echo ... ops_avx2
 	@echo ... ops_avx512
 	@echo ... opsmp
+	@echo ... testmnist
 	@echo ... src/core/autograd.obj
 	@echo ... src/core/autograd.i
 	@echo ... src/core/autograd.s
@@ -740,6 +778,9 @@ help:
 	@echo ... src/neuralnet/pooling/pooling.obj
 	@echo ... src/neuralnet/pooling/pooling.i
 	@echo ... src/neuralnet/pooling/pooling.s
+	@echo ... test/testmnist.obj
+	@echo ... test/testmnist.i
+	@echo ... test/testmnist.s
 	@echo ... test/time_avx.obj
 	@echo ... test/time_avx.i
 	@echo ... test/time_avx.s
