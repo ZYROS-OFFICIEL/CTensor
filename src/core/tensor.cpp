@@ -236,7 +236,84 @@ void Tensor::save_image(const std::string& path) const {
     std::cerr << "Image saving not implemented\n";
 }
 Tensor Tensor::gather(const Tensor& index, size_t dim) const {
-    throw std::runtime_error("Gather not implemented yet");
+    if (!impl) throw std::runtime_error("Gather on empty tensor");
+    if (!index.impl) throw std::runtime_error("Gather with empty index");
+    if (dim >= impl->ndim) throw std::out_of_range("Gather dimension out of range");
+    if (impl->ndim != index.impl->ndim) throw std::runtime_error("Input and index must have same number of dimensions");
+
+    // 1. Validate index dtype
+    DType idx_dt = index._dtype();
+    if (idx_dt == DType::Float32 || idx_dt == DType::Double64 || idx_dt == DType::Float16) {
+         throw std::runtime_error("Index tensor must be integer type");
+    }
+
+    // 2. Prepare Output
+    // Output tensor has the same shape as 'index' and same dtype as 'this' (input)
+    Tensor out(index.shape(), impl->dtype, impl->requires_grad);
+    size_t N = out.numel();
+    if (N == 0) return out;
+
+    // 3. Optimize Index Access
+    // Ensure index is contiguous so we can iterate it linearly alongside 'out'
+    Tensor index_cont = index.contiguous();
+    
+    // 4. Setup Pointers and Metadata
+    // Get raw pointers for performance (bypassing shared_ptr/intrusive_ptr checks in loop)
+    void* out_ptr = out.impl->data->data.get();
+    void* inp_ptr = impl->data->data.get();
+    void* idx_ptr = index_cont.impl->data->data.get();
+
+    const auto& out_shape = out.impl->shape; // Same as index shape
+    const auto& inp_shape = impl->shape;
+    const auto& inp_strides = impl->strides;
+    
+    size_t ndim = impl->ndim;
+    std::vector<size_t> coords(ndim, 0);
+
+    // 5. Main Loop
+    // Iterate linearly through the Output/Index tensor (0 to N-1)
+    for (size_t i = 0; i < N; ++i) {
+        
+        // A. Read the index value (linear access because index_cont is contiguous)
+        double idx_val_raw = read_scalar_at(idx_ptr, i, idx_dt);
+        int64_t idx = static_cast<int64_t>(idx_val_raw);
+
+        // B. Handle negative indexing and bounds checking
+        if (idx < 0) idx += (int64_t)inp_shape[dim];
+        
+        if (idx < 0 || (size_t)idx >= inp_shape[dim]) {
+             throw std::out_of_range("Gather index out of bounds");
+        }
+
+        // C. Calculate Offset in Input Tensor
+        // We use the current 'coords', but replace the coordinate at 'dim' with 'idx'
+        size_t inp_offset = impl->offset;
+        for (size_t d = 0; d < ndim; ++d) {
+            size_t coord_at_d = (d == dim) ? (size_t)idx : coords[d];
+            
+            // Safety check: Index shape must be <= Input shape on non-gather dims
+            if (coord_at_d >= inp_shape[d]) {
+                 throw std::runtime_error("Index shape dimension mismatch with input");
+            }
+            inp_offset += coord_at_d * inp_strides[d];
+        }
+
+        // D. Transfer Value
+        double val = read_scalar_at(inp_ptr, inp_offset, impl->dtype);
+        write_scalar_at(out_ptr, i, impl->dtype, val);
+
+        // E. Update Coordinates (Odometer)
+        // Increment the last dimension, carry over if needed
+        for (int d = (int)ndim - 1; d >= 0; --d) {
+            coords[d]++;
+            if (coords[d] < out_shape[d]) {
+                break;
+            }
+            coords[d] = 0;
+        }
+    }
+
+    return out;
 }
 Tensor Tensor::select(size_t dim, size_t index) const {
     throw std::runtime_error("Select not implemented yet");
