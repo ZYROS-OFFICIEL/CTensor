@@ -36,6 +36,9 @@ public:
 
     void zero_grad() {
         for (auto* p : params) {
+        if (!p->impl) continue;
+
+        if (!p->impl->grad) continue;
             if (p->impl->grad->data->data) {
                 size_t nbytes = p->numel() * p->dtype_bytes();
                 std::memset(p->impl->grad->data->data.get(), 0, nbytes);
