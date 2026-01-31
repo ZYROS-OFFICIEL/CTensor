@@ -6,6 +6,7 @@
 #include <ctime>
 #include "core.h"
 #include "neuralnet.h"
+
 // --- SIMPLE MLP MODEL (No Convolutions) ---
 class MLPNet : public Module {
 public:
@@ -27,7 +28,7 @@ public:
     {}
 
     Tensor forward(const Tensor& x) {
-        Tensor out = flat(x); // Reshapes [B, 1, 28, 28] -> [B, 784]
+        Tensor out = flat(x); 
         out = fc1(out);
         out = relu1(out);
         out = fc2(out);
@@ -50,7 +51,7 @@ int main() {
         std::cout << "Loading MNIST data..." << std::endl;
         MNISTData train_data = load_mnist("train-images.idx3-ubyte", "train-labels.idx1-ubyte");
         
-        MLPNet model; // <--- USING MLP
+        MLPNet model;
 
         std::cout << "Initializing weights (Float32)..." << std::endl;
         std::srand(std::time(nullptr));
@@ -59,6 +60,8 @@ int main() {
             if (!p->impl) continue;
             p->requires_grad_(true);
             size_t n = p->numel();
+            if (!p->impl->data || !p->impl->data->data) continue;
+            
             float* ptr = (float*)p->impl->data->data.get();
             for (size_t i = 0; i < n; ++i) {
                 float r = static_cast<float>(std::rand()) / RAND_MAX; 
@@ -73,17 +76,8 @@ int main() {
         size_t num_train = train_data.images.shape()[0];
         size_t num_batches = num_train / BATCH_SIZE;
 
-        Tensor logits = Tensor::full({1,10}, 1.0f, DType::Float32, true);
-        Tensor lbl = Tensor::full({1,1}, 3, DType::Int32, false);
+        std::cout << "Starting training loop..." << std::endl;
 
-        Tensor x = Tensor::ones({1,784}, DType::Float32, true);
-        Tensor y = model.fc1(x);
-        backward(y);
-        std::cout << "10 fist values of model.fc1.weight: ";
-        for (size_t i = 0; i < 10; ++i) {
-            std::cout << model.fc1.weight.read_scalar(i) << " ";
-        }
-        std::cout << "\n\n";
         for (int epoch = 0; epoch < EPOCHS; ++epoch) {
             double epoch_loss = 0.0;
             auto start_time = std::chrono::high_resolution_clock::now();
@@ -108,7 +102,7 @@ int main() {
                 Tensor output = model.forward(batch_imgs);
                 Tensor loss = Loss::CrossEntropy(output, batch_lbls);
                 
-                backward(loss); // <--- If this crashes, bug is in Reshape/Linear
+                backward(loss); 
                 optim.step();
 
                 if (std::isnan(loss.read_scalar(0))) {
@@ -117,7 +111,7 @@ int main() {
                 }
 
                 epoch_loss += loss.read_scalar(0);
-                if (b % 20 == 0) std::cout << "Batch " << b << " Loss: " << loss.read_scalar(0) << std::endl;
+                if (b % 100 == 0) std::cout << "Batch " << b << " Loss: " << loss.read_scalar(0) << std::endl;
             }
             auto end_time = std::chrono::high_resolution_clock::now();
             std::cout << "Epoch " << epoch << " Time: " << std::chrono::duration<double>(end_time - start_time).count() << "s" << std::endl;
