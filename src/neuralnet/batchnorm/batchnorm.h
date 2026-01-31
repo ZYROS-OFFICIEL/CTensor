@@ -1,6 +1,6 @@
 #pragma once
-#include "tensor.h"
-#include "autograd.h"
+#include "core/tensor.h"
+#include "core/autograd.h"
 
 // --- BatchNorm1d / BatchNorm2d ---
 // Applies Batch Normalization over a 2D or 4D input.
