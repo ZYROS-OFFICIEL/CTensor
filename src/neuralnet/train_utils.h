@@ -2,9 +2,13 @@
 #include "module.h"
 #include <vector>
 #include "neuralnet/dataloader/dataloader.h" 
+#include <cstring>
+#include <cmath>
+#include <iostream>
+#include <iomanip>
+
 // --- Generalized Training/Eval Utilities ---
 
-// If you wrap your layers in the Module class (above), you can use this:
 inline void set_train_mode(std::vector<Module*>& layers, bool train_mode) {
     for (auto* layer : layers) {
         if (train_mode) layer->train();
@@ -12,15 +16,10 @@ inline void set_train_mode(std::vector<Module*>& layers, bool train_mode) {
     }
 }
 
-// Or, if you use a container like Sequential:
 inline void set_model_mode(Module& model, bool train_mode) {
     if (train_mode) model.train();
     else model.eval();
 }
-
-// --- Optimizer Interface (Basic SGD) ---
-// This fits perfectly here as it interacts with the parameters collected from modules.
-
 
 // --- Optimizer Base Class ---
 class Optimizer {
@@ -36,14 +35,13 @@ public:
 
     void zero_grad() {
         for (auto* p : params) {
-            if (!p->impl) continue;
-            
-            if (!p->impl->grad) continue;
-                if (p->impl->grad->data->data) {
-                    size_t nbytes = p->numel() * p->dtype_bytes();
-                    std::memset(p->impl->grad->data->data.get(), 0, nbytes);
-                }
+            if (!p || !p->impl) continue;
+            // Check if grad exists before accessing
+            if (p->impl->grad && p->impl->grad->data && p->impl->grad->data->data) {
+                size_t nbytes = p->numel() * p->dtype_bytes();
+                std::memset(p->impl->grad->data->data.get(), 0, nbytes);
             }
+        }
     }
 };
 
@@ -54,7 +52,8 @@ public:
 
     void step() override {
         for (auto* p : params) {
-            if (!p->impl->grad->data->data) continue;
+            // SAFETY CHECK: Skip if no grad exists
+            if (!p || !p->impl || !p->impl->grad || !p->impl->grad->data || !p->impl->grad->data->data) continue;
             
             // Fast path for Float32
             if (p->_dtype() == DType::Float32) {
@@ -81,7 +80,6 @@ public:
 
 // --- Adam Optimizer ---
 class Adam : public Optimizer {
-    // State for m (momentum) and v (velocity)
     struct State {
         std::vector<float> m;
         std::vector<float> v;
@@ -89,7 +87,7 @@ class Adam : public Optimizer {
     std::unordered_map<void*, State> states;
     
     double beta1, beta2, eps;
-    int t; // timestep
+    int t; 
 
 public:
     Adam(const std::vector<Tensor*>& p, double learning_rate = 0.001, 
@@ -99,44 +97,34 @@ public:
     void step() override {
         t++;
         for (auto* p : params) {
-            if (!p->impl->grad->data->data) continue;
+            // SAFETY CHECK
+            if (!p || !p->impl || !p->impl->grad || !p->impl->grad->data || !p->impl->grad->data->data) continue;
             
             size_t n = p->numel();
             void* key = p->impl->data->data.get();
 
-            // Initialize state if missing
             if (states.find(key) == states.end()) {
                 states[key] = { std::vector<float>(n, 0.0f), std::vector<float>(n, 0.0f) };
             }
             
             State& s = states[key];
             
-            // Only implementing fast path for Float32
             if (p->_dtype() == DType::Float32) {
                 float* theta = (float*)p->impl->data->data.get();
                 float* grad  = (float*)p->impl->grad->data->data.get();
                 float* m = s.m.data();
                 float* v = s.v.data();
                 
-                // Correction factors
                 double bias_correction1 = 1.0 - std::pow(beta1, t);
                 double bias_correction2 = 1.0 - std::pow(beta2, t);
                 
-                // PyTorch-style expansion for efficiency:
-                // lr_t = lr * sqrt(1 - beta2^t) / (1 - beta1^t)
                 float lr_t = (float)(lr * std::sqrt(bias_correction2) / bias_correction1);
 
                 #pragma omp parallel for
                 for (size_t i = 0; i < n; ++i) {
                     float g = grad[i];
-                    
-                    // Update biased first moment estimate
                     m[i] = (float)beta1 * m[i] + (1.0f - (float)beta1) * g;
-                    
-                    // Update biased second raw moment estimate
                     v[i] = (float)beta2 * v[i] + (1.0f - (float)beta2) * g * g;
-                    
-                    // Update parameters
                     theta[i] -= lr_t * m[i] / (std::sqrt(v[i]) + (float)eps);
                 }
             }
@@ -145,7 +133,6 @@ public:
 };
 
 // --- AdamW Optimizer ---
-// Adam with decoupled weight decay
 class AdamW : public Optimizer {
     struct State {
         std::vector<float> m;
@@ -164,7 +151,8 @@ public:
     void step() override {
         t++;
         for (auto* p : params) {
-            if (!p->impl->grad->data->data) continue;
+            // SAFETY CHECK
+            if (!p || !p->impl || !p->impl->grad || !p->impl->grad->data || !p->impl->grad->data->data) continue;
             
             size_t n = p->numel();
             void* key = p->impl->data->data.get();
@@ -187,10 +175,7 @@ public:
                 #pragma omp parallel for
                 for (size_t i = 0; i < n; ++i) {
                     float g = grad[i];
-                    
-                    // Decoupled Weight Decay
-                    theta[i] -= (float)(lr * weight_decay * theta[i]);
-
+                    theta[i] -= (float)(lr * weight_decay * theta[i]); // Decoupled Decay
                     m[i] = (float)beta1 * m[i] + (1.0f - (float)beta1) * g;
                     v[i] = (float)beta2 * v[i] + (1.0f - (float)beta2) * g * g;
                     theta[i] -= lr_t * m[i] / (std::sqrt(v[i]) + (float)eps);
@@ -200,13 +185,11 @@ public:
     }
 };
 
-
 // --- Adamax Optimizer ---
-// Adam based on infinity norm
 class Adamax : public Optimizer {
     struct State {
         std::vector<float> m;
-        std::vector<float> u; // exp_avg_sq using max
+        std::vector<float> u; 
     };
     std::unordered_map<void*, State> states;
     
@@ -221,7 +204,8 @@ public:
     void step() override {
         t++;
         for (auto* p : params) {
-            if (!p->impl->grad->data->data) continue;
+            // SAFETY CHECK
+            if (!p || !p->impl || !p->impl->grad || !p->impl->grad->data || !p->impl->grad->data->data) continue;
             
             size_t n = p->numel();
             void* key = p->impl->data->data.get();
@@ -244,7 +228,7 @@ public:
                 for (size_t i = 0; i < n; ++i) {
                     float g = grad[i];
                     m[i] = (float)beta1 * m[i] + (1.0f - (float)beta1) * g;
-                    u[i] = std::max((float)beta2 * u[i], std::abs(g)); // infinity norm
+                    u[i] = std::max((float)beta2 * u[i], std::abs(g)); 
                     theta[i] -= step_size * m[i] / (u[i] + (float)eps);
                 }
             }
@@ -252,10 +236,7 @@ public:
     }
 };
 
-
-
 // --- NAdam Optimizer ---
-// Nesterov-accelerated Adaptive Moment Estimation
 class NAdam : public Optimizer {
     struct State {
         std::vector<float> m;
@@ -273,7 +254,8 @@ public:
     void step() override {
         t++;
         for (auto* p : params) {
-            if (!p->impl->grad->data->data) continue;
+            // SAFETY CHECK
+            if (!p || !p->impl || !p->impl->grad || !p->impl->grad->data || !p->impl->grad->data->data) continue;
             
             size_t n = p->numel();
             void* key = p->impl->data->data.get();
@@ -289,31 +271,16 @@ public:
                 float* m = s.m.data();
                 float* v = s.v.data();
                 
-                // NAdam complex momentum decay schedule can be simplified
-                // Using standard implementation approximation
                 double bias_correction1 = 1.0 - std::pow(beta1, t);
                 double bias_correction2 = 1.0 - std::pow(beta2, t);
-                
-                // Calculate mu_t and mu_t+1 for Nesterov
-                // Simplified NAdam often uses just standard beta1
-                // We will use standard Nesterov update rule on top of Adam
-                
                 float step_size = (float)(lr * std::sqrt(bias_correction2) / bias_correction1);
-                float b1_t = (float)beta1 * (1.0f - 0.5f * std::pow(0.96f, t * momentum_decay));
-                float b1_next = (float)beta1 * (1.0f - 0.5f * std::pow(0.96f, (t + 1) * momentum_decay));
 
                 #pragma omp parallel for
                 for (size_t i = 0; i < n; ++i) {
                     float g = grad[i];
                     m[i] = (float)beta1 * m[i] + (1.0f - (float)beta1) * g;
                     v[i] = (float)beta2 * v[i] + (1.0f - (float)beta2) * g * g;
-                    
-                    // Nesterov Momentum Term
-                    float m_hat = (float)beta1 * m[i] / (1.0f - std::pow(beta1, t+1)) + (1.0f - (float)beta1) * g / (1.0f - std::pow(beta1, t)); 
-                    // Simplified: Use current m and lookahead g
-                    // Standard PyTorch implementation effectively does:
                     float m_nesterov = (float)beta1 * m[i] + (1.0f - (float)beta1) * g;
-                    
                     theta[i] -= step_size * m_nesterov / (std::sqrt(v[i]) + (float)eps);
                 }
             }
@@ -321,9 +288,7 @@ public:
     }
 };
 
-
 // --- RAdam Optimizer ---
-// Rectified Adam
 class RAdam : public Optimizer {
     struct State {
         std::vector<float> m;
@@ -341,11 +306,11 @@ public:
 
     void step() override {
         t++;
-        // Calculate rho_inf
         float rho_inf = 2.0f / (1.0f - (float)beta2) - 1.0f;
 
         for (auto* p : params) {
-            if (!p->impl->grad->data->data) continue;
+            // SAFETY CHECK
+            if (!p || !p->impl || !p->impl->grad || !p->impl->grad->data || !p->impl->grad->data->data) continue;
             
             size_t n = p->numel();
             void* key = p->impl->data->data.get();
@@ -364,7 +329,6 @@ public:
                 double bias_correction1 = 1.0 - std::pow(beta1, t);
                 double bias_correction2 = 1.0 - std::pow(beta2, t);
                 
-                // Calculate rho_t
                 float rho_t = rho_inf - 2.0f * t * std::pow(beta2, t) / (1.0f - std::pow(beta2, t));
 
                 #pragma omp parallel for
@@ -388,9 +352,10 @@ public:
     }
 };
 
+// --- RMSprop Optimizer ---
 class RMSprop : public Optimizer {
     struct State {
-        std::vector<float> v; // square average
+        std::vector<float> v; 
     };
     std::unordered_map<void*, State> states;
     double alpha, eps;
@@ -401,7 +366,8 @@ public:
 
     void step() override {
         for (auto* p : params) {
-            if (!p->impl->grad->data->data) continue;
+            // SAFETY CHECK
+            if (!p || !p->impl || !p->impl->grad || !p->impl->grad->data || !p->impl->grad->data->data) continue;
             
             size_t n = p->numel();
             void* key = p->impl->data->data.get();
@@ -419,18 +385,15 @@ public:
                 #pragma omp parallel for
                 for (size_t i = 0; i < n; ++i) {
                     float g = grad[i];
-                    // v = alpha * v + (1 - alpha) * g^2
                     v[i] = (float)alpha * v[i] + (1.0f - (float)alpha) * g * g;
-                    // theta = theta - lr * g / (sqrt(v) + eps)
                     theta[i] -= (float)lr * g / (std::sqrt(v[i]) + (float)eps);
                 }
             }
         }
     }
 };
+
 // --- Adagrad Optimizer ---
-// Adapts learning rate based on sum of squared gradients so far
-// theta = theta - lr * grad / sqrt(sum_sq_grad + eps)
 class Adagrad : public Optimizer {
     struct State {
         std::vector<float> sum_sq; 
@@ -444,7 +407,8 @@ public:
 
     void step() override {
         for (auto* p : params) {
-            if (!p->impl->grad->data->data) continue;
+            // SAFETY CHECK
+            if (!p || !p->impl || !p->impl->grad || !p->impl->grad->data || !p->impl->grad->data->data) continue;
             
             size_t n = p->numel();
             void* key = p->impl->data->data.get();
@@ -462,9 +426,7 @@ public:
                 #pragma omp parallel for
                 for (size_t i = 0; i < n; ++i) {
                     float g = grad[i];
-                    // sum_sq += g^2
                     sum_sq[i] += g * g;
-                    // theta = theta - lr * g / (sqrt(sum_sq) + eps)
                     theta[i] -= (float)lr * g / (std::sqrt(sum_sq[i]) + (float)eps);
                 }
             }
@@ -472,12 +434,10 @@ public:
     }
 };
 
-// --- Lion Optimizer (Google, 2023) ---
-// "Symbolic Discovery of Optimization Algorithms"
-// Uses sign-based updates. Faster compute (no sqrt/div) and 2x memory efficient (1 state).
+// --- Lion Optimizer ---
 class Lion : public Optimizer {
     struct State {
-        std::vector<float> m; // Only momentum! No 'v' (variance) needed.
+        std::vector<float> m;
     };
     std::unordered_map<void*, State> states;
     
@@ -490,7 +450,8 @@ public:
 
     void step() override {
         for (auto* p : params) {
-            if (!p->impl->grad->data->data) continue;
+            // SAFETY CHECK
+            if (!p || !p->impl || !p->impl->grad || !p->impl->grad->data || !p->impl->grad->data->data) continue;
             
             size_t n = p->numel();
             void* key = p->impl->data->data.get();
@@ -500,13 +461,11 @@ public:
             }
             State& s = states[key];
             
-            // Fast Path: Float32 and Contiguous
             if (p->_dtype() == DType::Float32 && p->is_contiguous()) {
                 float* theta = (float*)p->impl->data->data.get();
                 float* grad  = (float*)p->impl->grad->data->data.get();
                 float* m = s.m.data();
                 
-                // Pre-calculate constants
                 float beta1_f = (float)beta1;
                 float beta2_f = (float)beta2;
                 float lr_decay = (float)(lr * weight_decay);
@@ -517,23 +476,14 @@ public:
                     float g = grad[i];
                     float m_t = m[i];
 
-                    // 1. Perform Weight Decay
                     if (weight_decay > 0) {
                         theta[i] -= lr_decay * theta[i];
                     }
 
-                    // 2. Symbolic Update (c_t)
-                    // c_t = beta1 * m_{t-1} + (1 - beta1) * g_t
                     float c_t = beta1_f * m_t + (1.0f - beta1_f) * g;
-
-                    // 3. Update Model Parameters
-                    // theta_t = theta_{t-1} - lr * sign(c_t)
-                    // Branchless sign optimization: (c_t > 0) - (c_t < 0)
                     float sign_ct = (c_t > 0.0f) ? 1.0f : ((c_t < 0.0f) ? -1.0f : 0.0f);
                     theta[i] -= lr_f * sign_ct;
 
-                    // 4. Update Momentum
-                    // m_t = beta2 * m_{t-1} + (1 - beta2) * g_t
                     m[i] = beta2_f * m_t + (1.0f - beta2_f) * g;
                 }
             }
@@ -562,34 +512,26 @@ public:
 };
 
 // --- Generic Training Function ---
-// Template allows it to accept any Model class that has a forward() method
 template <typename ModelType>
 void train_epoch(ModelType& model, DataLoader& loader, Optimizer& optim, int epoch, size_t log_interval = 100) {
-    // model.train(); // Uncomment if you implement train/eval modes in Module
-    
     double total_loss = 0.0;
     int batch_idx = 0;
     size_t processed = 0;
     
-    loader.reset(); // Shuffle for new epoch
+    loader.reset(); 
 
     while(true) {
         auto [data, target] = loader.next();
-        if (!data.impl) break; // End of epoch
+        if (!data.impl) break; 
 
         optim.zero_grad();
         
-        // Forward
         Tensor output = model.forward(data);
-        
-        // Loss (Assuming CrossEntropy for classification)
         Tensor loss = Loss::CrossEntropy(output, target);
         
-        // Backward
         backward(loss);
         optim.step();
 
-        // Stats
         double l = loss.read_scalar(0);
         if (std::isnan(l)) {
             std::cerr << "\nERROR: NaN Loss detected at epoch " << epoch << " batch " << batch_idx << "!\n";
@@ -614,28 +556,21 @@ void train_epoch(ModelType& model, DataLoader& loader, Optimizer& optim, int epo
 // --- Generic Evaluation Function ---
 template <typename ModelType>
 double evaluate(ModelType& model, DataLoader& loader) {
-    // model.eval(); // Uncomment if implemented
-    
     double total_loss = 0.0;
     int correct = 0;
     size_t total_samples = 0;
     int batch_count = 0;
     
-    loader.reset(); // No shuffle usually needed for test, but resets cursor
+    loader.reset(); 
 
     while(true) {
         auto [data, target] = loader.next();
         if (!data.impl) break;
 
         Tensor output = model.forward(data);
-        Tensor loss = Loss::CrossEntropy(output, target); // Sum reduction? Check your Loss impl.
+        Tensor loss = Loss::CrossEntropy(output, target); 
         
-        // If loss is mean-reduced inside CrossEntropy:
         total_loss += loss.read_scalar(0);
-        
-        // --- Calculate Accuracy (Argmax) ---
-        // Assuming output is [Batch, Classes] (Float32)
-        // Assuming target is [Batch, 1] (Int32)
         
         const float* out_ptr = (const float*)output.impl->data->data.get();
         const int32_t* tgt_ptr = (const int32_t*)target.impl->data->data.get();
@@ -662,7 +597,6 @@ double evaluate(ModelType& model, DataLoader& loader) {
         total_samples += batch;
         batch_count++;
         
-        // Simple progress spinner
         if (batch_count % 50 == 0) std::cout << "." << std::flush;
     }
     
