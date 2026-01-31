@@ -355,13 +355,13 @@ Tensor sum(const Tensor &a, int dim) {
     if (a.device().is_cpu()) {
         switch (a._dtype()) {
             case DType::Float32:
-                if (cpu_has_avx512f()) out = sum_avx512_f32(a,dim);
-                else if (cpu_has_avx2()) out = sum_avx2_f32(a,dim);
+                if (cpu_has_avx512f() ) out = sum_avx512_f32(a,dim);
+                else if (cpu_has_avx2() && dim == -1) out = sum_avx2_f32(a,dim);
                 else out = sum_mp(a,dim);
                 break;
             case DType::Double64:
                 if (cpu_has_avx512f()) out = sum_avx512_d64(a,dim);
-                else if (cpu_has_avx2()) out = sum_avx2_d64(a,dim);
+                else if (cpu_has_avx2() && dim == -1) out = sum_avx2_d64(a,dim);
                 else out = sum_mp(a,dim);
                 break;
             default: out = sum_mp(a,dim); break;
@@ -387,11 +387,11 @@ Tensor max(const Tensor &a, int dim) {
         switch (a._dtype()) {
             case DType::Float32:
                 if (cpu_has_avx512f()) return max_avx512_f32(a,dim);
-                if (cpu_has_avx2())    return max_avx2_f32(a,dim);
+                if (cpu_has_avx2() && dim == -1)    return max_avx2_f32(a,dim);
                 return max_mp(a,dim);
             case DType::Double64:
                 if (cpu_has_avx512f()) return max_avx512_d64(a,dim);
-                if (cpu_has_avx2())    return max_avx2_d64(a,dim);
+                if (cpu_has_avx2() && dim == -1)    return max_avx2_d64(a,dim);
                 return max_mp(a,dim);
             default: return max_mp(a,dim);
         }
@@ -404,11 +404,11 @@ Tensor min(const Tensor &a, int dim) {
         switch (a._dtype()) {
             case DType::Float32:
                 if (cpu_has_avx512f()) return min_avx512_f32(a,dim);
-                if (cpu_has_avx2())    return min_avx2_f32(a,dim);
+                if (cpu_has_avx2() && dim == -1)    return min_avx2_f32(a,dim);
                 return min_mp(a,dim);
             case DType::Double64:
                 if (cpu_has_avx512f()) return min_avx512_d64(a,dim);
-                if (cpu_has_avx2())    return min_avx2_d64(a,dim);
+                if (cpu_has_avx2() && dim == -1)    return min_avx2_d64(a,dim);
                 return min_mp(a,dim);
             default: return min_mp(a,dim);
         }
