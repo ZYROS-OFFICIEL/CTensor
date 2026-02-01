@@ -378,11 +378,17 @@ CMakeFiles/trainmnist.dir/test/train_mnist.cpp.obj: D:/C\ programs/CTensor/test/
   C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/xsaveoptintrin.h \
   C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/xsavesintrin.h \
   C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/xtestintrin.h \
+  D:/C\ programs/CTensor/src/core.h \
   D:/C\ programs/CTensor/src/core/autograd.h \
+  D:/C\ programs/CTensor/src/core/data.h \
   D:/C\ programs/CTensor/src/core/device.h \
+  D:/C\ programs/CTensor/src/core/dispatch.h \
   D:/C\ programs/CTensor/src/core/ops_dispatch.h \
+  D:/C\ programs/CTensor/src/core/opsmp.h \
   D:/C\ programs/CTensor/src/core/tensor.h \
+  D:/C\ programs/CTensor/src/neuralnet.h \
   D:/C\ programs/CTensor/src/neuralnet/Relu.h \
+  D:/C\ programs/CTensor/src/neuralnet/batchnorm/batchnorm.h \
   D:/C\ programs/CTensor/src/neuralnet/check.h \
   D:/C\ programs/CTensor/src/neuralnet/conv/conv.h \
   D:/C\ programs/CTensor/src/neuralnet/dataloader/dataloader.h \
@@ -627,6 +633,8 @@ C:/msys64/mingw64/include/c++/15.2.0/bits/ranges_util.h:
 
 C:/msys64/mingw64/include/c++/15.2.0/bits/refwrap.h:
 
+D:/C\ programs/CTensor/src/core.h:
+
 C:/msys64/mingw64/include/c++/15.2.0/bits/requires_hosted.h:
 
 C:/msys64/mingw64/include/c++/15.2.0/bits/shared_ptr.h:
@@ -785,6 +793,8 @@ C:/msys64/mingw64/include/c++/15.2.0/debug/debug.h:
 
 D:/C\ programs/CTensor/src/neuralnet/conv/conv.h:
 
+D:/C\ programs/CTensor/src/core/data.h:
+
 C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/avx512fp16vlintrin.h:
 
 C:/msys64/mingw64/include/c++/15.2.0/deque:
@@ -804,6 +814,8 @@ C:/msys64/mingw64/include/c++/15.2.0/ext/atomicity.h:
 C:/msys64/mingw64/include/limits.h:
 
 C:/msys64/mingw64/include/c++/15.2.0/ext/numeric_traits.h:
+
+D:/C\ programs/CTensor/src/core/opsmp.h:
 
 C:/msys64/mingw64/include/c++/15.2.0/ext/string_conversions.h:
 
@@ -1079,6 +1091,8 @@ C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/avxvnniintrin.h:
 
 C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/bmi2intrin.h:
 
+D:/C\ programs/CTensor/src/neuralnet.h:
+
 C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/cetintrin.h:
 
 C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/clflushoptintrin.h:
@@ -1167,7 +1181,11 @@ D:/C\ programs/CTensor/src/core/autograd.h:
 
 D:/C\ programs/CTensor/src/core/device.h:
 
+D:/C\ programs/CTensor/src/core/dispatch.h:
+
 D:/C\ programs/CTensor/src/core/ops_dispatch.h:
+
+D:/C\ programs/CTensor/src/neuralnet/batchnorm/batchnorm.h:
 
 D:/C\ programs/CTensor/src/neuralnet/dataloader/dataloader.h:
 

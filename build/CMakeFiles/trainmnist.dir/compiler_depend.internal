@@ -379,11 +379,17 @@ CMakeFiles/trainmnist.dir/test/train_mnist.cpp.obj
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/xsaveoptintrin.h
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/xsavesintrin.h
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/xtestintrin.h
+ D:/C programs/CTensor/src/core.h
  D:/C programs/CTensor/src/core/autograd.h
+ D:/C programs/CTensor/src/core/data.h
  D:/C programs/CTensor/src/core/device.h
+ D:/C programs/CTensor/src/core/dispatch.h
  D:/C programs/CTensor/src/core/ops_dispatch.h
+ D:/C programs/CTensor/src/core/opsmp.h
  D:/C programs/CTensor/src/core/tensor.h
+ D:/C programs/CTensor/src/neuralnet.h
  D:/C programs/CTensor/src/neuralnet/Relu.h
+ D:/C programs/CTensor/src/neuralnet/batchnorm/batchnorm.h
  D:/C programs/CTensor/src/neuralnet/check.h
  D:/C programs/CTensor/src/neuralnet/conv/conv.h
  D:/C programs/CTensor/src/neuralnet/dataloader/dataloader.h
