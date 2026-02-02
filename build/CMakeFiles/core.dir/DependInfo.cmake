@@ -12,6 +12,7 @@ set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "D:/C programs/CTensor/src/core/data.cpp" "CMakeFiles/core.dir/src/core/data.cpp.obj" "gcc" "CMakeFiles/core.dir/src/core/data.cpp.obj.d"
   "D:/C programs/CTensor/src/core/ops_dispatch.cpp" "CMakeFiles/core.dir/src/core/ops_dispatch.cpp.obj" "gcc" "CMakeFiles/core.dir/src/core/ops_dispatch.cpp.obj.d"
   "D:/C programs/CTensor/src/core/tensor.cpp" "CMakeFiles/core.dir/src/core/tensor.cpp.obj" "gcc" "CMakeFiles/core.dir/src/core/tensor.cpp.obj.d"
+  "D:/C programs/CTensor/src/core/transforme.cpp" "CMakeFiles/core.dir/src/core/transforme.cpp.obj" "gcc" "CMakeFiles/core.dir/src/core/transforme.cpp.obj.d"
   )
 
 # Targets to which this target links which contain Fortran sources.

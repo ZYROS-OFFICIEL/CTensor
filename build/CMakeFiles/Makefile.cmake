@@ -65,4 +65,5 @@ set(CMAKE_DEPEND_INFO_FILES
   "CMakeFiles/app.dir/DependInfo.cmake"
   "CMakeFiles/testmnist.dir/DependInfo.cmake"
   "CMakeFiles/trainmnist.dir/DependInfo.cmake"
+  "CMakeFiles/transformetest.dir/DependInfo.cmake"
   )

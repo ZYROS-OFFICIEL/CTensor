@@ -290,6 +290,19 @@ trainmnist/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\trainmnist.dir\build.make CMakeFiles/trainmnist.dir/build
 .PHONY : trainmnist/fast
 
+#=============================================================================
+# Target rules for targets named transformetest
+
+# Build rule for target.
+transformetest: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\Makefile2 transformetest
+.PHONY : transformetest
+
+# fast build rule for target.
+transformetest/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\transformetest.dir\build.make CMakeFiles/transformetest.dir/build
+.PHONY : transformetest/fast
+
 src/core/autograd.obj: src/core/autograd.cpp.obj
 .PHONY : src/core/autograd.obj
 
@@ -409,6 +422,30 @@ src/core/tensor.s: src/core/tensor.cpp.s
 src/core/tensor.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\core.dir\build.make CMakeFiles/core.dir/src/core/tensor.cpp.s
 .PHONY : src/core/tensor.cpp.s
+
+src/core/transforme.obj: src/core/transforme.cpp.obj
+.PHONY : src/core/transforme.obj
+
+# target to build an object file
+src/core/transforme.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\core.dir\build.make CMakeFiles/core.dir/src/core/transforme.cpp.obj
+.PHONY : src/core/transforme.cpp.obj
+
+src/core/transforme.i: src/core/transforme.cpp.i
+.PHONY : src/core/transforme.i
+
+# target to preprocess a source file
+src/core/transforme.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\core.dir\build.make CMakeFiles/core.dir/src/core/transforme.cpp.i
+.PHONY : src/core/transforme.cpp.i
+
+src/core/transforme.s: src/core/transforme.cpp.s
+.PHONY : src/core/transforme.s
+
+# target to generate assembly for a file
+src/core/transforme.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\core.dir\build.make CMakeFiles/core.dir/src/core/transforme.cpp.s
+.PHONY : src/core/transforme.cpp.s
 
 src/cpu/AVX2/ops_avx2_d64.obj: src/cpu/AVX2/ops_avx2_d64.cpp.obj
 .PHONY : src/cpu/AVX2/ops_avx2_d64.obj
@@ -770,6 +807,30 @@ test/train_mnist.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\trainmnist.dir\build.make CMakeFiles/trainmnist.dir/test/train_mnist.cpp.s
 .PHONY : test/train_mnist.cpp.s
 
+test/transforme_test.obj: test/transforme_test.cpp.obj
+.PHONY : test/transforme_test.obj
+
+# target to build an object file
+test/transforme_test.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\transformetest.dir\build.make CMakeFiles/transformetest.dir/test/transforme_test.cpp.obj
+.PHONY : test/transforme_test.cpp.obj
+
+test/transforme_test.i: test/transforme_test.cpp.i
+.PHONY : test/transforme_test.i
+
+# target to preprocess a source file
+test/transforme_test.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\transformetest.dir\build.make CMakeFiles/transformetest.dir/test/transforme_test.cpp.i
+.PHONY : test/transforme_test.cpp.i
+
+test/transforme_test.s: test/transforme_test.cpp.s
+.PHONY : test/transforme_test.s
+
+# target to generate assembly for a file
+test/transforme_test.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\transformetest.dir\build.make CMakeFiles/transformetest.dir/test/transforme_test.cpp.s
+.PHONY : test/transforme_test.cpp.s
+
 # Help Target
 help:
 	@echo The following are some of the valid targets for this Makefile:
@@ -792,6 +853,7 @@ help:
 	@echo ... opsmp
 	@echo ... testmnist
 	@echo ... trainmnist
+	@echo ... transformetest
 	@echo ... src/core/autograd.obj
 	@echo ... src/core/autograd.i
 	@echo ... src/core/autograd.s
@@ -807,6 +869,9 @@ help:
 	@echo ... src/core/tensor.obj
 	@echo ... src/core/tensor.i
 	@echo ... src/core/tensor.s
+	@echo ... src/core/transforme.obj
+	@echo ... src/core/transforme.i
+	@echo ... src/core/transforme.s
 	@echo ... src/cpu/AVX2/ops_avx2_d64.obj
 	@echo ... src/cpu/AVX2/ops_avx2_d64.i
 	@echo ... src/cpu/AVX2/ops_avx2_d64.s
@@ -852,6 +917,9 @@ help:
 	@echo ... test/train_mnist.obj
 	@echo ... test/train_mnist.i
 	@echo ... test/train_mnist.s
+	@echo ... test/transforme_test.obj
+	@echo ... test/transforme_test.i
+	@echo ... test/transforme_test.s
 .PHONY : help
 
 

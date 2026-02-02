@@ -72,6 +72,7 @@ all: CMakeFiles/myproject.dir/all
 all: CMakeFiles/app.dir/all
 all: CMakeFiles/testmnist.dir/all
 all: CMakeFiles/trainmnist.dir/all
+all: CMakeFiles/transformetest.dir/all
 .PHONY : all
 
 # The main recursive "codegen" target.
@@ -85,6 +86,7 @@ codegen: CMakeFiles/myproject.dir/codegen
 codegen: CMakeFiles/app.dir/codegen
 codegen: CMakeFiles/testmnist.dir/codegen
 codegen: CMakeFiles/trainmnist.dir/codegen
+codegen: CMakeFiles/transformetest.dir/codegen
 .PHONY : codegen
 
 # The main recursive "preinstall" target.
@@ -102,6 +104,7 @@ clean: CMakeFiles/myproject.dir/clean
 clean: CMakeFiles/app.dir/clean
 clean: CMakeFiles/testmnist.dir/clean
 clean: CMakeFiles/trainmnist.dir/clean
+clean: CMakeFiles/transformetest.dir/clean
 .PHONY : clean
 
 #=============================================================================
@@ -111,7 +114,7 @@ clean: CMakeFiles/trainmnist.dir/clean
 CMakeFiles/opsmp.dir/all:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\opsmp.dir\build.make CMakeFiles/opsmp.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\opsmp.dir\build.make CMakeFiles/opsmp.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=20 "Built target opsmp"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=21 "Built target opsmp"
 .PHONY : CMakeFiles/opsmp.dir/all
 
 # Build rule for subdir invocation for target.
@@ -128,7 +131,7 @@ opsmp: CMakeFiles/opsmp.dir/rule
 # codegen rule for target.
 CMakeFiles/opsmp.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\opsmp.dir\build.make CMakeFiles/opsmp.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=20 "Finished codegen for target opsmp"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=21 "Finished codegen for target opsmp"
 .PHONY : CMakeFiles/opsmp.dir/codegen
 
 # clean rule for target.
@@ -143,12 +146,12 @@ CMakeFiles/opsmp.dir/clean:
 CMakeFiles/core.dir/all:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\core.dir\build.make CMakeFiles/core.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\core.dir\build.make CMakeFiles/core.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=4,5,6,7 "Built target core"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=4,5,6,7,8 "Built target core"
 .PHONY : CMakeFiles/core.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/core.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start "D:\C programs\CTensor\build\CMakeFiles" 4
+	$(CMAKE_COMMAND) -E cmake_progress_start "D:\C programs\CTensor\build\CMakeFiles" 5
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\Makefile2 CMakeFiles/core.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start "D:\C programs\CTensor\build\CMakeFiles" 0
 .PHONY : CMakeFiles/core.dir/rule
@@ -160,7 +163,7 @@ core: CMakeFiles/core.dir/rule
 # codegen rule for target.
 CMakeFiles/core.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\core.dir\build.make CMakeFiles/core.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=4,5,6,7 "Finished codegen for target core"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=4,5,6,7,8 "Finished codegen for target core"
 .PHONY : CMakeFiles/core.dir/codegen
 
 # clean rule for target.
@@ -175,7 +178,7 @@ CMakeFiles/core.dir/clean:
 CMakeFiles/neuralnet.dir/all:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\neuralnet.dir\build.make CMakeFiles/neuralnet.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\neuralnet.dir\build.make CMakeFiles/neuralnet.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=9,10,11,12,13,14,15 "Built target neuralnet"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=10,11,12,13,14,15,16 "Built target neuralnet"
 .PHONY : CMakeFiles/neuralnet.dir/all
 
 # Build rule for subdir invocation for target.
@@ -192,7 +195,7 @@ neuralnet: CMakeFiles/neuralnet.dir/rule
 # codegen rule for target.
 CMakeFiles/neuralnet.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\neuralnet.dir\build.make CMakeFiles/neuralnet.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=9,10,11,12,13,14,15 "Finished codegen for target neuralnet"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=10,11,12,13,14,15,16 "Finished codegen for target neuralnet"
 .PHONY : CMakeFiles/neuralnet.dir/codegen
 
 # clean rule for target.
@@ -239,7 +242,7 @@ CMakeFiles/conv.dir/clean:
 CMakeFiles/ops_avx2.dir/all:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\ops_avx2.dir\build.make CMakeFiles/ops_avx2.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\ops_avx2.dir\build.make CMakeFiles/ops_avx2.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=16,17 "Built target ops_avx2"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=17,18 "Built target ops_avx2"
 .PHONY : CMakeFiles/ops_avx2.dir/all
 
 # Build rule for subdir invocation for target.
@@ -256,7 +259,7 @@ ops_avx2: CMakeFiles/ops_avx2.dir/rule
 # codegen rule for target.
 CMakeFiles/ops_avx2.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\ops_avx2.dir\build.make CMakeFiles/ops_avx2.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=16,17 "Finished codegen for target ops_avx2"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=17,18 "Finished codegen for target ops_avx2"
 .PHONY : CMakeFiles/ops_avx2.dir/codegen
 
 # clean rule for target.
@@ -271,7 +274,7 @@ CMakeFiles/ops_avx2.dir/clean:
 CMakeFiles/ops_avx512.dir/all:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\ops_avx512.dir\build.make CMakeFiles/ops_avx512.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\ops_avx512.dir\build.make CMakeFiles/ops_avx512.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=18,19 "Built target ops_avx512"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=19,20 "Built target ops_avx512"
 .PHONY : CMakeFiles/ops_avx512.dir/all
 
 # Build rule for subdir invocation for target.
@@ -288,7 +291,7 @@ ops_avx512: CMakeFiles/ops_avx512.dir/rule
 # codegen rule for target.
 CMakeFiles/ops_avx512.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\ops_avx512.dir\build.make CMakeFiles/ops_avx512.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=18,19 "Finished codegen for target ops_avx512"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=19,20 "Finished codegen for target ops_avx512"
 .PHONY : CMakeFiles/ops_avx512.dir/codegen
 
 # clean rule for target.
@@ -300,20 +303,20 @@ CMakeFiles/ops_avx512.dir/clean:
 # Target rules for target CMakeFiles/myproject.dir
 
 # All Build rule for target.
-CMakeFiles/myproject.dir/all: CMakeFiles/neuralnet.dir/all
+CMakeFiles/myproject.dir/all: CMakeFiles/ops_avx2.dir/all
 CMakeFiles/myproject.dir/all: CMakeFiles/opsmp.dir/all
 CMakeFiles/myproject.dir/all: CMakeFiles/core.dir/all
+CMakeFiles/myproject.dir/all: CMakeFiles/neuralnet.dir/all
 CMakeFiles/myproject.dir/all: CMakeFiles/conv.dir/all
-CMakeFiles/myproject.dir/all: CMakeFiles/ops_avx2.dir/all
 CMakeFiles/myproject.dir/all: CMakeFiles/ops_avx512.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\myproject.dir\build.make CMakeFiles/myproject.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\myproject.dir\build.make CMakeFiles/myproject.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=8 "Built target myproject"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=9 "Built target myproject"
 .PHONY : CMakeFiles/myproject.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/myproject.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start "D:\C programs\CTensor\build\CMakeFiles" 18
+	$(CMAKE_COMMAND) -E cmake_progress_start "D:\C programs\CTensor\build\CMakeFiles" 19
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\Makefile2 CMakeFiles/myproject.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start "D:\C programs\CTensor\build\CMakeFiles" 0
 .PHONY : CMakeFiles/myproject.dir/rule
@@ -325,7 +328,7 @@ myproject: CMakeFiles/myproject.dir/rule
 # codegen rule for target.
 CMakeFiles/myproject.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\myproject.dir\build.make CMakeFiles/myproject.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=8 "Finished codegen for target myproject"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=9 "Finished codegen for target myproject"
 .PHONY : CMakeFiles/myproject.dir/codegen
 
 # clean rule for target.
@@ -345,7 +348,7 @@ CMakeFiles/app.dir/all: CMakeFiles/myproject.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/app.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start "D:\C programs\CTensor\build\CMakeFiles" 20
+	$(CMAKE_COMMAND) -E cmake_progress_start "D:\C programs\CTensor\build\CMakeFiles" 21
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\Makefile2 CMakeFiles/app.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start "D:\C programs\CTensor\build\CMakeFiles" 0
 .PHONY : CMakeFiles/app.dir/rule
@@ -372,12 +375,12 @@ CMakeFiles/app.dir/clean:
 CMakeFiles/testmnist.dir/all: CMakeFiles/myproject.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\testmnist.dir\build.make CMakeFiles/testmnist.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\testmnist.dir\build.make CMakeFiles/testmnist.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=21,22 "Built target testmnist"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=22,23 "Built target testmnist"
 .PHONY : CMakeFiles/testmnist.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/testmnist.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start "D:\C programs\CTensor\build\CMakeFiles" 20
+	$(CMAKE_COMMAND) -E cmake_progress_start "D:\C programs\CTensor\build\CMakeFiles" 21
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\Makefile2 CMakeFiles/testmnist.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start "D:\C programs\CTensor\build\CMakeFiles" 0
 .PHONY : CMakeFiles/testmnist.dir/rule
@@ -389,7 +392,7 @@ testmnist: CMakeFiles/testmnist.dir/rule
 # codegen rule for target.
 CMakeFiles/testmnist.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\testmnist.dir\build.make CMakeFiles/testmnist.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=21,22 "Finished codegen for target testmnist"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=22,23 "Finished codegen for target testmnist"
 .PHONY : CMakeFiles/testmnist.dir/codegen
 
 # clean rule for target.
@@ -404,12 +407,12 @@ CMakeFiles/testmnist.dir/clean:
 CMakeFiles/trainmnist.dir/all: CMakeFiles/myproject.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\trainmnist.dir\build.make CMakeFiles/trainmnist.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\trainmnist.dir\build.make CMakeFiles/trainmnist.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=23,24 "Built target trainmnist"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=24,25 "Built target trainmnist"
 .PHONY : CMakeFiles/trainmnist.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/trainmnist.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start "D:\C programs\CTensor\build\CMakeFiles" 20
+	$(CMAKE_COMMAND) -E cmake_progress_start "D:\C programs\CTensor\build\CMakeFiles" 21
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\Makefile2 CMakeFiles/trainmnist.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start "D:\C programs\CTensor\build\CMakeFiles" 0
 .PHONY : CMakeFiles/trainmnist.dir/rule
@@ -421,13 +424,45 @@ trainmnist: CMakeFiles/trainmnist.dir/rule
 # codegen rule for target.
 CMakeFiles/trainmnist.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\trainmnist.dir\build.make CMakeFiles/trainmnist.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=23,24 "Finished codegen for target trainmnist"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=24,25 "Finished codegen for target trainmnist"
 .PHONY : CMakeFiles/trainmnist.dir/codegen
 
 # clean rule for target.
 CMakeFiles/trainmnist.dir/clean:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\trainmnist.dir\build.make CMakeFiles/trainmnist.dir/clean
 .PHONY : CMakeFiles/trainmnist.dir/clean
+
+#=============================================================================
+# Target rules for target CMakeFiles/transformetest.dir
+
+# All Build rule for target.
+CMakeFiles/transformetest.dir/all: CMakeFiles/myproject.dir/all
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\transformetest.dir\build.make CMakeFiles/transformetest.dir/depend
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\transformetest.dir\build.make CMakeFiles/transformetest.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=26,27 "Built target transformetest"
+.PHONY : CMakeFiles/transformetest.dir/all
+
+# Build rule for subdir invocation for target.
+CMakeFiles/transformetest.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start "D:\C programs\CTensor\build\CMakeFiles" 21
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\Makefile2 CMakeFiles/transformetest.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start "D:\C programs\CTensor\build\CMakeFiles" 0
+.PHONY : CMakeFiles/transformetest.dir/rule
+
+# Convenience name for target.
+transformetest: CMakeFiles/transformetest.dir/rule
+.PHONY : transformetest
+
+# codegen rule for target.
+CMakeFiles/transformetest.dir/codegen:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\transformetest.dir\build.make CMakeFiles/transformetest.dir/codegen
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=26,27 "Finished codegen for target transformetest"
+.PHONY : CMakeFiles/transformetest.dir/codegen
+
+# clean rule for target.
+CMakeFiles/transformetest.dir/clean:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\transformetest.dir\build.make CMakeFiles/transformetest.dir/clean
+.PHONY : CMakeFiles/transformetest.dir/clean
 
 #=============================================================================
 # Special targets to cleanup operation of make.

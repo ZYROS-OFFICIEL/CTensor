@@ -85,6 +85,7 @@ myproject_EXTERNAL_OBJECTS = \
 "D:/C programs/CTensor/build/CMakeFiles/core.dir/src/core/ops_dispatch.cpp.obj" \
 "D:/C programs/CTensor/build/CMakeFiles/core.dir/src/core/tensor.cpp.obj" \
 "D:/C programs/CTensor/build/CMakeFiles/core.dir/src/core/data.cpp.obj" \
+"D:/C programs/CTensor/build/CMakeFiles/core.dir/src/core/transforme.cpp.obj" \
 "D:/C programs/CTensor/build/CMakeFiles/neuralnet.dir/src/neuralnet/loss.cpp.obj" \
 "D:/C programs/CTensor/build/CMakeFiles/neuralnet.dir/src/neuralnet/layer.cpp.obj" \
 "D:/C programs/CTensor/build/CMakeFiles/neuralnet.dir/src/neuralnet/Relu.cpp.obj" \
@@ -103,6 +104,7 @@ libmyproject.a: CMakeFiles/core.dir/src/core/autograd.cpp.obj
 libmyproject.a: CMakeFiles/core.dir/src/core/ops_dispatch.cpp.obj
 libmyproject.a: CMakeFiles/core.dir/src/core/tensor.cpp.obj
 libmyproject.a: CMakeFiles/core.dir/src/core/data.cpp.obj
+libmyproject.a: CMakeFiles/core.dir/src/core/transforme.cpp.obj
 libmyproject.a: CMakeFiles/neuralnet.dir/src/neuralnet/loss.cpp.obj
 libmyproject.a: CMakeFiles/neuralnet.dir/src/neuralnet/layer.cpp.obj
 libmyproject.a: CMakeFiles/neuralnet.dir/src/neuralnet/Relu.cpp.obj
