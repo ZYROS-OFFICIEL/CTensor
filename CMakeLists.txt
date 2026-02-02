@@ -31,6 +31,7 @@ add_library(core OBJECT
     src/core/ops_dispatch.cpp
     src/core/tensor.cpp
     src/core/data.cpp
+    src/core/transforme.cpp
 )
 target_include_directories(core PRIVATE ${PROJECT_INCLUDES})
 
@@ -93,9 +94,11 @@ if (MYPROJECT_BUILD_TESTS)
     add_executable(app test/time_avx.cpp)
     add_executable(testmnist test/testmnist.cpp)
     add_executable(trainmnist test/train_mnist.cpp)
+    add_executable(transformetest test/transforme_test.cpp)
     target_link_libraries(app PRIVATE myproject)
     target_link_libraries(testmnist PRIVATE myproject)
     target_link_libraries(trainmnist PRIVATE myproject)
+    target_link_libraries(transformetest PRIVATE myproject)
 endif()
 
 install(
