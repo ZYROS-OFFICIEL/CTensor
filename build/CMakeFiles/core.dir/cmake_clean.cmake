@@ -7,6 +7,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/core.dir/src/core/ops_dispatch.cpp.obj.d"
   "CMakeFiles/core.dir/src/core/tensor.cpp.obj"
   "CMakeFiles/core.dir/src/core/tensor.cpp.obj.d"
+  "CMakeFiles/core.dir/src/core/transforme.cpp.obj"
+  "CMakeFiles/core.dir/src/core/transforme.cpp.obj.d"
 )
 
 # Per-language clean rules from dependency scanning.
