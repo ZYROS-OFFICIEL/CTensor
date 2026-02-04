@@ -115,9 +115,19 @@ int main() {
                 // 2. Prepare Labels
                 std::vector<size_t> batch_shape_lbl = { (size_t)BATCH_SIZE, 1 }; 
                 Tensor batch_lbls(batch_shape_lbl, DType::Int32, false);
-                int32_t* src_lbl = (int32_t*)train_data.labels.impl->data->data.get() + start_idx;
                 int32_t* dst_lbl = (int32_t*)batch_lbls.impl->data->data.get();
-                std::memcpy(dst_lbl, src_lbl, BATCH_SIZE * sizeof(int32_t));
+                
+                if (train_data.labels._dtype() == DType::UInt8) {
+                    // Correctly read 1 byte per label and cast to int
+                    uint8_t* src_lbl = (uint8_t*)train_data.labels.impl->data->data.get() + start_idx;
+                    for(int i=0; i<BATCH_SIZE; ++i) {
+                        dst_lbl[i] = static_cast<int32_t>(src_lbl[i]);
+                    }
+                } else {
+                    // Already Int32
+                    int32_t* src_lbl = (int32_t*)train_data.labels.impl->data->data.get() + start_idx;
+                    std::memcpy(dst_lbl, src_lbl, BATCH_SIZE * sizeof(int32_t));
+                }
 
                 optim.zero_grad();
                 Tensor output = model.forward(batch_imgs);
