@@ -126,6 +126,7 @@ CMakeFiles/core.dir/src/core/transforme.cpp.obj: \
  C:/msys64/mingw64/include/c++/15.2.0/cerrno \
  C:/msys64/mingw64/include/c++/15.2.0/bits/charconv.h \
  C:/msys64/mingw64/include/c++/15.2.0/bits/basic_string.tcc \
+ D:\C\ programs\CTensor\src\core\transforme.h \
  D:\C\ programs\CTensor\src\core\tensor.h \
  D:\C\ programs\CTensor\src\core\device.h \
  C:/msys64/mingw64/include/c++/15.2.0/memory \

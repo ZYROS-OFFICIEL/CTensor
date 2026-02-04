@@ -13,8 +13,6 @@ struct Transforme {
     // ----- Add a resize operation to the pipeline -----
     void resize_(size_t H, size_t W);
 
-    void to_(DType dtype);
-
     // ----- Apply all transformations in the pipeline -----
     Tensor operator()(const Tensor& input) const;
 };
