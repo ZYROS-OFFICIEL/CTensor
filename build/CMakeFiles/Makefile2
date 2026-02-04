@@ -303,9 +303,9 @@ CMakeFiles/ops_avx512.dir/clean:
 # Target rules for target CMakeFiles/myproject.dir
 
 # All Build rule for target.
-CMakeFiles/myproject.dir/all: CMakeFiles/opsmp.dir/all
 CMakeFiles/myproject.dir/all: CMakeFiles/core.dir/all
 CMakeFiles/myproject.dir/all: CMakeFiles/neuralnet.dir/all
+CMakeFiles/myproject.dir/all: CMakeFiles/opsmp.dir/all
 CMakeFiles/myproject.dir/all: CMakeFiles/conv.dir/all
 CMakeFiles/myproject.dir/all: CMakeFiles/ops_avx2.dir/all
 CMakeFiles/myproject.dir/all: CMakeFiles/ops_avx512.dir/all
