@@ -6,5 +6,5 @@ CXX_DEFINES =
 
 CXX_INCLUDES = @CMakeFiles/ops_avx512.dir/includes_CXX.rsp
 
-CXX_FLAGS = -std=gnu++20 -O0 -mavx512f -mavx512dq
+CXX_FLAGS = -std=gnu++20 -O3 -mavx512f -mavx512dq
 

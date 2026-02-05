@@ -9,6 +9,7 @@ D:/C programs/CTensor/build/CMakeFiles/app.dir
 D:/C programs/CTensor/build/CMakeFiles/testmnist.dir
 D:/C programs/CTensor/build/CMakeFiles/trainmnist.dir
 D:/C programs/CTensor/build/CMakeFiles/transformetest.dir
+D:/C programs/CTensor/build/CMakeFiles/convnet.dir
 D:/C programs/CTensor/build/CMakeFiles/edit_cache.dir
 D:/C programs/CTensor/build/CMakeFiles/rebuild_cache.dir
 D:/C programs/CTensor/build/CMakeFiles/list_install_components.dir

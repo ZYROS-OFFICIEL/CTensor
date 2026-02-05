@@ -1321,4 +1321,5 @@ CMakeFiles/core.dir/src/core/transforme.cpp.obj
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/syslimits.h
  D:/C programs/CTensor/src/core/device.h
  D:/C programs/CTensor/src/core/tensor.h
+ D:/C programs/CTensor/src/core/transforme.h
 

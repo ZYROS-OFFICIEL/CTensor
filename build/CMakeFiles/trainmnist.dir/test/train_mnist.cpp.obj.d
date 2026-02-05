@@ -200,6 +200,21 @@ CMakeFiles/trainmnist.dir/test/train_mnist.cpp.obj: \
  C:/msys64/mingw64/include/c++/15.2.0/cstring \
  C:/msys64/mingw64/include/string.h \
  C:/msys64/mingw64/include/sec_api/string_s.h \
+ C:/msys64/mingw64/include/c++/15.2.0/cmath \
+ C:/msys64/mingw64/include/math.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/specfun.h \
+ C:/msys64/mingw64/include/c++/15.2.0/tr1/gamma.tcc \
+ C:/msys64/mingw64/include/c++/15.2.0/tr1/special_function_util.h \
+ C:/msys64/mingw64/include/c++/15.2.0/tr1/bessel_function.tcc \
+ C:/msys64/mingw64/include/c++/15.2.0/tr1/beta_function.tcc \
+ C:/msys64/mingw64/include/c++/15.2.0/tr1/ell_integral.tcc \
+ C:/msys64/mingw64/include/c++/15.2.0/tr1/exp_integral.tcc \
+ C:/msys64/mingw64/include/c++/15.2.0/tr1/hypergeometric.tcc \
+ C:/msys64/mingw64/include/c++/15.2.0/tr1/legendre_function.tcc \
+ C:/msys64/mingw64/include/c++/15.2.0/tr1/modified_bessel_func.tcc \
+ C:/msys64/mingw64/include/c++/15.2.0/tr1/poly_hermite.tcc \
+ C:/msys64/mingw64/include/c++/15.2.0/tr1/poly_laguerre.tcc \
+ C:/msys64/mingw64/include/c++/15.2.0/tr1/riemann_zeta.tcc \
  D:/C\ programs/CTensor/src/core.h \
  D:/C\ programs/CTensor/src/core/autograd.h \
  C:/msys64/mingw64/include/c++/15.2.0/unordered_map \
@@ -233,21 +248,6 @@ CMakeFiles/trainmnist.dir/test/train_mnist.cpp.obj: \
  C:/msys64/mingw64/include/c++/15.2.0/algorithm \
  C:/msys64/mingw64/include/c++/15.2.0/bits/ranges_algo.h \
  C:/msys64/mingw64/include/c++/15.2.0/pstl/glue_algorithm_defs.h \
- C:/msys64/mingw64/include/c++/15.2.0/cmath \
- C:/msys64/mingw64/include/math.h \
- C:/msys64/mingw64/include/c++/15.2.0/bits/specfun.h \
- C:/msys64/mingw64/include/c++/15.2.0/tr1/gamma.tcc \
- C:/msys64/mingw64/include/c++/15.2.0/tr1/special_function_util.h \
- C:/msys64/mingw64/include/c++/15.2.0/tr1/bessel_function.tcc \
- C:/msys64/mingw64/include/c++/15.2.0/tr1/beta_function.tcc \
- C:/msys64/mingw64/include/c++/15.2.0/tr1/ell_integral.tcc \
- C:/msys64/mingw64/include/c++/15.2.0/tr1/exp_integral.tcc \
- C:/msys64/mingw64/include/c++/15.2.0/tr1/hypergeometric.tcc \
- C:/msys64/mingw64/include/c++/15.2.0/tr1/legendre_function.tcc \
- C:/msys64/mingw64/include/c++/15.2.0/tr1/modified_bessel_func.tcc \
- C:/msys64/mingw64/include/c++/15.2.0/tr1/poly_hermite.tcc \
- C:/msys64/mingw64/include/c++/15.2.0/tr1/poly_laguerre.tcc \
- C:/msys64/mingw64/include/c++/15.2.0/tr1/riemann_zeta.tcc \
  D:/C\ programs/CTensor/src/core/tensor.h \
  D:/C\ programs/CTensor/src/core/device.h \
  C:/msys64/mingw64/include/c++/15.2.0/numeric \
