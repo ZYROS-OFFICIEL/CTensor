@@ -110,6 +110,9 @@ Tensor Tensor::reshape(const std::vector<size_t>& new_shape) const {
         impl->dtype,
         impl->requires_grad
     ));
+    if(impl->requires_grad) {
+        out.impl->grad_fn = impl->grad_fn;
+    }
     return out;
 }
 
@@ -135,6 +138,10 @@ Tensor Tensor::permute(const std::vector<size_t>& dims) const {
         impl->dtype,
         impl->requires_grad
     ));
+
+    if(impl->requires_grad) {
+        out.impl->grad_fn = impl->grad_fn;
+    }
     return out;
 }
 
