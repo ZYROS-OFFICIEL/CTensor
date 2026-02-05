@@ -84,3 +84,94 @@ public:
         return p;
     }
 };
+int main() {
+    try {
+        std::cout << "Loading MNIST data..." << std::endl;
+        // Ensure these files are in your build directory
+        MNISTData train_data = load_mnist("train-images.idx3-ubyte", "train-labels.idx1-ubyte");
+        
+        ConvNet model;
+
+        std::cout << "Initializing weights (Xavier/Kaiming init recommended, simple random used here)..." << std::endl;
+        std::srand(std::time(nullptr));
+        
+        // Initialize weights
+        for (auto* p : model.parameters()) {
+            if (!p->impl) continue;
+            p->requires_grad_(true);
+            size_t n = p->numel();
+            if (!p->impl->data || !p->impl->data->data) continue;
+            
+            // Heavier initialization for Convs usually helps, but keeping simple for consistency
+            float* ptr = (float*)p->impl->data->data.get();
+            for (size_t i = 0; i < n; ++i) {
+                float r = static_cast<float>(std::rand()) / RAND_MAX; 
+                ptr[i] = (r - 0.5f) * 0.1f; 
+            }
+        }
+
+        // Slightly lower learning rate for ConvNets usually helps stability
+        SGD optim(model.parameters(), 0.005);
+        
+        int BATCH_SIZE = 32; // Smaller batch size to keep memory usage low during debugging
+        int EPOCHS = 2;
+        size_t num_train = train_data.images.shape()[0];
+        size_t num_batches = num_train / BATCH_SIZE;
+
+        std::cout << "Starting ConvNet training loop..." << std::endl;
+
+        for (int epoch = 0; epoch < EPOCHS; ++epoch) {
+            double epoch_loss = 0.0;
+            auto start_time = std::chrono::high_resolution_clock::now();
+
+            for (int b = 0; b < num_batches; ++b) {
+                size_t start_idx = b * BATCH_SIZE;
+
+                // 1. Prepare Batch Images [BATCH, 1, 28, 28]
+                std::vector<size_t> batch_shape_img = { (size_t)BATCH_SIZE, 1, 28, 28 };
+                Tensor batch_imgs(batch_shape_img, DType::Float32, false); 
+                
+                float* src_ptr = (float*)train_data.images.impl->data->data.get() + start_idx * 28*28;
+                float* dst_ptr = (float*)batch_imgs.impl->data->data.get();
+                std::memcpy(dst_ptr, src_ptr, BATCH_SIZE * 28 * 28 * sizeof(float));
+                
+                // 2. Prepare Batch Labels [BATCH, 1]
+                std::vector<size_t> batch_shape_lbl = { (size_t)BATCH_SIZE, 1 }; 
+                Tensor batch_lbls(batch_shape_lbl, DType::Int32, false);
+                
+                int32_t* src_lbl = (int32_t*)train_data.labels.impl->data->data.get() + start_idx;
+                int32_t* dst_lbl = (int32_t*)batch_lbls.impl->data->data.get();
+                std::memcpy(dst_lbl, src_lbl, BATCH_SIZE * sizeof(int32_t));
+
+                // 3. Forward & Backward
+                optim.zero_grad();
+                Tensor output = model.forward(batch_imgs);
+                Tensor loss = Loss::CrossEntropy(output, batch_lbls);
+                
+                backward(loss); 
+                optim.step();
+
+                // 4. Logging
+                double current_loss = loss.read_scalar(0);
+                if (std::isnan(current_loss)) {
+                    std::cout << "NaN detected at batch " << b << std::endl;
+                    break;
+                }
+
+                epoch_loss += current_loss;
+                if (b % 50 == 0) { // Log more frequently
+                    std::cout << "Epoch " << epoch << " | Batch " << b << "/" << num_batches 
+                              << " | Loss: " << current_loss << std::endl;
+                }
+            }
+            auto end_time = std::chrono::high_resolution_clock::now();
+            double dur = std::chrono::duration<double>(end_time - start_time).count();
+            std::cout << "--- Epoch " << epoch << " Finished in " << dur << "s ---" << std::endl;
+            std::cout << "Avg Loss: " << epoch_loss / num_batches << std::endl;
+        }
+
+    } catch (const std::exception& e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+    }
+    return 0;
+}
