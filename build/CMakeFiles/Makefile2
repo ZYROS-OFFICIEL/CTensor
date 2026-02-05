@@ -306,12 +306,12 @@ CMakeFiles/ops_avx512.dir/clean:
 # Target rules for target CMakeFiles/myproject.dir
 
 # All Build rule for target.
-CMakeFiles/myproject.dir/all: CMakeFiles/opsmp.dir/all
-CMakeFiles/myproject.dir/all: CMakeFiles/ops_avx512.dir/all
 CMakeFiles/myproject.dir/all: CMakeFiles/core.dir/all
+CMakeFiles/myproject.dir/all: CMakeFiles/opsmp.dir/all
 CMakeFiles/myproject.dir/all: CMakeFiles/neuralnet.dir/all
 CMakeFiles/myproject.dir/all: CMakeFiles/conv.dir/all
 CMakeFiles/myproject.dir/all: CMakeFiles/ops_avx2.dir/all
+CMakeFiles/myproject.dir/all: CMakeFiles/ops_avx512.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\myproject.dir\build.make CMakeFiles/myproject.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\myproject.dir\build.make CMakeFiles/myproject.dir/build
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=11 "Built target myproject"
