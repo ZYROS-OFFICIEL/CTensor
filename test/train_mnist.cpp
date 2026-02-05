@@ -4,10 +4,11 @@
 #include <iomanip>
 #include <cstring>
 #include <ctime>
+#include <cmath>
 #include "core.h"
 #include "neuralnet.h"
 
-// --- SIMPLE MLP MODEL (No Convolutions) ---
+// --- SIMPLE MLP MODEL ---
 class MLPNet : public Module {
 public:
     Flatten flat;
@@ -53,7 +54,7 @@ int main() {
         
         MLPNet model;
 
-        std::cout << "Initializing weights (Float32)..." << std::endl;
+        std::cout << "Initializing weights (Kaiming Uniform)..." << std::endl;
         std::srand(std::time(nullptr));
         
         for (auto* p : model.parameters()) {
@@ -62,10 +63,16 @@ int main() {
             size_t n = p->numel();
             if (!p->impl->data || !p->impl->data->data) continue;
             
+            // Kaiming-like initialization: range = sqrt(6 / fan_in)
+            // Approximate fan_in simply by taking sqrt(n) for this generic init
+            // For rigorous init, we'd calculate fan_in per layer type.
+            float limit = std::sqrt(6.0f / (float)p->shape()[0]); 
+            if (p->impl->ndim > 1) limit = std::sqrt(6.0f / (float)p->shape()[1]); // Use input dim
+            
             float* ptr = (float*)p->impl->data->data.get();
             for (size_t i = 0; i < n; ++i) {
                 float r = static_cast<float>(std::rand()) / RAND_MAX; 
-                ptr[i] = (r - 0.5f) * 0.1f;
+                ptr[i] = (r * 2.0f - 1.0f) * limit; // Uniform [-limit, limit]
             }
         }
 
@@ -85,13 +92,22 @@ int main() {
             for (int b = 0; b < num_batches; ++b) {
                 size_t start_idx = b * BATCH_SIZE;
 
-                // Prepare Batch (Float32)
+                // Prepare Batch Images
                 std::vector<size_t> batch_shape_img = { (size_t)BATCH_SIZE, 1, 28, 28 };
                 Tensor batch_imgs(batch_shape_img, DType::Float32, false); 
+                
+                // DATA NORMALIZATION FIX:
+                // Instead of memcpy, we read and divide by 255.0
                 float* src_ptr = (float*)train_data.images.impl->data->data.get() + start_idx * 28*28;
                 float* dst_ptr = (float*)batch_imgs.impl->data->data.get();
-                std::memcpy(dst_ptr, src_ptr, BATCH_SIZE * 28 * 28 * sizeof(float));
+                size_t batch_elements = BATCH_SIZE * 28 * 28;
                 
+                #pragma omp parallel for
+                for (size_t i = 0; i < batch_elements; ++i) {
+                    dst_ptr[i] = src_ptr[i] / 255.0f;
+                }
+                
+                // Prepare Labels
                 std::vector<size_t> batch_shape_lbl = { (size_t)BATCH_SIZE, 1 }; 
                 Tensor batch_lbls(batch_shape_lbl, DType::Int32, false);
                 int32_t* src_lbl = (int32_t*)train_data.labels.impl->data->data.get() + start_idx;
@@ -114,7 +130,7 @@ int main() {
                 if (b % 100 == 0) std::cout << "Batch " << b << " Loss: " << loss.read_scalar(0) << std::endl;
             }
             auto end_time = std::chrono::high_resolution_clock::now();
-            std::cout << "Epoch " << epoch << " Time: " << std::chrono::duration<double>(end_time - start_time).count() << "s" << std::endl;
+            std::cout << "Epoch " << epoch << " Time: " << std::chrono::duration<double>(end_time - start_time).count() << "s | Avg Loss: " << epoch_loss/num_batches << std::endl;
         }
 
     } catch (const std::exception& e) {
