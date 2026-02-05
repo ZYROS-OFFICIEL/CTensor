@@ -4,7 +4,7 @@
 # compile CXX with C:/msys64/mingw64/bin/c++.exe
 CXX_DEFINES = 
 
-CXX_INCLUDES = @CMakeFiles/ops_avx2.dir/includes_CXX.rsp
+CXX_INCLUDES = @CMakeFiles/convnet.dir/includes_CXX.rsp
 
-CXX_FLAGS = -std=gnu++20 -O3 -mavx2 -mfma -fopenmp
+CXX_FLAGS = -std=gnu++20 -fopenmp
 

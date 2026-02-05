@@ -303,6 +303,19 @@ transformetest/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\transformetest.dir\build.make CMakeFiles/transformetest.dir/build
 .PHONY : transformetest/fast
 
+#=============================================================================
+# Target rules for targets named convnet
+
+# Build rule for target.
+convnet: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\Makefile2 convnet
+.PHONY : convnet
+
+# fast build rule for target.
+convnet/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\convnet.dir\build.make CMakeFiles/convnet.dir/build
+.PHONY : convnet/fast
+
 src/core/autograd.obj: src/core/autograd.cpp.obj
 .PHONY : src/core/autograd.obj
 
@@ -735,6 +748,30 @@ src/neuralnet/pooling/pooling.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\neuralnet.dir\build.make CMakeFiles/neuralnet.dir/src/neuralnet/pooling/pooling.cpp.s
 .PHONY : src/neuralnet/pooling/pooling.cpp.s
 
+test/convnet_test.obj: test/convnet_test.cpp.obj
+.PHONY : test/convnet_test.obj
+
+# target to build an object file
+test/convnet_test.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\convnet.dir\build.make CMakeFiles/convnet.dir/test/convnet_test.cpp.obj
+.PHONY : test/convnet_test.cpp.obj
+
+test/convnet_test.i: test/convnet_test.cpp.i
+.PHONY : test/convnet_test.i
+
+# target to preprocess a source file
+test/convnet_test.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\convnet.dir\build.make CMakeFiles/convnet.dir/test/convnet_test.cpp.i
+.PHONY : test/convnet_test.cpp.i
+
+test/convnet_test.s: test/convnet_test.cpp.s
+.PHONY : test/convnet_test.s
+
+# target to generate assembly for a file
+test/convnet_test.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\convnet.dir\build.make CMakeFiles/convnet.dir/test/convnet_test.cpp.s
+.PHONY : test/convnet_test.cpp.s
+
 test/testmnist.obj: test/testmnist.cpp.obj
 .PHONY : test/testmnist.obj
 
@@ -845,6 +882,7 @@ help:
 	@echo ... rebuild_cache
 	@echo ... app
 	@echo ... conv
+	@echo ... convnet
 	@echo ... core
 	@echo ... myproject
 	@echo ... neuralnet
@@ -908,6 +946,9 @@ help:
 	@echo ... src/neuralnet/pooling/pooling.obj
 	@echo ... src/neuralnet/pooling/pooling.i
 	@echo ... src/neuralnet/pooling/pooling.s
+	@echo ... test/convnet_test.obj
+	@echo ... test/convnet_test.i
+	@echo ... test/convnet_test.s
 	@echo ... test/testmnist.obj
 	@echo ... test/testmnist.i
 	@echo ... test/testmnist.s

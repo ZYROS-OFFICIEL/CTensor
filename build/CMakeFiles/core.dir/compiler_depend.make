@@ -1315,7 +1315,8 @@ CMakeFiles/core.dir/src/core/transforme.cpp.obj: D:/C\ programs/CTensor/src/core
   C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/stdint.h \
   C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/syslimits.h \
   D:/C\ programs/CTensor/src/core/device.h \
-  D:/C\ programs/CTensor/src/core/tensor.h
+  D:/C\ programs/CTensor/src/core/tensor.h \
+  D:/C\ programs/CTensor/src/core/transforme.h
 
 
 C:/msys64/mingw64/include/_timeval.h:
@@ -1951,6 +1952,8 @@ C:/msys64/mingw64/include/c++/15.2.0/x86_64-w64-mingw32/bits/c++io.h:
 C:/msys64/mingw64/include/c++/15.2.0/x86_64-w64-mingw32/bits/messages_members.h:
 
 C:/msys64/mingw64/include/stdarg.h:
+
+D:/C\ programs/CTensor/src/core/transforme.h:
 
 C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/emmintrin.h:
 
