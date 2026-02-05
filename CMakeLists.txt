@@ -57,7 +57,7 @@ add_library(ops_avx2 OBJECT
     src/cpu/AVX2/ops_avx2_f32.cpp
 )
 target_include_directories(ops_avx2 PRIVATE ${PROJECT_INCLUDES})
-target_compile_options(ops_avx2 PRIVATE -O0 -mavx2 -mfma -fopenmp)
+target_compile_options(ops_avx2 PRIVATE -O3 -mavx2 -mfma -fopenmp)
 
 # AVX512
 add_library(ops_avx512 OBJECT
@@ -65,7 +65,7 @@ add_library(ops_avx512 OBJECT
     src/cpu/AVX512/ops_avx512_f32.cpp
 )
 target_include_directories(ops_avx512 PRIVATE ${PROJECT_INCLUDES})
-target_compile_options(ops_avx512 PRIVATE -O0 -mavx512f -mavx512dq)
+target_compile_options(ops_avx512 PRIVATE -O3 -mavx512f -mavx512dq)
 
 add_library(myproject STATIC
     $<TARGET_OBJECTS:opsmp>
@@ -95,10 +95,12 @@ if (MYPROJECT_BUILD_TESTS)
     add_executable(testmnist test/testmnist.cpp)
     add_executable(trainmnist test/train_mnist.cpp)
     add_executable(transformetest test/transforme_test.cpp)
+    add_executable(convnet test/convnet_test.cpp)
     target_link_libraries(app PRIVATE myproject)
     target_link_libraries(testmnist PRIVATE myproject)
     target_link_libraries(trainmnist PRIVATE myproject)
     target_link_libraries(transformetest PRIVATE myproject)
+    target_link_libraries(convnet PRIVATE myproject)
 endif()
 
 install(
