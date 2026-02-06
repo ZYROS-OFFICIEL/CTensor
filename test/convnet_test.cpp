@@ -6,8 +6,6 @@
 #include <cmath>
 #include "core.h"
 #include "neuralnet.h"
-
-// --- CONVNET MODEL ---
 class ConvNet : public Module {
 public:
     Conv2d c1;
@@ -22,43 +20,28 @@ public:
     Linear fc3;
 
     ConvNet() 
-        : // Input: 1x28x28
-          // Output: 6x24x24 (28 - 5 + 1)
-          c1(1, 6, 5, 5, 1, 1, 0, 0, DType::Float32),
+        : c1(1, 6, 5, 5, 1, 1, 0, 0, DType::Float32),
           relu1(),
-          
-          // Input: 6x24x24
-          // Output: 16x10x10 ((24 - 5) / 2 + 1) -> Stride 2 acts as pooling
           c2(6, 16, 5, 5, 2, 2, 0, 0, DType::Float32),
           relu2(),
-          
           flat(),
-          
-          // Flatten size: 16 channels * 10 height * 10 width = 1600
           fc1(1600, 120, true, DType::Float32),
           relu3(),
-          
           fc2(120, 84, true, DType::Float32),
           relu4(),
-          
           fc3(84, 10, true, DType::Float32)
     {}
 
     Tensor forward(const Tensor& x) {
         Tensor out = c1(x);
         out = relu1(out);
-        
         out = c2(out);
         out = relu2(out);
-        
         out = flat(out);
-        
         out = fc1(out);
         out = relu3(out);
-        
         out = fc2(out);
         out = relu4(out);
-        
         out = fc3(out);
         return out; 
     }
@@ -90,10 +73,8 @@ int main() {
             size_t n = p->numel();
             if (!p->impl->data || !p->impl->data->data) continue;
             
-            // Simple robust initialization
             float scale = 0.05f;
             if (p->impl->ndim > 1) {
-                // Heuristically scale by 1/sqrt(fan_in)
                 scale = std::sqrt(2.0f / (float)p->shape()[1]);
             }
 
@@ -124,20 +105,27 @@ int main() {
                 std::vector<size_t> batch_shape_img = { (size_t)BATCH_SIZE, 1, 28, 28 };
                 Tensor batch_imgs(batch_shape_img, DType::Float32, false); 
                 
-                // DATA NORMALIZATION FIX
-                float* src_ptr = (float*)train_data.images.impl->data->data.get() + start_idx * 28*28;
                 float* dst_ptr = (float*)batch_imgs.impl->data->data.get();
                 size_t batch_elements = BATCH_SIZE * 28 * 28;
                 
-                #pragma omp parallel for
-                for (size_t i = 0; i < batch_elements; ++i) {
-                    dst_ptr[i] = src_ptr[i] / 255.0f;
+                // --- ROBUST DATA LOADING (UInt8 check) ---
+                if (train_data.images._dtype() == DType::UInt8) {
+                    uint8_t* src_ptr = (uint8_t*)train_data.images.impl->data->data.get() + start_idx * 28*28;
+                    #pragma omp parallel for
+                    for (size_t i = 0; i < batch_elements; ++i) {
+                        dst_ptr[i] = (float)src_ptr[i] / 255.0f;
+                    }
+                } else {
+                    float* src_ptr = (float*)train_data.images.impl->data->data.get() + start_idx * 28*28;
+                    #pragma omp parallel for
+                    for (size_t i = 0; i < batch_elements; ++i) {
+                        dst_ptr[i] = src_ptr[i] / 255.0f;
+                    }
                 }
                 
-                // 2. Prepare Batch Labels
+                // 2. Prepare Labels
                 std::vector<size_t> batch_shape_lbl = { (size_t)BATCH_SIZE, 1 }; 
                 Tensor batch_lbls(batch_shape_lbl, DType::Int32, false);
-                
                 int32_t* src_lbl = (int32_t*)train_data.labels.impl->data->data.get() + start_idx;
                 int32_t* dst_lbl = (int32_t*)batch_lbls.impl->data->data.get();
                 std::memcpy(dst_lbl, src_lbl, BATCH_SIZE * sizeof(int32_t));
