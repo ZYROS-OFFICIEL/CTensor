@@ -111,7 +111,7 @@ Tensor Tensor::reshape(const std::vector<size_t>& new_shape) const {
         impl->requires_grad
     ));
     if(impl->requires_grad) {
-        out.impl->grad_fn = std::make_shared<ReshapeGrad>(*this, new_shape);
+        out.impl->grad_fn = std::make_shared<GradReshape>(*this, new_shape);
     }
     return out;
 }
@@ -140,7 +140,7 @@ Tensor Tensor::permute(const std::vector<size_t>& dims) const {
     ));
 
     if(impl->requires_grad) {
-        out.impl->grad_fn = std::make_shared<PermuteGrad>(*this, dims);
+        out.impl->grad_fn = std::make_shared<GradPermute>(*this, dims);
     }
     return out;
 }
