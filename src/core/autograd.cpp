@@ -17,8 +17,6 @@ void ensure_grad_buffer(Tensor &t, bool zero_existing) {
 
     // Allocate if missing
     if (!t.impl->grad) {
-        // FIX: Use 'new' and intrusive_ptr constructor. 
-        // std::make_shared cannot be assigned to intrusive_ptr.
         t.impl->grad = intrusive_ptr<Tensorimpl>(new Tensorimpl(
             t.shape(), 
             t._dtype(), 
@@ -44,7 +42,7 @@ void ensure_grad_buffer(Tensor &t, bool zero_existing) {
 // Convert the raw gradient buffer into a usable Tensor object
 Tensor tensor_from_grad(const Tensor& self) {
     if (!self.impl || !self.impl->grad)
-        throw std::runtime_error("tensor_from_grad: missing grad buffer");
+        throw std::runtime_error("tensor_from_grad: missing grad buffer (graph broken?)");
 
     Tensor g;
     g.impl = self.impl->grad; // This increments ref count
@@ -105,7 +103,6 @@ void accumulate_grad(Tensor& target, const Tensor& grad_src) {
     size_t g_offset = grad_aligned.impl->offset;
     
     size_t t_nd = target.impl->ndim;
-    // size_t g_nd = grad_aligned.impl->ndim; // Unused warning fix
     size_t pad = (t_nd > grad_aligned.impl->ndim) ? t_nd - grad_aligned.impl->ndim : 0;
     
     DType dt_t = target._dtype();
@@ -125,9 +122,11 @@ void accumulate_grad(Tensor& target, const Tensor& grad_src) {
             t_idx += coord * t_strides[d];
             
             // Map to grad_aligned
+            // Fixed OOB check here
             if (d >= (int)pad) {
                 int g_d = d - pad;
-                if (g_shape[g_d] > 1) {
+                // Safe check: ensure g_d is within bounds of g_shape size
+                if (g_d < (int)grad_aligned.impl->ndim && g_shape[g_d] > 1) {
                     g_idx += coord * g_strides[g_d];
                 }
             }
@@ -380,6 +379,7 @@ void GradReshape::backward(const Tensor& self) {
         Tensor grad = tensor_from_grad(self);
         // Force contiguous copy to ensure safe reshape
         Tensor contig = grad.contiguous();
+        // Use old_shape to reshape back to original
         accumulate_grad(t, contig.reshape(old_shape));
     }
 }
@@ -412,6 +412,71 @@ void GradTanh::backward(const Tensor& s){
     if(t.requires_grad()) {
         accumulate_grad(t, mul(tensor_from_grad(s), div_scalar_rev(1.0, mul(cosh(t), cosh(t))))); 
     }
+}
+
+// ----------------- GradGather Backward -----------------
+void GradGather::backward(const Tensor& self) {
+    if (!t.requires_grad()) return;
+
+    Tensor grad_output = tensor_from_grad(self);
+    // Create a zero tensor of the same shape as source input 't'
+    Tensor grad_input = Tensor::zeros(t.shape(), t._dtype(), false);
+    
+    // Scatter Add Logic
+    // grad_input[index] += grad_output
+    
+    // Flatten access for speed if possible, but dim-aware is safer
+    Tensor index_cont = index.contiguous();
+    Tensor grad_out_cont = grad_output.contiguous();
+    
+    // Ensure all are on same device/type checks (omitted for brevity)
+    
+    // Pointer access
+    auto* g_in = (double*)nullptr; // Not strictly double, but using read/write scalar abstract
+    // Actually we need void*
+    void* in_ptr = grad_input.impl->data->data.get();
+    void* idx_ptr = index_cont.impl->data->data.get();
+    void* out_ptr = grad_out_cont.impl->data->data.get();
+    
+    size_t N = index.numel();
+    const auto& inp_shape = t.shape();
+    const auto& inp_strides = t.impl->strides;
+    
+    size_t ndim = t.impl->ndim;
+    std::vector<size_t> coords(ndim, 0);
+
+    DType dt = t._dtype();
+    DType idx_dt = index._dtype();
+
+    // Iterate over output/index (same shape)
+    for (size_t i = 0; i < N; ++i) {
+        // 1. Get index value
+        double idx_val_raw = read_scalar_at(idx_ptr, i, idx_dt);
+        int64_t idx = static_cast<int64_t>(idx_val_raw);
+        if (idx < 0) idx += (int64_t)inp_shape[dim];
+        
+        // 2. Compute offset in grad_input
+        size_t inp_offset = 0; // assuming contiguous start at 0 offset for new tensor
+        for (size_t d = 0; d < ndim; ++d) {
+            size_t coord_at_d = (d == dim) ? (size_t)idx : coords[d];
+            if (coord_at_d >= inp_shape[d]) continue; // or throw
+            inp_offset += coord_at_d * inp_strides[d];
+        }
+
+        // 3. Read current value at grad_input, add grad_output, write back
+        double curr_val = read_scalar_at(in_ptr, inp_offset, dt);
+        double incoming_grad = read_scalar_at(out_ptr, i, dt);
+        write_scalar_at(in_ptr, inp_offset, dt, curr_val + incoming_grad);
+
+        // 4. Update odometer
+        for (int d = (int)ndim - 1; d >= 0; --d) {
+            coords[d]++;
+            if (coords[d] < index_cont.shape()[d]) break;
+            coords[d] = 0;
+        }
+    }
+    
+    accumulate_grad(t, grad_input);
 }
 
 void backward(Tensor& root) {
