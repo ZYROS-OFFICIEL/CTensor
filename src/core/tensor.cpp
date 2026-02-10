@@ -111,7 +111,7 @@ Tensor Tensor::reshape(const std::vector<size_t>& new_shape) const {
         impl->requires_grad
     ));
     if(impl->requires_grad) {
-        out.impl->grad_fn = std::make_shared<GradReshape>(*this, new_shape);
+        out.impl->grad_fn = std::make_shared<GradReshape>(*this, impl->shape.to_vector());
     }
     return out;
 }
@@ -318,6 +318,10 @@ Tensor Tensor::gather(const Tensor& index, size_t dim) const {
             }
             coords[d] = 0;
         }
+    }
+
+    if (impl->requires_grad) {
+        out.impl->grad_fn = std::make_shared<GradGather>(*this, index, dim);
     }
 
     return out;
