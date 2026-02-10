@@ -269,5 +269,18 @@ struct GradReshape : GradFn {
     void backward(const Tensor& self) override;
 };
 
+struct GradGather : GradFn {
+    Tensor t;      // The source tensor (embeddings or logits)
+    Tensor index;  // The indices used
+    size_t dim;    // The dimension gathered along
+
+    GradGather(const Tensor& t_, const Tensor& index_, size_t dim_) 
+        : t(t_), index(index_), dim(dim_) {
+        parents = {t}; // Index usually doesn't require grad in standard layers
+    }
+
+    void backward(const Tensor& self) override;
+};
+
 // ------------------ backward ------------------
 void backward(Tensor& root);
