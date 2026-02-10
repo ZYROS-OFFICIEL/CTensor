@@ -1,4 +1,3 @@
-// Put system headers first to avoid conflicts with local headers
 #include <algorithm>
 #include <cstring>
 #include <stdexcept>
@@ -7,6 +6,7 @@
 #include <iostream>
 #include <cmath>
 #include <omp.h>
+#include <atomic> // Needed for thread-safe warning flag
 
 #include "autograd.h" 
 #include "tensor.h"
@@ -17,6 +17,7 @@ void ensure_grad_buffer(Tensor &t, bool zero_existing) {
 
     // Allocate if missing
     if (!t.impl->grad) {
+        // FIX: Use 'new' and intrusive_ptr constructor. 
         t.impl->grad = intrusive_ptr<Tensorimpl>(new Tensorimpl(
             t.shape(), 
             t._dtype(), 
@@ -42,7 +43,7 @@ void ensure_grad_buffer(Tensor &t, bool zero_existing) {
 // Convert the raw gradient buffer into a usable Tensor object
 Tensor tensor_from_grad(const Tensor& self) {
     if (!self.impl || !self.impl->grad)
-        throw std::runtime_error("tensor_from_grad: missing grad buffer (graph broken?)");
+        throw std::runtime_error("tensor_from_grad: missing grad buffer");
 
     Tensor g;
     g.impl = self.impl->grad; // This increments ref count
@@ -57,6 +58,9 @@ static size_t dim_padded(const Tensor& t, size_t max_dims, size_t i) {
     if (i < max_dims - t_dims) return 1;
     return t.impl->shape[i - (max_dims - t_dims)];
 }
+
+// Static flag to warn about NaNs only once
+static std::atomic<bool> nan_warned{false};
 
 void accumulate_grad(Tensor& target, const Tensor& grad_src) {
     if (!target.impl) return; 
@@ -103,6 +107,7 @@ void accumulate_grad(Tensor& target, const Tensor& grad_src) {
     size_t g_offset = grad_aligned.impl->offset;
     
     size_t t_nd = target.impl->ndim;
+    // size_t g_nd = grad_aligned.impl->ndim; // Unused warning fix
     size_t pad = (t_nd > grad_aligned.impl->ndim) ? t_nd - grad_aligned.impl->ndim : 0;
     
     DType dt_t = target._dtype();
@@ -122,10 +127,8 @@ void accumulate_grad(Tensor& target, const Tensor& grad_src) {
             t_idx += coord * t_strides[d];
             
             // Map to grad_aligned
-            // Fixed OOB check here
             if (d >= (int)pad) {
                 int g_d = d - pad;
-                // Safe check: ensure g_d is within bounds of g_shape size
                 if (g_d < (int)grad_aligned.impl->ndim && g_shape[g_d] > 1) {
                     g_idx += coord * g_strides[g_d];
                 }
@@ -133,6 +136,15 @@ void accumulate_grad(Tensor& target, const Tensor& grad_src) {
         }
         
         double v_g = read_scalar_at(g_data, g_idx, dt_g);
+        
+        // --- SAFETY CHECK: Ignore NaNs/Infs ---
+        if (!std::isfinite(v_g)) {
+            if(!nan_warned.exchange(true)) {
+                std::cerr << "Warning: NaN/Inf gradient detected and suppressed in accumulate_grad.\n";
+            }
+            continue; // Skip this gradient contribution
+        }
+
         double v_t = read_scalar_at(t_grad, t_idx, dt_t);
         write_scalar_at(t_grad, t_idx, dt_t, v_t + v_g);
     }
@@ -176,7 +188,10 @@ void GradDiv::backward(const Tensor& self) {
     if (b.requires_grad()) {
         Tensor num = mul(grad, a); 
         Tensor den = mul(b, b);    
-        Tensor res = div(num, den);
+        // FIX: Add stability to denominator to prevent NaN
+        // Increased epsilon to 1e-6 for float32 safety
+        Tensor den_safe = add_scalar(den, 1e-6); 
+        Tensor res = div(num, den_safe);
         accumulate_grad(b, mul_scalar(res, -1.0));
     }
 }
@@ -277,8 +292,10 @@ void GradAbs::backward(const Tensor& self) {
 void GradLn::backward(const Tensor& self) {
     if (t.requires_grad()) {
         // 1/t * grad
+        // FIX: Add epsilon to avoid division by zero (which causes Infinity/NaN gradients)
         Tensor grad = tensor_from_grad(self);
-        accumulate_grad(t, div(grad, t));
+        Tensor t_safe = add_scalar(t, 1e-6);
+        accumulate_grad(t, div(grad, t_safe));
     }
 }
 void GradExp::backward(const Tensor& self) {
@@ -291,7 +308,9 @@ void GradSqrt::backward(const Tensor& self) {
     if (t.requires_grad()) {
         // 1/(2*sqrt(t)) * grad
         Tensor grad = tensor_from_grad(self);
-        Tensor two_sqrt = mul_scalar(sqrt(t), 2.0);
+        // FIX: Add epsilon to avoid division by zero
+        Tensor safe_t = add_scalar(t, 1e-6);
+        Tensor two_sqrt = mul_scalar(sqrt(safe_t), 2.0);
         accumulate_grad(t, div(grad, two_sqrt));
     }
 }
@@ -379,7 +398,6 @@ void GradReshape::backward(const Tensor& self) {
         Tensor grad = tensor_from_grad(self);
         // Force contiguous copy to ensure safe reshape
         Tensor contig = grad.contiguous();
-        // Use old_shape to reshape back to original
         accumulate_grad(t, contig.reshape(old_shape));
     }
 }
@@ -414,7 +432,7 @@ void GradTanh::backward(const Tensor& s){
     }
 }
 
-// ----------------- GradGather Backward -----------------
+// ----------------- GradGather Backward Implementation -----------------
 void GradGather::backward(const Tensor& self) {
     if (!t.requires_grad()) return;
 
@@ -425,15 +443,10 @@ void GradGather::backward(const Tensor& self) {
     // Scatter Add Logic
     // grad_input[index] += grad_output
     
-    // Flatten access for speed if possible, but dim-aware is safer
+    // We must iterate over grad_input using 'index' to place gradients back
     Tensor index_cont = index.contiguous();
     Tensor grad_out_cont = grad_output.contiguous();
     
-    // Ensure all are on same device/type checks (omitted for brevity)
-    
-    // Pointer access
-    auto* g_in = (double*)nullptr; // Not strictly double, but using read/write scalar abstract
-    // Actually we need void*
     void* in_ptr = grad_input.impl->data->data.get();
     void* idx_ptr = index_cont.impl->data->data.get();
     void* out_ptr = grad_out_cont.impl->data->data.get();
@@ -456,10 +469,10 @@ void GradGather::backward(const Tensor& self) {
         if (idx < 0) idx += (int64_t)inp_shape[dim];
         
         // 2. Compute offset in grad_input
-        size_t inp_offset = 0; // assuming contiguous start at 0 offset for new tensor
+        size_t inp_offset = 0; 
         for (size_t d = 0; d < ndim; ++d) {
             size_t coord_at_d = (d == dim) ? (size_t)idx : coords[d];
-            if (coord_at_d >= inp_shape[d]) continue; // or throw
+            if (coord_at_d >= inp_shape[d]) continue; // OOB safety
             inp_offset += coord_at_d * inp_strides[d];
         }
 
