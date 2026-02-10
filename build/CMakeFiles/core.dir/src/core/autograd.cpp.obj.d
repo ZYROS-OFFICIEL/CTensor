@@ -200,6 +200,14 @@ CMakeFiles/core.dir/src/core/autograd.cpp.obj: \
  C:/msys64/mingw64/include/c++/15.2.0/tr1/poly_laguerre.tcc \
  C:/msys64/mingw64/include/c++/15.2.0/tr1/riemann_zeta.tcc \
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/omp.h \
+ C:/msys64/mingw64/include/c++/15.2.0/atomic \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/atomic_base.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/atomic_lockfree_defines.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/atomic_wait.h \
+ C:/msys64/mingw64/include/c++/15.2.0/cstdint \
+ C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/stdint.h \
+ C:/msys64/mingw64/include/stdint.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/std_mutex.h \
  D:\C\ programs\CTensor\src\core\autograd.h \
  C:/msys64/mingw64/include/c++/15.2.0/stack \
  C:/msys64/mingw64/include/c++/15.2.0/deque \
@@ -215,13 +223,6 @@ CMakeFiles/core.dir/src/core/autograd.cpp.obj: \
  C:/msys64/mingw64/include/c++/15.2.0/bits/allocated_ptr.h \
  C:/msys64/mingw64/include/c++/15.2.0/ext/concurrence.h \
  C:/msys64/mingw64/include/c++/15.2.0/bits/shared_ptr_atomic.h \
- C:/msys64/mingw64/include/c++/15.2.0/bits/atomic_base.h \
- C:/msys64/mingw64/include/c++/15.2.0/bits/atomic_lockfree_defines.h \
- C:/msys64/mingw64/include/c++/15.2.0/bits/atomic_wait.h \
- C:/msys64/mingw64/include/c++/15.2.0/cstdint \
- C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/stdint.h \
- C:/msys64/mingw64/include/stdint.h \
- C:/msys64/mingw64/include/c++/15.2.0/bits/std_mutex.h \
  C:/msys64/mingw64/include/c++/15.2.0/backward/auto_ptr.h \
  C:/msys64/mingw64/include/c++/15.2.0/bits/ranges_uninitialized.h \
  C:/msys64/mingw64/include/c++/15.2.0/pstl/glue_memory_defs.h \
@@ -230,5 +231,4 @@ CMakeFiles/core.dir/src/core/autograd.cpp.obj: \
  C:/msys64/mingw64/include/c++/15.2.0/numeric \
  C:/msys64/mingw64/include/c++/15.2.0/bits/stl_numeric.h \
  C:/msys64/mingw64/include/c++/15.2.0/pstl/glue_numeric_defs.h \
- C:/msys64/mingw64/include/c++/15.2.0/atomic \
  D:\C\ programs\CTensor\src\core\ops_dispatch.h
