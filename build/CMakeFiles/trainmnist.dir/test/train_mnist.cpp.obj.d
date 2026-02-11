@@ -215,6 +215,26 @@ CMakeFiles/trainmnist.dir/test/train_mnist.cpp.obj: \
  C:/msys64/mingw64/include/c++/15.2.0/tr1/poly_hermite.tcc \
  C:/msys64/mingw64/include/c++/15.2.0/tr1/poly_laguerre.tcc \
  C:/msys64/mingw64/include/c++/15.2.0/tr1/riemann_zeta.tcc \
+ C:/msys64/mingw64/include/c++/15.2.0/fstream \
+ C:/msys64/mingw64/include/c++/15.2.0/x86_64-w64-mingw32/bits/basic_file.h \
+ C:/msys64/mingw64/include/c++/15.2.0/x86_64-w64-mingw32/bits/c++io.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/fstream.tcc \
+ C:/msys64/mingw64/include/c++/15.2.0/numeric \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/stl_numeric.h \
+ C:/msys64/mingw64/include/c++/15.2.0/pstl/glue_numeric_defs.h \
+ C:/msys64/mingw64/include/c++/15.2.0/pstl/execution_defs.h \
+ C:/msys64/mingw64/include/c++/15.2.0/algorithm \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/ranges_algo.h \
+ C:/msys64/mingw64/include/c++/15.2.0/pstl/glue_algorithm_defs.h \
+ C:/msys64/mingw64/include/c++/15.2.0/random \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/random.h \
+ C:/msys64/mingw64/include/c++/15.2.0/x86_64-w64-mingw32/bits/opt_random.h \
+ C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/pmmintrin.h \
+ C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/emmintrin.h \
+ C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/xmmintrin.h \
+ C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/mmintrin.h \
+ C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/mwaitintrin.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/random.tcc \
  D:/C\ programs/CTensor/src/core.h \
  D:/C\ programs/CTensor/src/core/autograd.h \
  C:/msys64/mingw64/include/c++/15.2.0/unordered_map \
@@ -244,15 +264,8 @@ CMakeFiles/trainmnist.dir/test/train_mnist.cpp.obj: \
  C:/msys64/mingw64/include/c++/15.2.0/backward/auto_ptr.h \
  C:/msys64/mingw64/include/c++/15.2.0/bits/ranges_uninitialized.h \
  C:/msys64/mingw64/include/c++/15.2.0/pstl/glue_memory_defs.h \
- C:/msys64/mingw64/include/c++/15.2.0/pstl/execution_defs.h \
- C:/msys64/mingw64/include/c++/15.2.0/algorithm \
- C:/msys64/mingw64/include/c++/15.2.0/bits/ranges_algo.h \
- C:/msys64/mingw64/include/c++/15.2.0/pstl/glue_algorithm_defs.h \
  D:/C\ programs/CTensor/src/core/tensor.h \
  D:/C\ programs/CTensor/src/core/device.h \
- C:/msys64/mingw64/include/c++/15.2.0/numeric \
- C:/msys64/mingw64/include/c++/15.2.0/bits/stl_numeric.h \
- C:/msys64/mingw64/include/c++/15.2.0/pstl/glue_numeric_defs.h \
  C:/msys64/mingw64/include/c++/15.2.0/atomic \
  D:/C\ programs/CTensor/src/core/ops_dispatch.h \
  D:/C\ programs/CTensor/src/core/data.h \
@@ -275,7 +288,6 @@ CMakeFiles/trainmnist.dir/test/train_mnist.cpp.obj: \
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/lzcntintrin.h \
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/lwpintrin.h \
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/movdirintrin.h \
- C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/mwaitintrin.h \
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/mwaitxintrin.h \
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/pconfigintrin.h \
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/popcntintrin.h \
@@ -298,10 +310,6 @@ CMakeFiles/trainmnist.dir/test/train_mnist.cpp.obj: \
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/xtestintrin.h \
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/hresetintrin.h \
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/usermsrintrin.h \
- C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/mmintrin.h \
- C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/xmmintrin.h \
- C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/emmintrin.h \
- C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/pmmintrin.h \
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/tmmintrin.h \
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/smmintrin.h \
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/wmmintrin.h \
@@ -379,14 +387,6 @@ CMakeFiles/trainmnist.dir/test/train_mnist.cpp.obj: \
  D:/C\ programs/CTensor/src/neuralnet/train_utils.h \
  D:/C\ programs/CTensor/src/neuralnet/dataloader/dataloader.h \
  D:/C\ programs/CTensor/src/neuralnet/dataset/mnist.h \
- C:/msys64/mingw64/include/c++/15.2.0/fstream \
- C:/msys64/mingw64/include/c++/15.2.0/x86_64-w64-mingw32/bits/basic_file.h \
- C:/msys64/mingw64/include/c++/15.2.0/x86_64-w64-mingw32/bits/c++io.h \
- C:/msys64/mingw64/include/c++/15.2.0/bits/fstream.tcc \
- C:/msys64/mingw64/include/c++/15.2.0/random \
- C:/msys64/mingw64/include/c++/15.2.0/bits/random.h \
- C:/msys64/mingw64/include/c++/15.2.0/x86_64-w64-mingw32/bits/opt_random.h \
- C:/msys64/mingw64/include/c++/15.2.0/bits/random.tcc \
  D:/C\ programs/CTensor/src/neuralnet/batchnorm/batchnorm.h \
  D:/C\ programs/CTensor/src/neuralnet/conv/conv.h \
  D:/C\ programs/CTensor/src/neuralnet/dropout/dropout.h \
