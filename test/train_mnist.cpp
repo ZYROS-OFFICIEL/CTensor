@@ -56,7 +56,7 @@ void safe_init(std::vector<Tensor*>& params) {
     for (auto* p : params) {
         if (!p->impl) continue;
         size_t n = p->numel();
-        float scale = 0.01f; // Even smaller scale for safety
+        float scale = 0.1f; // Even smaller scale for safety
         
         float* ptr = (float*)p->impl->data->data.get();
         for (size_t i = 0; i < n; ++i) {
@@ -108,10 +108,10 @@ int main() {
 
         // --- STABILITY FIX: Low Learning Rate + Weight Decay ---
         // 1e-4 is very safe. 
-        AdamW optim(params, 0.0001, 0.9, 0.999, 1e-8, 0.01);
+        AdamW optim(params, 0.0001, 0.9, 0.999, 1e-4, 0.01);
         
         int BATCH_SIZE = 64;
-        int EPOCHS = 5; 
+        int EPOCHS = 10; 
         size_t num_train = train_data.images.shape()[0];
         size_t num_batches = num_train / BATCH_SIZE;
 
