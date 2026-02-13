@@ -148,61 +148,74 @@ CMakeFiles/trainmnist.dir/test/train_mnist.cpp.obj: \
  C:/msys64/mingw64/include/c++/15.2.0/bits/ostream.tcc \
  C:/msys64/mingw64/include/c++/15.2.0/istream \
  C:/msys64/mingw64/include/c++/15.2.0/bits/istream.tcc \
+ C:/msys64/mingw64/include/c++/15.2.0/fstream \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/codecvt.h \
+ C:/msys64/mingw64/include/c++/15.2.0/x86_64-w64-mingw32/bits/basic_file.h \
+ C:/msys64/mingw64/include/c++/15.2.0/x86_64-w64-mingw32/bits/c++io.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/fstream.tcc \
+ D:/C\ programs/CTensor/src/core.h \
+ D:/C\ programs/CTensor/src/core/autograd.h \
+ C:/msys64/mingw64/include/c++/15.2.0/unordered_map \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/unordered_map.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/hashtable.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/hashtable_policy.h \
+ C:/msys64/mingw64/include/c++/15.2.0/ext/aligned_buffer.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/enable_special_members.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/node_handle.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/erase_if.h \
+ C:/msys64/mingw64/include/c++/15.2.0/functional \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/std_function.h \
  C:/msys64/mingw64/include/c++/15.2.0/vector \
  C:/msys64/mingw64/include/c++/15.2.0/bits/stl_uninitialized.h \
  C:/msys64/mingw64/include/c++/15.2.0/bits/stl_vector.h \
  C:/msys64/mingw64/include/c++/15.2.0/bits/stl_bvector.h \
  C:/msys64/mingw64/include/c++/15.2.0/bits/vector.tcc \
- C:/msys64/mingw64/include/c++/15.2.0/chrono \
- C:/msys64/mingw64/include/c++/15.2.0/bits/chrono.h \
- C:/msys64/mingw64/include/c++/15.2.0/ratio \
+ C:/msys64/mingw64/include/c++/15.2.0/array \
+ C:/msys64/mingw64/include/c++/15.2.0/stack \
+ C:/msys64/mingw64/include/c++/15.2.0/deque \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/stl_deque.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/deque.tcc \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/stl_stack.h \
+ C:/msys64/mingw64/include/c++/15.2.0/set \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/stl_tree.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/stl_set.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/stl_multiset.h \
+ C:/msys64/mingw64/include/c++/15.2.0/memory \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/stl_tempbuf.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/stl_raw_storage_iter.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/align.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/unique_ptr.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/shared_ptr.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/shared_ptr_base.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/allocated_ptr.h \
+ C:/msys64/mingw64/include/c++/15.2.0/ext/concurrence.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/shared_ptr_atomic.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/atomic_base.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/atomic_lockfree_defines.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/atomic_wait.h \
  C:/msys64/mingw64/include/c++/15.2.0/cstdint \
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/stdint.h \
  C:/msys64/mingw64/include/stdint.h \
- C:/msys64/mingw64/include/c++/15.2.0/limits \
- C:/msys64/mingw64/include/c++/15.2.0/ctime \
- C:/msys64/mingw64/include/c++/15.2.0/bits/parse_numbers.h \
- C:/msys64/mingw64/include/c++/15.2.0/sstream \
- C:/msys64/mingw64/include/c++/15.2.0/bits/sstream.tcc \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/std_mutex.h \
+ C:/msys64/mingw64/include/c++/15.2.0/backward/auto_ptr.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/ranges_uninitialized.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/ranges_algobase.h \
+ C:/msys64/mingw64/include/c++/15.2.0/pstl/glue_memory_defs.h \
+ C:/msys64/mingw64/include/c++/15.2.0/pstl/execution_defs.h \
+ C:/msys64/mingw64/include/c++/15.2.0/cstring \
+ C:/msys64/mingw64/include/string.h \
+ C:/msys64/mingw64/include/sec_api/string_s.h \
+ C:/msys64/mingw64/include/c++/15.2.0/algorithm \
  C:/msys64/mingw64/include/c++/15.2.0/bits/stl_algo.h \
  C:/msys64/mingw64/include/c++/15.2.0/bits/algorithmfwd.h \
  C:/msys64/mingw64/include/c++/15.2.0/bits/stl_heap.h \
  C:/msys64/mingw64/include/c++/15.2.0/bits/uniform_int_dist.h \
- C:/msys64/mingw64/include/c++/15.2.0/bits/stl_tempbuf.h \
- C:/msys64/mingw64/include/c++/15.2.0/bits/shared_ptr.h \
- C:/msys64/mingw64/include/c++/15.2.0/bits/shared_ptr_base.h \
- C:/msys64/mingw64/include/c++/15.2.0/bits/allocated_ptr.h \
- C:/msys64/mingw64/include/c++/15.2.0/bits/unique_ptr.h \
- C:/msys64/mingw64/include/c++/15.2.0/ext/aligned_buffer.h \
- C:/msys64/mingw64/include/c++/15.2.0/ext/concurrence.h \
- C:/msys64/mingw64/include/c++/15.2.0/bits/align.h \
- C:/msys64/mingw64/include/c++/15.2.0/bits/chrono_io.h \
- C:/msys64/mingw64/include/c++/15.2.0/iomanip \
- C:/msys64/mingw64/include/c++/15.2.0/locale \
- C:/msys64/mingw64/include/c++/15.2.0/bits/locale_facets_nonio.h \
- C:/msys64/mingw64/include/c++/15.2.0/x86_64-w64-mingw32/bits/time_members.h \
- C:/msys64/mingw64/include/c++/15.2.0/x86_64-w64-mingw32/bits/messages_members.h \
- C:/msys64/mingw64/include/c++/15.2.0/bits/codecvt.h \
- C:/msys64/mingw64/include/c++/15.2.0/bits/locale_facets_nonio.tcc \
- C:/msys64/mingw64/include/c++/15.2.0/bits/locale_conv.h \
- C:/msys64/mingw64/include/c++/15.2.0/bits/quoted_string.h \
- C:/msys64/mingw64/include/c++/15.2.0/format \
- C:/msys64/mingw64/include/c++/15.2.0/array \
- C:/msys64/mingw64/include/c++/15.2.0/charconv \
- C:/msys64/mingw64/include/c++/15.2.0/optional \
- C:/msys64/mingw64/include/c++/15.2.0/bits/enable_special_members.h \
- C:/msys64/mingw64/include/c++/15.2.0/span \
- C:/msys64/mingw64/include/c++/15.2.0/bits/monostate.h \
- C:/msys64/mingw64/include/c++/15.2.0/bits/formatfwd.h \
- C:/msys64/mingw64/include/c++/15.2.0/bits/ranges_algobase.h \
- C:/msys64/mingw64/include/c++/15.2.0/bits/unicode.h \
- C:/msys64/mingw64/include/c++/15.2.0/bits/unicode-data.h \
- C:/msys64/mingw64/include/c++/15.2.0/cstring \
- C:/msys64/mingw64/include/string.h \
- C:/msys64/mingw64/include/sec_api/string_s.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/ranges_algo.h \
+ C:/msys64/mingw64/include/c++/15.2.0/pstl/glue_algorithm_defs.h \
  C:/msys64/mingw64/include/c++/15.2.0/cmath \
  C:/msys64/mingw64/include/math.h \
  C:/msys64/mingw64/include/c++/15.2.0/bits/specfun.h \
+ C:/msys64/mingw64/include/c++/15.2.0/limits \
  C:/msys64/mingw64/include/c++/15.2.0/tr1/gamma.tcc \
  C:/msys64/mingw64/include/c++/15.2.0/tr1/special_function_util.h \
  C:/msys64/mingw64/include/c++/15.2.0/tr1/bessel_function.tcc \
@@ -215,57 +228,11 @@ CMakeFiles/trainmnist.dir/test/train_mnist.cpp.obj: \
  C:/msys64/mingw64/include/c++/15.2.0/tr1/poly_hermite.tcc \
  C:/msys64/mingw64/include/c++/15.2.0/tr1/poly_laguerre.tcc \
  C:/msys64/mingw64/include/c++/15.2.0/tr1/riemann_zeta.tcc \
- C:/msys64/mingw64/include/c++/15.2.0/fstream \
- C:/msys64/mingw64/include/c++/15.2.0/x86_64-w64-mingw32/bits/basic_file.h \
- C:/msys64/mingw64/include/c++/15.2.0/x86_64-w64-mingw32/bits/c++io.h \
- C:/msys64/mingw64/include/c++/15.2.0/bits/fstream.tcc \
+ D:/C\ programs/CTensor/src/core/tensor.h \
+ D:/C\ programs/CTensor/src/core/device.h \
  C:/msys64/mingw64/include/c++/15.2.0/numeric \
  C:/msys64/mingw64/include/c++/15.2.0/bits/stl_numeric.h \
  C:/msys64/mingw64/include/c++/15.2.0/pstl/glue_numeric_defs.h \
- C:/msys64/mingw64/include/c++/15.2.0/pstl/execution_defs.h \
- C:/msys64/mingw64/include/c++/15.2.0/algorithm \
- C:/msys64/mingw64/include/c++/15.2.0/bits/ranges_algo.h \
- C:/msys64/mingw64/include/c++/15.2.0/pstl/glue_algorithm_defs.h \
- C:/msys64/mingw64/include/c++/15.2.0/random \
- C:/msys64/mingw64/include/c++/15.2.0/bits/random.h \
- C:/msys64/mingw64/include/c++/15.2.0/x86_64-w64-mingw32/bits/opt_random.h \
- C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/pmmintrin.h \
- C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/emmintrin.h \
- C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/xmmintrin.h \
- C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/mmintrin.h \
- C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/mwaitintrin.h \
- C:/msys64/mingw64/include/c++/15.2.0/bits/random.tcc \
- D:/C\ programs/CTensor/src/core.h \
- D:/C\ programs/CTensor/src/core/autograd.h \
- C:/msys64/mingw64/include/c++/15.2.0/unordered_map \
- C:/msys64/mingw64/include/c++/15.2.0/bits/unordered_map.h \
- C:/msys64/mingw64/include/c++/15.2.0/bits/hashtable.h \
- C:/msys64/mingw64/include/c++/15.2.0/bits/hashtable_policy.h \
- C:/msys64/mingw64/include/c++/15.2.0/bits/node_handle.h \
- C:/msys64/mingw64/include/c++/15.2.0/bits/erase_if.h \
- C:/msys64/mingw64/include/c++/15.2.0/functional \
- C:/msys64/mingw64/include/c++/15.2.0/bits/std_function.h \
- C:/msys64/mingw64/include/c++/15.2.0/stack \
- C:/msys64/mingw64/include/c++/15.2.0/deque \
- C:/msys64/mingw64/include/c++/15.2.0/bits/stl_deque.h \
- C:/msys64/mingw64/include/c++/15.2.0/bits/deque.tcc \
- C:/msys64/mingw64/include/c++/15.2.0/bits/stl_stack.h \
- C:/msys64/mingw64/include/c++/15.2.0/set \
- C:/msys64/mingw64/include/c++/15.2.0/bits/stl_tree.h \
- C:/msys64/mingw64/include/c++/15.2.0/bits/stl_set.h \
- C:/msys64/mingw64/include/c++/15.2.0/bits/stl_multiset.h \
- C:/msys64/mingw64/include/c++/15.2.0/memory \
- C:/msys64/mingw64/include/c++/15.2.0/bits/stl_raw_storage_iter.h \
- C:/msys64/mingw64/include/c++/15.2.0/bits/shared_ptr_atomic.h \
- C:/msys64/mingw64/include/c++/15.2.0/bits/atomic_base.h \
- C:/msys64/mingw64/include/c++/15.2.0/bits/atomic_lockfree_defines.h \
- C:/msys64/mingw64/include/c++/15.2.0/bits/atomic_wait.h \
- C:/msys64/mingw64/include/c++/15.2.0/bits/std_mutex.h \
- C:/msys64/mingw64/include/c++/15.2.0/backward/auto_ptr.h \
- C:/msys64/mingw64/include/c++/15.2.0/bits/ranges_uninitialized.h \
- C:/msys64/mingw64/include/c++/15.2.0/pstl/glue_memory_defs.h \
- D:/C\ programs/CTensor/src/core/tensor.h \
- D:/C\ programs/CTensor/src/core/device.h \
  C:/msys64/mingw64/include/c++/15.2.0/atomic \
  D:/C\ programs/CTensor/src/core/ops_dispatch.h \
  D:/C\ programs/CTensor/src/core/data.h \
@@ -288,6 +255,7 @@ CMakeFiles/trainmnist.dir/test/train_mnist.cpp.obj: \
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/lzcntintrin.h \
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/lwpintrin.h \
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/movdirintrin.h \
+ C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/mwaitintrin.h \
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/mwaitxintrin.h \
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/pconfigintrin.h \
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/popcntintrin.h \
@@ -310,6 +278,10 @@ CMakeFiles/trainmnist.dir/test/train_mnist.cpp.obj: \
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/xtestintrin.h \
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/hresetintrin.h \
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/usermsrintrin.h \
+ C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/mmintrin.h \
+ C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/xmmintrin.h \
+ C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/emmintrin.h \
+ C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/pmmintrin.h \
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/tmmintrin.h \
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/smmintrin.h \
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/wmmintrin.h \
@@ -387,6 +359,22 @@ CMakeFiles/trainmnist.dir/test/train_mnist.cpp.obj: \
  D:/C\ programs/CTensor/src/neuralnet/train_utils.h \
  D:/C\ programs/CTensor/src/neuralnet/dataloader/dataloader.h \
  D:/C\ programs/CTensor/src/neuralnet/dataset/mnist.h \
+ C:/msys64/mingw64/include/c++/15.2.0/random \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/random.h \
+ C:/msys64/mingw64/include/c++/15.2.0/x86_64-w64-mingw32/bits/opt_random.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/random.tcc \
+ C:/msys64/mingw64/include/c++/15.2.0/iomanip \
+ C:/msys64/mingw64/include/c++/15.2.0/locale \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/locale_facets_nonio.h \
+ C:/msys64/mingw64/include/c++/15.2.0/ctime \
+ C:/msys64/mingw64/include/c++/15.2.0/x86_64-w64-mingw32/bits/time_members.h \
+ C:/msys64/mingw64/include/c++/15.2.0/x86_64-w64-mingw32/bits/messages_members.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/locale_facets_nonio.tcc \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/locale_conv.h \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/quoted_string.h \
+ C:/msys64/mingw64/include/c++/15.2.0/sstream \
+ C:/msys64/mingw64/include/c++/15.2.0/bits/sstream.tcc \
+ D:/C\ programs/CTensor/src/neuralnet/training_utils.h \
  D:/C\ programs/CTensor/src/neuralnet/batchnorm/batchnorm.h \
  D:/C\ programs/CTensor/src/neuralnet/conv/conv.h \
  D:/C\ programs/CTensor/src/neuralnet/dropout/dropout.h \

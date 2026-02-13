@@ -387,6 +387,7 @@ CMakeFiles/convnet.dir/test/convnet_test.cpp.obj: \
  C:/msys64/mingw64/include/c++/15.2.0/bits/random.h \
  C:/msys64/mingw64/include/c++/15.2.0/x86_64-w64-mingw32/bits/opt_random.h \
  C:/msys64/mingw64/include/c++/15.2.0/bits/random.tcc \
+ D:/C\ programs/CTensor/src/neuralnet/training_utils.h \
  D:/C\ programs/CTensor/src/neuralnet/batchnorm/batchnorm.h \
  D:/C\ programs/CTensor/src/neuralnet/conv/conv.h \
  D:/C\ programs/CTensor/src/neuralnet/dropout/dropout.h \
