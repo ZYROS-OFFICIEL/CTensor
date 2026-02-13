@@ -4,6 +4,7 @@
 #include "neuralnet/module.h"
 #include "neuralnet/Relu.h"
 #include "neuralnet/train_utils.h"
+#include "neuralnet/training_utils.h"
 #include "neuralnet/batchnorm/batchnorm.h"
 #include "neuralnet/conv/conv.h"
 #include "neuralnet/dataloader/dataloader.h"
