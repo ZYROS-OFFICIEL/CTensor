@@ -398,7 +398,8 @@ CMakeFiles/convnet.dir/test/convnet_test.cpp.obj: D:/C\ programs/CTensor/test/co
   D:/C\ programs/CTensor/src/neuralnet/loss.h \
   D:/C\ programs/CTensor/src/neuralnet/module.h \
   D:/C\ programs/CTensor/src/neuralnet/pooling/pooling.h \
-  D:/C\ programs/CTensor/src/neuralnet/train_utils.h
+  D:/C\ programs/CTensor/src/neuralnet/train_utils.h \
+  D:/C\ programs/CTensor/src/neuralnet/training_utils.h
 
 
 D:/C\ programs/CTensor/test/convnet_test.cpp:
@@ -1196,3 +1197,5 @@ D:/C\ programs/CTensor/src/neuralnet/loss.h:
 D:/C\ programs/CTensor/src/neuralnet/module.h:
 
 D:/C\ programs/CTensor/src/neuralnet/train_utils.h:
+
+D:/C\ programs/CTensor/src/neuralnet/training_utils.h:

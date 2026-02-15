@@ -17,7 +17,6 @@ void ensure_grad_buffer(Tensor &t, bool zero_existing) {
 
     // Allocate if missing
     if (!t.impl->grad) {
-        // FIX: Use 'new' and intrusive_ptr constructor. 
         t.impl->grad = intrusive_ptr<Tensorimpl>(new Tensorimpl(
             t.shape(), 
             t._dtype(), 
@@ -99,15 +98,19 @@ void accumulate_grad(Tensor& target, const Tensor& grad_src) {
     auto* g_data = grad_aligned.impl->data->data.get();
     
     const size_t* t_shape = target.impl->shape.data();
-    const size_t* t_strides = target.impl->strides.data();
+    
+    // --- FIX: Use GRAD strides/offset, not Tensor strides/offset ---
+    // The gradient buffer is a separate tensor that might be contiguous 
+    // even if the target is a view (e.g., transposed).
+    const size_t* t_strides = target.impl->grad->strides.data();
+    size_t t_offset = target.impl->grad->offset; 
+
     const size_t* g_shape = grad_aligned.impl->shape.data();
     const size_t* g_strides = grad_aligned.impl->strides.data();
     
-    size_t t_offset = target.impl->offset; 
     size_t g_offset = grad_aligned.impl->offset;
     
     size_t t_nd = target.impl->ndim;
-    // size_t g_nd = grad_aligned.impl->ndim; // Unused warning fix
     size_t pad = (t_nd > grad_aligned.impl->ndim) ? t_nd - grad_aligned.impl->ndim : 0;
     
     DType dt_t = target._dtype();
@@ -119,6 +122,8 @@ void accumulate_grad(Tensor& target, const Tensor& grad_src) {
         size_t t_idx = t_offset;
         size_t g_idx = g_offset;
         
+        // Calculate coords based on TARGET SHAPE (Logical)
+        // But map to memory using GRAD STRIDES (Physical destination)
         for (int d = (int)t_nd - 1; d >= 0; --d) {
             size_t sz = t_shape[d];
             size_t coord = rem % sz;
@@ -126,7 +131,7 @@ void accumulate_grad(Tensor& target, const Tensor& grad_src) {
             
             t_idx += coord * t_strides[d];
             
-            // Map to grad_aligned
+            // Map to grad_aligned source
             if (d >= (int)pad) {
                 int g_d = d - pad;
                 if (g_d < (int)grad_aligned.impl->ndim && g_shape[g_d] > 1) {
