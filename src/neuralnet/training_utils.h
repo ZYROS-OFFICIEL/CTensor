@@ -45,36 +45,6 @@ inline bool check_weights_corrupted(const std::vector<Tensor*>& params) {
     return false;
 }
 
-// 3. Gradient Clipping (Global Norm)
-inline void clip_grad_norm(const std::vector<Tensor*>& params, double max_norm) {
-    double total_norm_sq = 0.0;
-    for(auto* p : params) {
-        if(p->impl && p->impl->grad) {
-            float* g = (float*)p->impl->grad->data->data.get();
-            size_t n = p->numel();
-            for(size_t k=0; k<n; ++k) {
-                if(std::isfinite(g[k])) total_norm_sq += g[k]*g[k];
-            }
-        }
-    }
-    double total_norm = std::sqrt(total_norm_sq);
-    
-    if (total_norm > max_norm || std::isnan(total_norm)) {
-        double clip_coef = max_norm / (total_norm + 1e-6);
-        for(auto* p : params) {
-            if(p->impl && p->impl->grad) {
-                float* g = (float*)p->impl->grad->data->data.get();
-                size_t n = p->numel();
-                #pragma omp parallel for
-                for(size_t k=0; k<n; ++k) {
-                    if(std::isfinite(g[k])) g[k] *= (float)clip_coef;
-                    else g[k] = 0.0f; // Zero out NaNs
-                }
-            }
-        }
-    }
-}
-
 // =======================================================================
 //                              DATA LOADING
 // =======================================================================
