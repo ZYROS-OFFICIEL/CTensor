@@ -42,16 +42,56 @@ Tensor Tensor::to(Device target_device) {
 
 Tensor Tensor::clone() const {
     if (!impl) return Tensor();
-    // Create new tensor with same properties
+    
+    // 1. Create a dense, contiguous output tensor
     Tensor out(impl->shape.to_vector(), impl->dtype, impl->requires_grad);
     
-    // Deep copy data
-    size_t bytes = numel() * dtype_bytes();
-    if (impl->data && impl->data->data && out.impl->data && out.impl->data->data) {
-        std::memcpy(out.impl->data->data.get(), impl->data->data.get(), bytes);
+    size_t n = numel();
+    size_t type_sz = dtype_bytes();
+    
+    // 2. Fast Path: Contiguous Copy
+    if (is_contiguous()) {
+        if (impl->data && impl->data->data && out.impl->data && out.impl->data->data) {
+            // Calculate correct offset for source
+            char* src = (char*)impl->data->data.get() + impl->offset * type_sz;
+            char* dst = (char*)out.impl->data->data.get();
+            std::memcpy(dst, src, n * type_sz);
+        }
+    } 
+    // 3. Slow Path: Strided Copy (Repacking)
+    else {
+        char* out_ptr = (char*)out.impl->data->data.get();
+        char* inp_base = (char*)impl->data->data.get();
+        
+        const auto& strides = impl->strides;
+        const auto& shape = impl->shape;
+        size_t ndim = impl->ndim;
+        
+        // Odometer for multi-dim index
+        std::vector<size_t> coords(ndim, 0);
+        
+        for (size_t i = 0; i < n; ++i) {
+            // Calculate offset in source
+            size_t src_offset = impl->offset;
+            for(size_t d = 0; d < ndim; ++d) {
+                src_offset += coords[d] * strides[d];
+            }
+            
+            // Copy 1 element
+            std::memcpy(out_ptr + i * type_sz, inp_base + src_offset * type_sz, type_sz);
+            
+            // Update odometer
+            for(int d = (int)ndim - 1; d >= 0; --d) {
+                coords[d]++;
+                if (coords[d] < shape[d]) break;
+                coords[d] = 0;
+            }
+        }
     }
+    
     return out;
 }
+
 
 Tensor Tensor::detach() const {
     if (!impl) return Tensor();
