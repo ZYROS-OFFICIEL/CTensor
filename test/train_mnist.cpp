@@ -13,6 +13,48 @@
 //                          SAFETY UTILITIES
 // =======================================================================
 
+// 1. Kaiming/He Initialization (The Fix)
+// Adjusts scale based on the number of inputs (fan_in) to the layer.
+inline void kaiming_init(std::vector<Tensor*>& params) {
+    std::cout << "Initializing weights (Kaiming Uniform)..." << std::endl;
+    std::srand(static_cast<unsigned int>(std::time(nullptr)));
+    
+    for (auto* p : params) {
+        if (!p->impl) continue;
+        
+        // Determine Fan-In (Input size)
+        // Linear weights are [Out, In]. So shape[1] is Fan-In.
+        // Biases are [Out]. We init them to 0.
+        size_t fan_in = 1;
+        if (p->impl->ndim == 2) {
+            fan_in = p->shape()[1];
+        } else if (p->impl->ndim == 4) {
+             // Conv2D [Out, In, H, W] -> FanIn = In * H * W
+             fan_in = p->shape()[1] * p->shape()[2] * p->shape()[3];
+        }
+
+        // Calculate bound: sqrt(6 / fan_in) for Uniform Kaiming
+        float bound = std::sqrt(6.0f / (float)fan_in);
+        
+        // If it's a 1D tensor, assume it's a bias -> Init to 0
+        bool is_bias = (p->impl->ndim == 1);
+
+        size_t n = p->numel();
+        float* ptr = (float*)p->impl->data->data.get();
+        
+        for (size_t i = 0; i < n; ++i) {
+            if (is_bias) {
+                ptr[i] = 0.0f;
+            } else {
+                float r = static_cast<float>(std::rand()) / RAND_MAX; 
+                // Uniform(-bound, bound)
+                ptr[i] = (r * 2.0f - 1.0f) * bound;
+            }
+        }
+    }
+}
+
+// 2. Gradient Clipping
 inline void clip_grad_norm(const std::vector<Tensor*>& params, double max_norm) {
     double total_norm_sq = 0.0;
     for (auto* p : params) {
@@ -20,7 +62,7 @@ inline void clip_grad_norm(const std::vector<Tensor*>& params, double max_norm) 
         float* g = (float*)p->impl->grad->data->data.get();
         size_t n = p->numel();
         double layer_sum = 0.0;
-        // Removed OMP here to be absolutely safe during debug
+        // Single thread safety for debug
         for (size_t i = 0; i < n; ++i) {
             layer_sum += g[i] * g[i];
         }
@@ -84,8 +126,7 @@ public:
 
 int main() {
     try {
-        // --- STABILIZATION FIX: Disable OpenMP for training loop ---
-        // This prevents race conditions in gradient accumulation.
+        // Keep single thread to ensure no race conditions in Autograd for now
         omp_set_num_threads(1); 
         std::cout << "Forcing Single-Threaded Mode for Stability." << std::endl;
 
@@ -102,17 +143,17 @@ int main() {
             }
         };
 
-        SimpleDataLoader loader(dataset, 32, true); // Reduced Batch Size to 32
+        SimpleDataLoader loader(dataset, 32, true); 
 
         MLPNet model;
         std::vector<Tensor*> params = model.parameters();
         
-        // 1. Force fresh initialization with smaller scale
-        robust_weight_init(params, 0.02f); 
+        // 1. USE KAIMING INIT (Fixes the explosion issue)
+        kaiming_init(params); 
         for(auto* p : params) p->requires_grad_(true);
 
-        // 2. VERY Conservative LR
-        AdamW optim(params, 0.0001); 
+        // 2. Standard LR should now work fine
+        AdamW optim(params, 0.001); 
 
         std::cout << "Starting training..." << std::endl;
         std::string ckpt = "mnist_weights.bin";
@@ -141,8 +182,8 @@ int main() {
                 
                 backward(loss);
 
-                // Clip Gradients aggressively
-                clip_grad_norm(params, 0.5); 
+                // Keep safety clip, but it shouldn't trigger as often now
+                clip_grad_norm(params, 1.0); 
 
                 optim.step();
                 
