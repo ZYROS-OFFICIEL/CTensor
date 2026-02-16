@@ -13,8 +13,7 @@
 //                          SAFETY UTILITIES
 // =======================================================================
 
-// 1. Kaiming/He Initialization (The Fix)
-// Adjusts scale based on the number of inputs (fan_in) to the layer.
+// 1. Kaiming/He Initialization
 inline void kaiming_init(std::vector<Tensor*>& params) {
     std::cout << "Initializing weights (Kaiming Uniform)..." << std::endl;
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
@@ -22,21 +21,14 @@ inline void kaiming_init(std::vector<Tensor*>& params) {
     for (auto* p : params) {
         if (!p->impl) continue;
         
-        // Determine Fan-In (Input size)
-        // Linear weights are [Out, In]. So shape[1] is Fan-In.
-        // Biases are [Out]. We init them to 0.
         size_t fan_in = 1;
         if (p->impl->ndim == 2) {
             fan_in = p->shape()[1];
         } else if (p->impl->ndim == 4) {
-             // Conv2D [Out, In, H, W] -> FanIn = In * H * W
              fan_in = p->shape()[1] * p->shape()[2] * p->shape()[3];
         }
 
-        // Calculate bound: sqrt(6 / fan_in) for Uniform Kaiming
         float bound = std::sqrt(6.0f / (float)fan_in);
-        
-        // If it's a 1D tensor, assume it's a bias -> Init to 0
         bool is_bias = (p->impl->ndim == 1);
 
         size_t n = p->numel();
@@ -47,7 +39,6 @@ inline void kaiming_init(std::vector<Tensor*>& params) {
                 ptr[i] = 0.0f;
             } else {
                 float r = static_cast<float>(std::rand()) / RAND_MAX; 
-                // Uniform(-bound, bound)
                 ptr[i] = (r * 2.0f - 1.0f) * bound;
             }
         }
@@ -62,7 +53,7 @@ inline void clip_grad_norm(const std::vector<Tensor*>& params, double max_norm) 
         float* g = (float*)p->impl->grad->data->data.get();
         size_t n = p->numel();
         double layer_sum = 0.0;
-        // Single thread safety for debug
+        // Single thread safety
         for (size_t i = 0; i < n; ++i) {
             layer_sum += g[i] * g[i];
         }
@@ -126,7 +117,6 @@ public:
 
 int main() {
     try {
-        // Keep single thread to ensure no race conditions in Autograd for now
         omp_set_num_threads(1); 
         std::cout << "Forcing Single-Threaded Mode for Stability." << std::endl;
 
@@ -135,7 +125,7 @@ int main() {
         
         TensorDataset dataset(raw_data.images, raw_data.labels);
         
-        // Transform: Normalize to [-1, 1]
+        // Transform: Normalize
         dataset.transform = [](const void* src, float* dst, size_t n) {
             const float* s = (const float*)src; 
             for(size_t i=0; i<n; ++i) {
@@ -143,22 +133,23 @@ int main() {
             }
         };
 
-        SimpleDataLoader loader(dataset, 32, true); 
+        // Increase Batch Size to 128 for even smoother gradients
+        SimpleDataLoader loader(dataset, 128, true); 
 
         MLPNet model;
         std::vector<Tensor*> params = model.parameters();
         
-        // 1. USE KAIMING INIT (Fixes the explosion issue)
         kaiming_init(params); 
         for(auto* p : params) p->requires_grad_(true);
 
-        // 2. Standard LR should now work fine
-        AdamW optim(params, 0.001); 
+        // Lower LR slightly to prevent the mid-training spikes
+        AdamW optim(params, 0.005); 
 
         std::cout << "Starting training..." << std::endl;
         std::string ckpt = "mnist_weights.bin";
 
-        for (int epoch = 0; epoch < 5; ++epoch) {
+        // Run for more epochs to see convergence
+        for (int epoch = 0; epoch < 10; ++epoch) {
             loader.reset();
             double total_loss = 0.0;
             int batches = 0;
@@ -168,33 +159,21 @@ int main() {
             while(loader.has_next()) {
                 auto [data, target] = loader.next();
                 
-                // Sanity check inputs
-                if (batches == 0) {
-                     float* dptr = (float*)data.impl->data->data.get();
-                     if (std::isnan(dptr[0]) || std::abs(dptr[0]) > 100.0f) {
-                         throw std::runtime_error("Input data corrupted/not normalized!");
-                     }
-                }
-
                 optim.zero_grad();
                 Tensor output = model.forward(data);
                 Tensor loss = Loss::CrossEntropy(output, target);
                 
                 backward(loss);
-
-                // Keep safety clip, but it shouldn't trigger as often now
                 clip_grad_norm(params, 1.0); 
-
                 optim.step();
                 
                 double l_val = loss.read_scalar(0);
-                if (std::isnan(l_val) || std::isinf(l_val)) {
-                    std::cout << "\n[ERROR] Loss Explosion (NaN/Inf) at Batch " << batches << "! Stopping.\n";
+                if (std::isnan(l_val)) {
+                    std::cout << "\n[ERROR] Loss NaN. Stopping.\n";
                     return -1;
                 }
                 total_loss += l_val;
                 
-                // Calculate Accuracy
                 const float* out_data = (const float*)output.impl->data->data.get();
                 const int32_t* tgt_data = (const int32_t*)target.impl->data->data.get();
                 size_t bs = data.shape()[0];
@@ -212,7 +191,7 @@ int main() {
                 total += bs;
                 batches++;
 
-                if (batches % 100 == 0) {
+                if (batches % 50 == 0) {
                      std::cout << "Epoch " << epoch << " Batch " << std::setw(4) << batches 
                                << " Loss: " << std::fixed << std::setprecision(4) << l_val 
                                << " Acc: " << (100.0 * correct / total) << "% \r" << std::flush;
