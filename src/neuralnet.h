@@ -11,3 +11,4 @@
 #include "neuralnet/dataset/mnist.h"
 #include "neuralnet/dropout/dropout.h"
 #include "neuralnet/pooling/pooling.h"
+#include "neuralnet/weights/init.h"
