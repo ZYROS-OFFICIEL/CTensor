@@ -13,7 +13,7 @@
 //                          SAFETY UTILITIES
 // =======================================================================
 
-// 2. Gradient Clipping
+// Gradient Clipping to prevent explosion
 inline void clip_grad_norm(const std::vector<Tensor*>& params, double max_norm) {
     double total_norm_sq = 0.0;
     for (auto* p : params) {
@@ -85,24 +85,25 @@ public:
 
 int main() {
     try {
-        omp_set_num_threads(1); 
-        std::cout << "Forcing Single-Threaded Mode for Stability." << std::endl;
+        omp_set_num_threads(4); 
 
         std::cout << "Loading MNIST data..." << std::endl;
         MNISTData raw_data = load_mnist("train-images.idx3-ubyte", "train-labels.idx1-ubyte");
         
         TensorDataset dataset(raw_data.images, raw_data.labels);
         
-        // Transform: Normalize
+        // Transform: Normalize MNIST to [0, 1] then standardize
         dataset.transform = [](const void* src, float* dst, size_t n) {
             const float* s = (const float*)src; 
             for(size_t i=0; i<n; ++i) {
+                // Approximate mean/std for MNIST
                 dst[i] = (s[i] - 0.1307f) / 0.3081f;
             }
         };
 
-        // Increase Batch Size to 128 for even smoother gradients
-        SimpleDataLoader loader(dataset, 128, true); 
+        // Batch size 64 is often more stable than 128 for simple MLPs initially
+        size_t batch_size = 64;
+        SimpleDataLoader loader(dataset, batch_size, true); 
 
         MLPNet model;
         std::vector<Tensor*> params = model.parameters();
@@ -110,63 +111,72 @@ int main() {
         kaiming_init(params); 
         for(auto* p : params) p->requires_grad_(true);
 
-        // Lower LR slightly to prevent the mid-training spikes
-        AdamW optim(params, 0.005); 
+        AdamW optim(params, 0.001); 
 
         std::cout << "Starting training..." << std::endl;
         std::string ckpt = "mnist_weights.bin";
 
-        // Run for more epochs to see convergence
-        for (int epoch = 0; epoch < 10; ++epoch) {
+        for (int epoch = 0; epoch < 5; ++epoch) {
             loader.reset();
             double total_loss = 0.0;
             int batches = 0;
             size_t correct = 0;
-            size_t total = 0;
+            size_t total_samples = 0;
             
             while(loader.has_next()) {
-                auto [data, target] = loader.next();
+                auto [data, target_raw] = loader.next();
+                
+                // --- FIX 1: Prepare Shape for Loss ---
+                // CrossEntropy uses gather(), which requires input & index to have same NDIM.
+                // Output is [B, 10] (2D), so Target must be [B, 1] (2D).
+                Tensor target_loss = target_raw;
+                if (target_loss.shape().size() == 1) {
+                    target_loss = target_loss.unsqueeze(1);
+                }
                 
                 optim.zero_grad();
                 Tensor output = model.forward(data);
-                Tensor loss = Loss::CrossEntropy(output, target);
+                
+                // Pass 2D target to Loss
+                Tensor loss = Loss::CrossEntropy(output, target_loss);
+                
+                // --- FIX 2: HANDLE LOSS NAN/EXPLOSION ---
+                double l_val = loss.item<double>(); 
+                if (std::isnan(l_val) || std::isinf(l_val)) {
+                    std::cout << "\n[ERROR] Loss is NaN/Inf at batch " << batches << ". Skipping step.\n";
+                    batches++;
+                    continue; 
+                }
                 
                 backward(loss);
                 clip_grad_norm(params, 1.0); 
                 optim.step();
                 
-                double l_val = loss.read_scalar(0);
-                if (std::isnan(l_val)) {
-                    std::cout << "\n[ERROR] Loss NaN. Stopping.\n";
-                    return -1;
-                }
                 total_loss += l_val;
                 
-                const float* out_data = (const float*)output.impl->data->data.get();
-                const int32_t* tgt_data = (const int32_t*)target.impl->data->data.get();
-                size_t bs = data.shape()[0];
-                for(size_t i=0; i<bs; ++i) {
-                    float max_v = -1e9;
-                    int pred = -1;
-                    for(int c=0; c<10; ++c) {
-                        if (out_data[i*10 + c] > max_v) {
-                            max_v = out_data[i*10 + c];
-                            pred = c;
-                        }
-                    }
-                    if (pred == tgt_data[i]) correct++;
-                }
-                total += bs;
+                // --- FIX 3: Prepare Shape for Accuracy ---
+                // argmax(1) returns 1D [Batch].
+                // We must flatten target to 1D [Batch] to avoid broadcasting (which caused >100% acc).
+                Tensor pred = output.argmax(1); 
+                Tensor target_acc = target_raw.flatten();
+                
+                Tensor match = (pred == target_acc).astype(DType::Float32);
+                correct += (size_t)sum(match).item<float>();
+                
+                total_samples += data.shape()[0];
                 batches++;
 
                 if (batches % 50 == 0) {
+                     double current_acc = 100.0 * correct / total_samples;
+                     double avg_loss = total_loss / batches;
+                     
                      std::cout << "Epoch " << epoch << " Batch " << std::setw(4) << batches 
-                               << " Loss: " << std::fixed << std::setprecision(4) << l_val 
-                               << " Acc: " << (100.0 * correct / total) << "% \r" << std::flush;
+                               << " Loss: " << std::fixed << std::setprecision(4) << avg_loss
+                               << " Acc: " << std::setprecision(2) << current_acc << "% \r" << std::flush;
                 }
             }
             std::cout << "\nEpoch " << epoch << " Finished. Avg Loss: " << (total_loss / batches) 
-                      << " Accuracy: " << (100.0 * correct / total) << "%\n";
+                      << " Accuracy: " << (100.0 * correct / total_samples) << "%\n";
             
             checkpoints::save_weights(params, ckpt);
         }
