@@ -16,6 +16,7 @@ set(PROJECT_INCLUDES
     src/neuralnet/dropout
     src/neuralnet/dataloader
     src/neuralnet/batchnorm
+    src/neuralnet/weights
 )
 
 # --------------------------------------------------
@@ -44,6 +45,7 @@ add_library(neuralnet OBJECT
     src/neuralnet/dropout/dropout.cpp
     src/neuralnet/pooling/pooling.cpp
     src/neuralnet/batchnorm/batchnorm.cpp
+    src/neuralnet/weights/weights_init.cpp
 )
 target_include_directories(neuralnet PRIVATE ${PROJECT_INCLUDES})
 
