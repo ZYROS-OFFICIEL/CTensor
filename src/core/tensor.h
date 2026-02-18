@@ -447,6 +447,14 @@ struct Tensor {
     void save_image(const std::string& path) const;
 
     Tensor gather(const Tensor& index, size_t dim=1) const;
+    Tensor argmax(int dim = -1) const; // <--- NEW API
+    
+    template<typename T>
+    T item() const {
+        if (!impl) throw std::runtime_error("item() on empty tensor");
+        if (numel() != 1) throw std::runtime_error("item() only for 1-element tensors");
+        return static_cast<T>(read_scalar(0));
+    }
     
     std::shared_ptr<GradFn> grad_fn;
 
