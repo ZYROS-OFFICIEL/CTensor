@@ -1,5 +1,6 @@
-#include "core.h"
-#include "neuralnet.h"
+#include "core/tensor.h"
+#include "core/ops_dispatch.h"
+#include "neuralnet/weights/weights_init.h"
 #include <iostream>
 #include <fstream> 
 #include <numeric>
@@ -9,7 +10,7 @@
 #include <algorithm>
 #include <omp.h>
 
-inline void kaiming_init(std::vector<Tensor*>& params) {
+void kaiming_init(std::vector<Tensor*>& params) {
     std::cout << "Initializing weights (Kaiming Uniform)..." << std::endl;
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
     
