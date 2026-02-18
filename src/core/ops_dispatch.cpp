@@ -84,6 +84,13 @@ struct DispatchTable {
         table[(int)BinaryOp::MUL][(int)DType::Int32] = mult_mp;
         table[(int)BinaryOp::DIV][(int)DType::Int32] = div_mp;
         table[(int)BinaryOp::POW][(int)DType::Int32] = pow_mp;
+        
+        table[(int)BinaryOp::LT][(int)DType::Int32] = lt_mp;
+        table[(int)BinaryOp::LE][(int)DType::Int32] = le_mp;
+        table[(int)BinaryOp::GT][(int)DType::Int32] = gt_mp;
+        table[(int)BinaryOp::GE][(int)DType::Int32] = ge_mp;
+        table[(int)BinaryOp::EQ][(int)DType::Int32] = eq_mp;
+        table[(int)BinaryOp::NE][(int)DType::Int32] = ne_mp;
 
         // 2. AVX2 Overrides
         if (cpu_has_avx2()) {
@@ -414,6 +421,108 @@ Tensor min(const Tensor &a, int dim) {
         }
     }
     throw std::runtime_error("min: unsupported device");
+}
+
+// ArgMax Implementation (Generic MP)
+Tensor argmax(const Tensor &a, int dim) {
+    if (!a.impl) throw std::runtime_error("argmax: empty tensor");
+    
+    // Handle dim wrapping
+    int ndim = (int)a.impl->ndim;
+    if (dim < 0) dim += ndim;
+    if (dim < 0 || dim >= ndim) throw std::out_of_range("argmax: dim out of range");
+
+    // Shape check
+    std::vector<size_t> out_shape = a.shape();
+    out_shape.erase(out_shape.begin() + dim);
+    if (out_shape.empty()) out_shape.push_back(1);
+
+    Tensor out(out_shape, DType::Int32, false); // Argmax returns indices (Int32)
+
+    // Accessors
+    int32_t* out_ptr = (int32_t*)out.impl->data->data.get();
+    
+    // We need to iterate over all dimensions *except* 'dim'
+    // To do this simply, we can flatten the other dimensions into a single loop
+    // But striding makes that tricky.
+    // Instead, standard recursive fill or odometer.
+    
+    size_t dim_size = a.impl->shape[dim];
+    size_t dim_stride = a.impl->strides[dim];
+    
+    // Optimization: If contiguous and 2D [Batch, Classes] and dim=1
+    if (a.is_contiguous() && ndim == 2 && dim == 1) {
+        size_t rows = a.impl->shape[0];
+        size_t cols = a.impl->shape[1];
+        
+        #pragma omp parallel for
+        for (size_t i = 0; i < rows; ++i) {
+            double max_val = -1e18; // -inf
+            int max_idx = 0;
+            
+            // Raw pointer arithmetic for speed
+            size_t row_offset = i * cols;
+            
+            for (size_t j = 0; j < cols; ++j) {
+                double val = a.read_scalar(row_offset + j);
+                if (val > max_val) {
+                    max_val = val;
+                    max_idx = (int)j;
+                }
+            }
+            out_ptr[i] = max_idx;
+        }
+        return out;
+    }
+
+    // Generic Fallback (Odometer)
+    size_t N = out.numel();
+    std::vector<size_t> coords(ndim, 0); // This will skip 'dim' in logic
+    
+    // We create an odometer for the OUTPUT tensor
+    // For each position in output, we scan the input along 'dim'
+    
+    // To parallelize, we linearize the output index
+    
+    #pragma omp parallel for
+    for (size_t i = 0; i < N; ++i) {
+        // Reconstruct coords from 'i' based on out_shape
+        std::vector<size_t> current_coords(out.impl->ndim);
+        size_t temp = i;
+        for (int d = (int)out.impl->ndim - 1; d >= 0; --d) {
+            current_coords[d] = temp % out.impl->shape[d];
+            temp /= out.impl->shape[d];
+        }
+
+        // Map output coords to input coords base
+        // Input coords are same as output, but with '0' inserted at 'dim'
+        size_t base_offset = a.impl->offset;
+        int out_d = 0;
+        for (int d = 0; d < ndim; ++d) {
+            if (d == dim) {
+                // Skip, handled in loop
+            } else {
+                base_offset += current_coords[out_d] * a.impl->strides[d];
+                out_d++;
+            }
+        }
+
+        // Scan along dim
+        double max_val = -1e18;
+        int max_idx = 0;
+        
+        for (size_t j = 0; j < dim_size; ++j) {
+            size_t final_offset = base_offset + j * dim_stride;
+            double val = read_scalar_at(a.impl->data->data.get(), final_offset, a._dtype());
+            if (val > max_val) {
+                max_val = val;
+                max_idx = (int)j;
+            }
+        }
+        out_ptr[i] = max_idx;
+    }
+
+    return out;
 }
 
 Tensor cat(const std::vector<Tensor>& tensors, size_t dim) {
