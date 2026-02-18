@@ -176,6 +176,21 @@ CMakeFiles/neuralnet.dir/src/neuralnet/batchnorm/batchnorm.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/neuralnet.dir/src/neuralnet/batchnorm/batchnorm.cpp.s"
 	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\C programs\CTensor\src\neuralnet\batchnorm\batchnorm.cpp" -o CMakeFiles\neuralnet.dir\src\neuralnet\batchnorm\batchnorm.cpp.s
 
+CMakeFiles/neuralnet.dir/src/neuralnet/weights/weights_init.cpp.obj: CMakeFiles/neuralnet.dir/flags.make
+CMakeFiles/neuralnet.dir/src/neuralnet/weights/weights_init.cpp.obj: CMakeFiles/neuralnet.dir/includes_CXX.rsp
+CMakeFiles/neuralnet.dir/src/neuralnet/weights/weights_init.cpp.obj: D:/C\ programs/CTensor/src/neuralnet/weights/weights_init.cpp
+CMakeFiles/neuralnet.dir/src/neuralnet/weights/weights_init.cpp.obj: CMakeFiles/neuralnet.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir="D:\C programs\CTensor\build\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_8) "Building CXX object CMakeFiles/neuralnet.dir/src/neuralnet/weights/weights_init.cpp.obj"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/neuralnet.dir/src/neuralnet/weights/weights_init.cpp.obj -MF CMakeFiles\neuralnet.dir\src\neuralnet\weights\weights_init.cpp.obj.d -o CMakeFiles\neuralnet.dir\src\neuralnet\weights\weights_init.cpp.obj -c "D:\C programs\CTensor\src\neuralnet\weights\weights_init.cpp"
+
+CMakeFiles/neuralnet.dir/src/neuralnet/weights/weights_init.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/neuralnet.dir/src/neuralnet/weights/weights_init.cpp.i"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\C programs\CTensor\src\neuralnet\weights\weights_init.cpp" > CMakeFiles\neuralnet.dir\src\neuralnet\weights\weights_init.cpp.i
+
+CMakeFiles/neuralnet.dir/src/neuralnet/weights/weights_init.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/neuralnet.dir/src/neuralnet/weights/weights_init.cpp.s"
+	C:\msys64\mingw64\bin\c++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S "D:\C programs\CTensor\src\neuralnet\weights\weights_init.cpp" -o CMakeFiles\neuralnet.dir\src\neuralnet\weights\weights_init.cpp.s
+
 neuralnet: CMakeFiles/neuralnet.dir/src/neuralnet/loss.cpp.obj
 neuralnet: CMakeFiles/neuralnet.dir/src/neuralnet/layer.cpp.obj
 neuralnet: CMakeFiles/neuralnet.dir/src/neuralnet/Relu.cpp.obj
@@ -183,6 +198,7 @@ neuralnet: CMakeFiles/neuralnet.dir/src/neuralnet/check.cpp.obj
 neuralnet: CMakeFiles/neuralnet.dir/src/neuralnet/dropout/dropout.cpp.obj
 neuralnet: CMakeFiles/neuralnet.dir/src/neuralnet/pooling/pooling.cpp.obj
 neuralnet: CMakeFiles/neuralnet.dir/src/neuralnet/batchnorm/batchnorm.cpp.obj
+neuralnet: CMakeFiles/neuralnet.dir/src/neuralnet/weights/weights_init.cpp.obj
 neuralnet: CMakeFiles/neuralnet.dir/build.make
 .PHONY : neuralnet
 

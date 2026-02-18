@@ -391,4 +391,6 @@ CMakeFiles/convnet.dir/test/convnet_test.cpp.obj: \
  D:/C\ programs/CTensor/src/neuralnet/batchnorm/batchnorm.h \
  D:/C\ programs/CTensor/src/neuralnet/conv/conv.h \
  D:/C\ programs/CTensor/src/neuralnet/dropout/dropout.h \
- D:/C\ programs/CTensor/src/neuralnet/pooling/pooling.h
+ D:/C\ programs/CTensor/src/neuralnet/pooling/pooling.h \
+ D:/C\ programs/CTensor/src/neuralnet/weights/weights_init.h \
+ C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/omp.h

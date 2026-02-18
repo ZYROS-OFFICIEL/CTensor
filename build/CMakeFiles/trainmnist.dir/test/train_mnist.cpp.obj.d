@@ -379,4 +379,5 @@ CMakeFiles/trainmnist.dir/test/train_mnist.cpp.obj: \
  D:/C\ programs/CTensor/src/neuralnet/batchnorm/batchnorm.h \
  D:/C\ programs/CTensor/src/neuralnet/conv/conv.h \
  D:/C\ programs/CTensor/src/neuralnet/dropout/dropout.h \
- D:/C\ programs/CTensor/src/neuralnet/pooling/pooling.h
+ D:/C\ programs/CTensor/src/neuralnet/pooling/pooling.h \
+ D:/C\ programs/CTensor/src/neuralnet/weights/weights_init.h
