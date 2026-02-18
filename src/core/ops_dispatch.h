@@ -63,6 +63,7 @@ Tensor sum(const Tensor &a, int dim = -1);
 Tensor mean(const Tensor &a, int dim = -1);
 Tensor max(const Tensor &a, int dim = -1);
 Tensor min(const Tensor &a, int dim = -1);
+Tensor argmax(const Tensor &a, int dim); 
 
 // Utils
 Tensor cat(const std::vector<Tensor>& tensors, size_t dim);
