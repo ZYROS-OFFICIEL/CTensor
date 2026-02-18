@@ -385,6 +385,10 @@ Tensor Tensor::unsqueeze(size_t dim) const {
 Tensor Tensor::flatten() const {
     return reshape({numel()});
 }
+Tensor Tensor::argmax(int dim) const { 
+    return ::argmax(*this, dim); 
+}
+
 void Tensor::print_shape() const {
     std::cout << "(";
     auto s = shape();
