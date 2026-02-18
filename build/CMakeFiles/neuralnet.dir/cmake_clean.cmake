@@ -13,6 +13,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/neuralnet.dir/src/neuralnet/loss.cpp.obj.d"
   "CMakeFiles/neuralnet.dir/src/neuralnet/pooling/pooling.cpp.obj"
   "CMakeFiles/neuralnet.dir/src/neuralnet/pooling/pooling.cpp.obj.d"
+  "CMakeFiles/neuralnet.dir/src/neuralnet/weights/weights_init.cpp.obj"
+  "CMakeFiles/neuralnet.dir/src/neuralnet/weights/weights_init.cpp.obj.d"
 )
 
 # Per-language clean rules from dependency scanning.

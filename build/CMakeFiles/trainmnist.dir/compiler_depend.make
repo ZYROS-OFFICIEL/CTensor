@@ -387,7 +387,8 @@ CMakeFiles/trainmnist.dir/test/train_mnist.cpp.obj: D:/C\ programs/CTensor/test/
   D:/C\ programs/CTensor/src/neuralnet/module.h \
   D:/C\ programs/CTensor/src/neuralnet/pooling/pooling.h \
   D:/C\ programs/CTensor/src/neuralnet/train_utils.h \
-  D:/C\ programs/CTensor/src/neuralnet/training_utils.h
+  D:/C\ programs/CTensor/src/neuralnet/training_utils.h \
+  D:/C\ programs/CTensor/src/neuralnet/weights/weights_init.h
 
 
 C:/msys64/mingw64/include/c++/15.2.0/bits/shared_ptr_base.h:
@@ -1163,3 +1164,5 @@ D:/C\ programs/CTensor/src/neuralnet/module.h:
 D:/C\ programs/CTensor/src/neuralnet/train_utils.h:
 
 D:/C\ programs/CTensor/src/neuralnet/training_utils.h:
+
+D:/C\ programs/CTensor/src/neuralnet/weights/weights_init.h:

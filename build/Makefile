@@ -748,6 +748,30 @@ src/neuralnet/pooling/pooling.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\neuralnet.dir\build.make CMakeFiles/neuralnet.dir/src/neuralnet/pooling/pooling.cpp.s
 .PHONY : src/neuralnet/pooling/pooling.cpp.s
 
+src/neuralnet/weights/weights_init.obj: src/neuralnet/weights/weights_init.cpp.obj
+.PHONY : src/neuralnet/weights/weights_init.obj
+
+# target to build an object file
+src/neuralnet/weights/weights_init.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\neuralnet.dir\build.make CMakeFiles/neuralnet.dir/src/neuralnet/weights/weights_init.cpp.obj
+.PHONY : src/neuralnet/weights/weights_init.cpp.obj
+
+src/neuralnet/weights/weights_init.i: src/neuralnet/weights/weights_init.cpp.i
+.PHONY : src/neuralnet/weights/weights_init.i
+
+# target to preprocess a source file
+src/neuralnet/weights/weights_init.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\neuralnet.dir\build.make CMakeFiles/neuralnet.dir/src/neuralnet/weights/weights_init.cpp.i
+.PHONY : src/neuralnet/weights/weights_init.cpp.i
+
+src/neuralnet/weights/weights_init.s: src/neuralnet/weights/weights_init.cpp.s
+.PHONY : src/neuralnet/weights/weights_init.s
+
+# target to generate assembly for a file
+src/neuralnet/weights/weights_init.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\neuralnet.dir\build.make CMakeFiles/neuralnet.dir/src/neuralnet/weights/weights_init.cpp.s
+.PHONY : src/neuralnet/weights/weights_init.cpp.s
+
 test/convnet_test.obj: test/convnet_test.cpp.obj
 .PHONY : test/convnet_test.obj
 
@@ -946,6 +970,9 @@ help:
 	@echo ... src/neuralnet/pooling/pooling.obj
 	@echo ... src/neuralnet/pooling/pooling.i
 	@echo ... src/neuralnet/pooling/pooling.s
+	@echo ... src/neuralnet/weights/weights_init.obj
+	@echo ... src/neuralnet/weights/weights_init.i
+	@echo ... src/neuralnet/weights/weights_init.s
 	@echo ... test/convnet_test.obj
 	@echo ... test/convnet_test.i
 	@echo ... test/convnet_test.s

@@ -93,6 +93,7 @@ myproject_EXTERNAL_OBJECTS = \
 "D:/C programs/CTensor/build/CMakeFiles/neuralnet.dir/src/neuralnet/dropout/dropout.cpp.obj" \
 "D:/C programs/CTensor/build/CMakeFiles/neuralnet.dir/src/neuralnet/pooling/pooling.cpp.obj" \
 "D:/C programs/CTensor/build/CMakeFiles/neuralnet.dir/src/neuralnet/batchnorm/batchnorm.cpp.obj" \
+"D:/C programs/CTensor/build/CMakeFiles/neuralnet.dir/src/neuralnet/weights/weights_init.cpp.obj" \
 "D:/C programs/CTensor/build/CMakeFiles/conv.dir/src/neuralnet/conv/conv.cpp.obj"
 
 libmyproject.a: CMakeFiles/opsmp.dir/src/core/opsmp.cpp.obj
@@ -112,6 +113,7 @@ libmyproject.a: CMakeFiles/neuralnet.dir/src/neuralnet/check.cpp.obj
 libmyproject.a: CMakeFiles/neuralnet.dir/src/neuralnet/dropout/dropout.cpp.obj
 libmyproject.a: CMakeFiles/neuralnet.dir/src/neuralnet/pooling/pooling.cpp.obj
 libmyproject.a: CMakeFiles/neuralnet.dir/src/neuralnet/batchnorm/batchnorm.cpp.obj
+libmyproject.a: CMakeFiles/neuralnet.dir/src/neuralnet/weights/weights_init.cpp.obj
 libmyproject.a: CMakeFiles/conv.dir/src/neuralnet/conv/conv.cpp.obj
 libmyproject.a: CMakeFiles/myproject.dir/build.make
 libmyproject.a: CMakeFiles/myproject.dir/link.txt

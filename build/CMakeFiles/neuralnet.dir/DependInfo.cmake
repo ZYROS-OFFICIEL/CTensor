@@ -15,6 +15,7 @@ set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "D:/C programs/CTensor/src/neuralnet/layer.cpp" "CMakeFiles/neuralnet.dir/src/neuralnet/layer.cpp.obj" "gcc" "CMakeFiles/neuralnet.dir/src/neuralnet/layer.cpp.obj.d"
   "D:/C programs/CTensor/src/neuralnet/loss.cpp" "CMakeFiles/neuralnet.dir/src/neuralnet/loss.cpp.obj" "gcc" "CMakeFiles/neuralnet.dir/src/neuralnet/loss.cpp.obj.d"
   "D:/C programs/CTensor/src/neuralnet/pooling/pooling.cpp" "CMakeFiles/neuralnet.dir/src/neuralnet/pooling/pooling.cpp.obj" "gcc" "CMakeFiles/neuralnet.dir/src/neuralnet/pooling/pooling.cpp.obj.d"
+  "D:/C programs/CTensor/src/neuralnet/weights/weights_init.cpp" "CMakeFiles/neuralnet.dir/src/neuralnet/weights/weights_init.cpp.obj" "gcc" "CMakeFiles/neuralnet.dir/src/neuralnet/weights/weights_init.cpp.obj.d"
   )
 
 # Targets to which this target links which contain Fortran sources.

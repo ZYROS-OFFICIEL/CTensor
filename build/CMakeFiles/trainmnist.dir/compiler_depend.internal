@@ -389,4 +389,5 @@ CMakeFiles/trainmnist.dir/test/train_mnist.cpp.obj
  D:/C programs/CTensor/src/neuralnet/pooling/pooling.h
  D:/C programs/CTensor/src/neuralnet/train_utils.h
  D:/C programs/CTensor/src/neuralnet/training_utils.h
+ D:/C programs/CTensor/src/neuralnet/weights/weights_init.h
 
