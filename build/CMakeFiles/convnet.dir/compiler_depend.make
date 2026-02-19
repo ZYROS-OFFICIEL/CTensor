@@ -342,6 +342,7 @@ CMakeFiles/convnet.dir/test/convnet_test.cpp.obj: D:/C\ programs/CTensor/test/co
   C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/movrsintrin.h \
   C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/mwaitintrin.h \
   C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/mwaitxintrin.h \
+  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/omp.h \
   C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/pconfigintrin.h \
   C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/pkuintrin.h \
   C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/pmmintrin.h \
@@ -399,7 +400,8 @@ CMakeFiles/convnet.dir/test/convnet_test.cpp.obj: D:/C\ programs/CTensor/test/co
   D:/C\ programs/CTensor/src/neuralnet/module.h \
   D:/C\ programs/CTensor/src/neuralnet/pooling/pooling.h \
   D:/C\ programs/CTensor/src/neuralnet/train_utils.h \
-  D:/C\ programs/CTensor/src/neuralnet/training_utils.h
+  D:/C\ programs/CTensor/src/neuralnet/training_utils.h \
+  D:/C\ programs/CTensor/src/neuralnet/weights/weights_init.h
 
 
 D:/C\ programs/CTensor/test/convnet_test.cpp:
@@ -1130,6 +1132,8 @@ C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/mwaitintrin.h:
 
 C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/mwaitxintrin.h:
 
+C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/omp.h:
+
 C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/pconfigintrin.h:
 
 C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/sha512intrin.h:
@@ -1199,3 +1203,5 @@ D:/C\ programs/CTensor/src/neuralnet/module.h:
 D:/C\ programs/CTensor/src/neuralnet/train_utils.h:
 
 D:/C\ programs/CTensor/src/neuralnet/training_utils.h:
+
+D:/C\ programs/CTensor/src/neuralnet/weights/weights_init.h:
