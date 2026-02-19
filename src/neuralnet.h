@@ -1,3 +1,4 @@
+#include "neuralnet/nn.h"
 #include "neuralnet/check.h"
 #include "neuralnet/layer.h"
 #include "neuralnet/loss.h"
