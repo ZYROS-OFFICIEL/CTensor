@@ -384,11 +384,13 @@ CMakeFiles/trainmnist.dir/test/train_mnist.cpp.obj: D:/C\ programs/CTensor/test/
   D:/C\ programs/CTensor/src/neuralnet/dropout/dropout.h \
   D:/C\ programs/CTensor/src/neuralnet/layer.h \
   D:/C\ programs/CTensor/src/neuralnet/loss.h \
+  D:/C\ programs/CTensor/src/neuralnet/metrics.h \
   D:/C\ programs/CTensor/src/neuralnet/module.h \
   D:/C\ programs/CTensor/src/neuralnet/nn.h \
   D:/C\ programs/CTensor/src/neuralnet/pooling/pooling.h \
   D:/C\ programs/CTensor/src/neuralnet/train_utils.h \
   D:/C\ programs/CTensor/src/neuralnet/training_utils.h \
+  D:/C\ programs/CTensor/src/neuralnet/vision/vision_dataset.h \
   D:/C\ programs/CTensor/src/neuralnet/weights/weights_init.h
 
 
@@ -796,6 +798,8 @@ C:/msys64/mingw64/include/c++/15.2.0/iomanip:
 
 C:/msys64/mingw64/include/c++/15.2.0/iosfwd:
 
+D:/C\ programs/CTensor/src/neuralnet/vision/vision_dataset.h:
+
 C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/avxneconvertintrin.h:
 
 C:/msys64/mingw64/include/c++/15.2.0/istream:
@@ -953,6 +957,8 @@ C:/msys64/mingw64/include/process.h:
 C:/msys64/mingw64/include/pthread.h:
 
 C:/msys64/mingw64/include/pthread_compat.h:
+
+D:/C\ programs/CTensor/src/neuralnet/metrics.h:
 
 C:/msys64/mingw64/include/pthread_signal.h:
 
