@@ -608,3 +608,13 @@ double evaluate(ModelType& model, DataLoader& loader) {
               
     return accuracy;
 }
+
+namespace torch{
+
+namespace optim {
+    using SGD = ::SGD;
+    using Adam = ::Adam;
+    using AdamW = ::AdamW;
+    using RMSprop = ::RMSprop;
+}
+}

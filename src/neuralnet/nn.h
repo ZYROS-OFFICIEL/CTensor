@@ -126,47 +126,6 @@ namespace nn {
     }
 }
 
-// =======================================================================
-//                          TORCH.OPTIM
-// =======================================================================
 
-namespace optim {
-    using SGD = ::SGD;
-    using Adam = ::Adam;
-    using AdamW = ::AdamW;
-    using RMSprop = ::RMSprop;
-}
-
-// =======================================================================
-//                          METRICS & VISION
-// =======================================================================
-
-namespace metrics {
-    inline size_t accuracy(const Tensor& pred_logits, const Tensor& target) {
-        Tensor p = pred_logits.argmax(1); // [B]
-        Tensor t = target;
-        // Ensure target is flat for accuracy to avoid broadcasting bugs
-        if (t.shape().size() > 1 && t.shape().back() == 1) t = t.flatten();
-        
-        Tensor match = (p == t).astype(DType::Float32);
-        return (size_t)::sum(match).item<float>();
-    }
-}
-
-namespace vision {
-    namespace datasets {
-        inline TensorDataset MNIST(const std::string& img_path, const std::string& lbl_path) {
-            MNISTData raw_data = load_mnist(img_path, lbl_path);
-            TensorDataset ds(raw_data.images, raw_data.labels);
-            
-            // Standardize dataset internally
-            ds.transform = [](const void* src, float* dst, size_t n) {
-                const float* s = (const float*)src; 
-                for(size_t i=0; i<n; ++i) dst[i] = (s[i] - 0.1307f) / 0.3081f;
-            };
-            return ds;
-        }
-    }
-}
 
 } 
