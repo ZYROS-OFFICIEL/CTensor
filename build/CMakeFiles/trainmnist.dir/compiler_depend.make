@@ -385,6 +385,7 @@ CMakeFiles/trainmnist.dir/test/train_mnist.cpp.obj: D:/C\ programs/CTensor/test/
   D:/C\ programs/CTensor/src/neuralnet/layer.h \
   D:/C\ programs/CTensor/src/neuralnet/loss.h \
   D:/C\ programs/CTensor/src/neuralnet/module.h \
+  D:/C\ programs/CTensor/src/neuralnet/nn.h \
   D:/C\ programs/CTensor/src/neuralnet/pooling/pooling.h \
   D:/C\ programs/CTensor/src/neuralnet/train_utils.h \
   D:/C\ programs/CTensor/src/neuralnet/training_utils.h \
@@ -1160,6 +1161,8 @@ D:/C\ programs/CTensor/src/neuralnet/dropout/dropout.h:
 D:/C\ programs/CTensor/src/neuralnet/loss.h:
 
 D:/C\ programs/CTensor/src/neuralnet/module.h:
+
+D:/C\ programs/CTensor/src/neuralnet/nn.h:
 
 D:/C\ programs/CTensor/src/neuralnet/train_utils.h:
 
