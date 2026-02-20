@@ -371,6 +371,7 @@ CMakeFiles/convnet.dir/test/convnet_test.cpp.obj: \
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/movrsintrin.h \
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/include/amxmovrsintrin.h \
  D:/C\ programs/CTensor/src/neuralnet.h \
+ D:/C\ programs/CTensor/src/neuralnet/nn.h \
  D:/C\ programs/CTensor/src/neuralnet/check.h \
  D:/C\ programs/CTensor/src/neuralnet/layer.h \
  D:/C\ programs/CTensor/src/neuralnet/module.h \
