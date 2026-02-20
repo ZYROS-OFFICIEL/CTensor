@@ -351,7 +351,9 @@ CMakeFiles/trainmnist.dir/test/train_mnist.cpp.obj: \
  D:/C\ programs/CTensor/src/neuralnet/layer.h \
  D:/C\ programs/CTensor/src/neuralnet/module.h \
  D:/C\ programs/CTensor/src/neuralnet/loss.h \
+ D:/C\ programs/CTensor/src/neuralnet/metrics.h \
  D:/C\ programs/CTensor/src/neuralnet/Relu.h \
+ D:/C\ programs/CTensor/src/neuralnet/vision/vision_dataset.h \
  D:/C\ programs/CTensor/src/neuralnet/train_utils.h \
  D:/C\ programs/CTensor/src/neuralnet/dataloader/dataloader.h \
  D:/C\ programs/CTensor/src/neuralnet/dataset/mnist.h \
