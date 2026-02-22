@@ -15,3 +15,5 @@ void normal_(Tensor& tensor, double mean = 0.0, double std = 1.0);
 void constant_(Tensor& tensor, double val);
 void zeros_(Tensor& tensor);
 void ones_(Tensor& tensor);
+void xavier_uniform_(Tensor& tensor, double gain = 1.0);
+void xavier_normal_(Tensor& tensor, double gain = 1.0);
