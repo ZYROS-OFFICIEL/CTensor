@@ -10,3 +10,4 @@
 #include <omp.h>
 
 void kaiming_init(std::vector<Tensor*>& params) ;
+void uniform_(Tensor& tensor, double a = 0.0, double b = 1.0);
