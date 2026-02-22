@@ -71,7 +71,6 @@ namespace nn {
         inline Tensor sigmoid(const Tensor& x) { return ::sigmoid(x); }
     }
 
-    // --- Loss Functors ---
     struct CrossEntropyLoss {
         Tensor operator()(const Tensor& pred, const Tensor& target) {
             // Automatically fix dimension shape mismatch [B] vs [B, 1] for Loss
