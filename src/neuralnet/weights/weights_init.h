@@ -17,3 +17,12 @@ void zeros_(Tensor& tensor);
 void ones_(Tensor& tensor);
 void xavier_uniform_(Tensor& tensor, double gain = 1.0);
 void xavier_normal_(Tensor& tensor, double gain = 1.0);
+
+void kaiming_uniform_(std::vector<Tensor*>& params);
+void kaiming_normal_(std::vector<Tensor*>& params);
+void xavier_uniform_(std::vector<Tensor*>& params);
+void xavier_normal_(std::vector<Tensor*>& params);
+    
+    
+void zeros_(std::vector<Tensor*>& params);
+void ones_(std::vector<Tensor*>& params);
