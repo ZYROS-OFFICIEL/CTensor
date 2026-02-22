@@ -13,3 +13,5 @@ void kaiming_init(std::vector<Tensor*>& params) ;
 void uniform_(Tensor& tensor, double a = 0.0, double b = 1.0);
 void normal_(Tensor& tensor, double mean = 0.0, double std = 1.0);
 void constant_(Tensor& tensor, double val);
+void zeros_(Tensor& tensor);
+void ones_(Tensor& tensor);
