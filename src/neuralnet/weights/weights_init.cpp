@@ -51,6 +51,20 @@ void uniform_(Tensor& tensor, double a, double b) {
     }
 }
 
+void normal_(Tensor& tensor, double mean, double std) {
+    if (!tensor.impl) return;
+    std::normal_distribution<float> dist((float)mean, (float)std);
+    size_t n = tensor.numel();
+    
+    if (tensor._dtype() == DType::Float32) {
+        float* ptr = (float*)tensor.impl->data->data.get();
+        for (size_t i = 0; i < n; ++i) ptr[i] = dist(rng);
+    } else {
+        for (size_t i = 0; i < n; ++i) tensor.write_scalar(i, dist(rng));
+    }
+}
+
+
 void kaiming_init(std::vector<Tensor*>& params) {
     std::cout << "Initializing weights (Kaiming Uniform)..." << std::endl;
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
