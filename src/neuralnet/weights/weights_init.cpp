@@ -38,6 +38,18 @@ void calculate_fan_in_and_fan_out(const Tensor& tensor, size_t& fan_in, size_t& 
     fan_out *= receptive_field_size;
 }
 
+void uniform_(Tensor& tensor, double a, double b) {
+    if (!tensor.impl) return;
+    std::uniform_real_distribution<float> dist((float)a, (float)b);
+    size_t n = tensor.numel();
+    
+    if (tensor._dtype() == DType::Float32) {
+        float* ptr = (float*)tensor.impl->data->data.get();
+        for (size_t i = 0; i < n; ++i) ptr[i] = dist(rng);
+    } else {
+        for (size_t i = 0; i < n; ++i) tensor.write_scalar(i, dist(rng));
+    }
+}
 
 void kaiming_init(std::vector<Tensor*>& params) {
     std::cout << "Initializing weights (Kaiming Uniform)..." << std::endl;
