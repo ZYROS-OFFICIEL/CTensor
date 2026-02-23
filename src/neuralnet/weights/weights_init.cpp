@@ -79,6 +79,21 @@ void constant_(Tensor& tensor, double val) {
     }
 }
 
+void xavier_uniform_(Tensor& tensor, double gain) {
+    size_t fan_in, fan_out;
+    calculate_fan_in_and_fan_out(tensor, fan_in, fan_out);
+    double std = gain * std::sqrt(2.0 / (fan_in + fan_out));
+    double a = std::sqrt(3.0) * std; // Calculate uniform bounds from standard deviation
+    uniform_(tensor, -a, a);
+}
+
+void xavier_normal_(Tensor& tensor, double gain) {
+    size_t fan_in, fan_out;
+    calculate_fan_in_and_fan_out(tensor, fan_in, fan_out);
+    double std = gain * std::sqrt(2.0 / (fan_in + fan_out));
+    normal_(tensor, 0.0, std);
+}
+
 
 void kaiming_init(std::vector<Tensor*>& params) {
     std::cout << "Initializing weights (Kaiming Uniform)..." << std::endl;
