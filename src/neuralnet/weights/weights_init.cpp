@@ -64,6 +64,17 @@ void normal_(Tensor& tensor, double mean, double std) {
     }
 }
 
+void constant_(Tensor& tensor, double val) {
+    if (!tensor.impl) return;
+    size_t n = tensor.numel();
+    if (tensor._dtype() == DType::Float32) {
+        float* ptr = (float*)tensor.impl->data->data.get();
+        for (size_t i = 0; i < n; ++i) ptr[i] = (float)val;
+    } else {
+        for (size_t i = 0; i < n; ++i) tensor.write_scalar(i, val);
+    }
+}
+
 
 void kaiming_init(std::vector<Tensor*>& params) {
     std::cout << "Initializing weights (Kaiming Uniform)..." << std::endl;
