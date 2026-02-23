@@ -109,6 +109,18 @@ void kaiming_normal_(Tensor& tensor, double a) {
     normal_(tensor, 0.0, std);
 }
 
+template <typename InitFunc>
+void apply_bulk(std::vector<Tensor*>& params, InitFunc func) {
+    for (auto* p : params) {
+        if (!p || !p->impl) continue;
+        if (p->impl->ndim >= 2) {
+            func(*p);
+        } else {
+            zeros_(*p); 
+        }
+    }
+}
+
 
 
 void kaiming_init(std::vector<Tensor*>& params) {
