@@ -64,6 +64,10 @@ void normal_(Tensor& tensor, double mean, double std) {
     }
 }
 
+
+void zeros_(Tensor& tensor) { constant_(tensor, 0.0); }
+void ones_(Tensor& tensor) { constant_(tensor, 1.0); }
+
 void constant_(Tensor& tensor, double val) {
     if (!tensor.impl) return;
     size_t n = tensor.numel();
