@@ -94,7 +94,15 @@ void xavier_normal_(Tensor& tensor, double gain) {
     normal_(tensor, 0.0, std);
 }
 
-
+void kaiming_uniform_(Tensor& tensor, double a) {
+    size_t fan_in, fan_out;
+    calculate_fan_in_and_fan_out(tensor, fan_in, fan_out);
+    // a is negative slope of rectifier. std = sqrt(2 / ((1 + a^2) * fan_in))
+    double std = std::sqrt(2.0 / ((1.0 + a * a) * fan_in));
+    double bound = std::sqrt(3.0) * std;
+    uniform_(tensor, -bound, bound);
+}
+    
 void kaiming_init(std::vector<Tensor*>& params) {
     std::cout << "Initializing weights (Kaiming Uniform)..." << std::endl;
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
