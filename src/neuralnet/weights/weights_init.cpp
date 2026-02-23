@@ -10,6 +10,35 @@
 #include <algorithm>
 #include <omp.h>
 
+
+//Helpers : 
+
+// Thread-local Mersenne Twister for fast, safe parallel initialization
+static thread_local std::mt19937 rng(std::random_device{}());
+
+
+// Helper to calculate Fan-In and Fan-Out for Xavier/Kaiming
+void calculate_fan_in_and_fan_out(const Tensor& tensor, size_t& fan_in, size_t& fan_out) {
+    auto shape = tensor.shape();
+    if (shape.size() < 2) {
+        fan_in = fan_out = shape.empty() ? 1 : shape[0];
+        return;
+    }
+    
+    fan_in = shape[1];  // in_features / in_channels
+    fan_out = shape[0]; // out_features / out_channels
+    
+    // If it's a Conv layer (e.g. 4D: [out, in, H, W]), multiply by receptive field
+    size_t receptive_field_size = 1;
+    for (size_t i = 2; i < shape.size(); ++i) {
+        receptive_field_size *= shape[i];
+    }
+    
+    fan_in *= receptive_field_size;
+    fan_out *= receptive_field_size;
+}
+
+
 void kaiming_init(std::vector<Tensor*>& params) {
     std::cout << "Initializing weights (Kaiming Uniform)..." << std::endl;
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
