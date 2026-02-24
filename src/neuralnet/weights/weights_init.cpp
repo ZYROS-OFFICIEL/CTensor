@@ -121,7 +121,13 @@ void apply_bulk(std::vector<Tensor*>& params, InitFunc func) {
     }
 }
 
+void kaiming_uniform_(std::vector<Tensor*>& params) { apply_bulk(params, [](Tensor& t){ kaiming_uniform_(t, 0.0); }); }
+void kaiming_normal_(std::vector<Tensor*>& params)  { apply_bulk(params, [](Tensor& t){ kaiming_normal_(t, 0.0); }); }
+void xavier_uniform_(std::vector<Tensor*>& params)  { apply_bulk(params, [](Tensor& t){ xavier_uniform_(t, 1.0); }); }
+void xavier_normal_(std::vector<Tensor*>& params)   { apply_bulk(params, [](Tensor& t){ xavier_normal_(t, 1.0); }); }
 
+void zeros_(std::vector<Tensor*>& params) { for(auto* p : params) if(p) zeros_(*p); }
+void ones_(std::vector<Tensor*>& params)  { for(auto* p : params) if(p) ones_(*p); }
 
 void kaiming_init(std::vector<Tensor*>& params) {
     std::cout << "Initializing weights (Kaiming Uniform)..." << std::endl;
