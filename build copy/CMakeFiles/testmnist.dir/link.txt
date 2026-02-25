@@ -1,0 +1,1 @@
+/usr/bin/c++ -Wl,--dependency-file=CMakeFiles/testmnist.dir/link.d CMakeFiles/testmnist.dir/test/testmnist.cpp.o -o testmnist  libmyproject.a -lgomp

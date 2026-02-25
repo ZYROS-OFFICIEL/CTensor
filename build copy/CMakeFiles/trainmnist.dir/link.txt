@@ -1,0 +1,1 @@
+/usr/bin/c++ -Wl,--dependency-file=CMakeFiles/trainmnist.dir/link.d CMakeFiles/trainmnist.dir/test/train_mnist.cpp.o -o trainmnist  libmyproject.a -lgomp

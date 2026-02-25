@@ -1,0 +1,1 @@
+/usr/bin/c++ -Wl,--dependency-file=CMakeFiles/convnet.dir/link.d CMakeFiles/convnet.dir/test/convnet_test.cpp.o -o convnet  libmyproject.a -lgomp
