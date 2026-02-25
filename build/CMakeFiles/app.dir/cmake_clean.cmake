@@ -1,10 +1,9 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/app.dir/test/time_avx.cpp.obj"
-  "CMakeFiles/app.dir/test/time_avx.cpp.obj.d"
-  "app.exe"
-  "app.exe.manifest"
+  "CMakeFiles/app.dir/link.d"
+  "CMakeFiles/app.dir/test/time_avx.cpp.o"
+  "CMakeFiles/app.dir/test/time_avx.cpp.o.d"
+  "app"
   "app.pdb"
-  "libapp.dll.a"
 )
 
 # Per-language clean rules from dependency scanning.

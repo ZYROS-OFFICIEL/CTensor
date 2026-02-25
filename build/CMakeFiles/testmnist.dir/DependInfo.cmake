@@ -8,7 +8,8 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "D:/C programs/CTensor/test/testmnist.cpp" "CMakeFiles/testmnist.dir/test/testmnist.cpp.obj" "gcc" "CMakeFiles/testmnist.dir/test/testmnist.cpp.obj.d"
+  "/home/none/CTensor/test/testmnist.cpp" "CMakeFiles/testmnist.dir/test/testmnist.cpp.o" "gcc" "CMakeFiles/testmnist.dir/test/testmnist.cpp.o.d"
+  "" "testmnist" "gcc" "CMakeFiles/testmnist.dir/link.d"
   )
 
 # Targets to which this target links which contain Fortran sources.

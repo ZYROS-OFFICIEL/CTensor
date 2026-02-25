@@ -1,9 +1,8 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/trainmnist.dir/test/train_mnist.cpp.obj"
-  "CMakeFiles/trainmnist.dir/test/train_mnist.cpp.obj.d"
-  "libtrainmnist.dll.a"
-  "trainmnist.exe"
-  "trainmnist.exe.manifest"
+  "CMakeFiles/trainmnist.dir/link.d"
+  "CMakeFiles/trainmnist.dir/test/train_mnist.cpp.o"
+  "CMakeFiles/trainmnist.dir/test/train_mnist.cpp.o.d"
+  "trainmnist"
   "trainmnist.pdb"
 )
 

@@ -8,7 +8,8 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "D:/C programs/CTensor/test/transforme_test.cpp" "CMakeFiles/transformetest.dir/test/transforme_test.cpp.obj" "gcc" "CMakeFiles/transformetest.dir/test/transforme_test.cpp.obj.d"
+  "/home/none/CTensor/test/transforme_test.cpp" "CMakeFiles/transformetest.dir/test/transforme_test.cpp.o" "gcc" "CMakeFiles/transformetest.dir/test/transforme_test.cpp.o.d"
+  "" "transformetest" "gcc" "CMakeFiles/transformetest.dir/link.d"
   )
 
 # Targets to which this target links which contain Fortran sources.

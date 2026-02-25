@@ -1,3 +1,1 @@
-"C:\Program Files\CMake\bin\cmake.exe" -E rm -f CMakeFiles\trainmnist.dir/objects.a
-C:\msys64\mingw64\bin\ar.exe qc CMakeFiles\trainmnist.dir/objects.a @CMakeFiles\trainmnist.dir\objects1.rsp
-C:\msys64\mingw64\bin\c++.exe -Wl,--whole-archive CMakeFiles\trainmnist.dir/objects.a -Wl,--no-whole-archive -o trainmnist.exe -Wl,--out-implib,libtrainmnist.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\trainmnist.dir\linkLibs.rsp
+/usr/bin/c++ -Wl,--dependency-file=CMakeFiles/trainmnist.dir/link.d CMakeFiles/trainmnist.dir/test/train_mnist.cpp.o -o trainmnist  libmyproject.a -lgomp
