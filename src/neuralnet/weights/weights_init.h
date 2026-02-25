@@ -1,3 +1,4 @@
+#pragma once 
 #include "core/tensor.h"
 #include "core/ops_dispatch.h"
 #include <iostream>
