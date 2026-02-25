@@ -484,12 +484,58 @@ CMakeFiles/trainmnist.dir/test/train_mnist.cpp.o: /home/none/CTensor/test/train_
   /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/xsavesintrin.h \
   /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/xtestintrin.h
 
+trainmnist: /usr/lib/Scrt1.o \
+  /usr/lib/crti.o \
+  /usr/lib/crtn.o \
+  /usr/lib/libc.so \
+  /usr/lib/libgcc_s.so \
+  /usr/lib/libgcc_s.so.1 \
+  /usr/lib/libgomp.so \
+  /usr/lib/libm.so \
+  /usr/lib/libstdc++.so \
+  /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/crtbeginS.o \
+  /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/crtendS.o \
+  /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/libgcc.a \
+  /usr/lib/ld-linux-x86-64.so.2 \
+  /usr/lib/libc.so.6 \
+  /usr/lib/libc_nonshared.a \
+  /usr/lib/libm.so.6 \
+  /usr/lib/libmvec.so.1 \
+  CMakeFiles/trainmnist.dir/test/train_mnist.cpp.o \
+  libmyproject.a
+
+
+/usr/lib/libmvec.so.1:
+
+/usr/lib/libm.so.6:
+
+/usr/lib/libc_nonshared.a:
+
+/usr/lib/libc.so.6:
+
+/usr/lib/ld-linux-x86-64.so.2:
+
+/usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/libgcc.a:
+
+/usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/crtbeginS.o:
+
+/usr/lib/libm.so:
+
+/usr/lib/libgomp.so:
+
+/usr/lib/libgcc_s.so.1:
+
+/usr/lib/crti.o:
+
+/usr/lib/Scrt1.o:
 
 /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/xsavecintrin.h:
 
 /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/xmmintrin.h:
 
 /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/x86gprintrin.h:
+
+/usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/crtendS.o:
 
 /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/wbnoinvdintrin.h:
 
@@ -609,6 +655,8 @@ CMakeFiles/trainmnist.dir/test/train_mnist.cpp.o: /home/none/CTensor/test/train_
 
 /usr/include/stdlib.h:
 
+/usr/lib/libstdc++.so:
+
 /usr/include/locale.h:
 
 /usr/include/linux/stddef.h:
@@ -690,6 +738,8 @@ CMakeFiles/trainmnist.dir/test/train_mnist.cpp.o: /home/none/CTensor/test/train_
 /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/avx512fp16intrin.h:
 
 /usr/include/c++/15.2.1/string:
+
+CMakeFiles/trainmnist.dir/test/train_mnist.cpp.o:
 
 /usr/include/c++/15.2.1/stdlib.h:
 
@@ -789,6 +839,8 @@ CMakeFiles/trainmnist.dir/test/train_mnist.cpp.o: /home/none/CTensor/test/train_
 
 /usr/include/c++/15.2.1/bits/ranges_algo.h:
 
+libmyproject.a:
+
 /usr/include/c++/15.2.1/ext/atomicity.h:
 
 /usr/include/bits/types/struct_timespec.h:
@@ -854,6 +906,8 @@ CMakeFiles/trainmnist.dir/test/train_mnist.cpp.o: /home/none/CTensor/test/train_
 /usr/include/sys/syscall.h:
 
 /usr/include/c++/15.2.1/bits/stl_algobase.h:
+
+/usr/lib/libc.so:
 
 /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/avx512bwintrin.h:
 
@@ -1074,6 +1128,8 @@ CMakeFiles/trainmnist.dir/test/train_mnist.cpp.o: /home/none/CTensor/test/train_
 /usr/include/c++/15.2.1/bits/invoke.h:
 
 /usr/include/c++/15.2.1/bits/stl_function.h:
+
+/usr/lib/crtn.o:
 
 /usr/include/c++/15.2.1/bits/functional_hash.h:
 
@@ -1432,6 +1488,8 @@ CMakeFiles/trainmnist.dir/test/train_mnist.cpp.o: /home/none/CTensor/test/train_
 /usr/include/c++/15.2.1/cmath:
 
 /usr/include/c++/15.2.1/concepts:
+
+/usr/lib/libgcc_s.so:
 
 /usr/include/c++/15.2.1/cstddef:
 

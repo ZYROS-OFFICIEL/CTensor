@@ -1,0 +1,1 @@
+/usr/bin/c++ -Wl,--dependency-file=CMakeFiles/transformetest.dir/link.d CMakeFiles/transformetest.dir/test/transforme_test.cpp.o -o transformetest  libmyproject.a -lgomp
