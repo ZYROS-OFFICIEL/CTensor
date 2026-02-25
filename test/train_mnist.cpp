@@ -42,19 +42,21 @@ int main() {
     std::cout << "PyTorch-Style CTensor MNIST Training\n";
 
     // 1. Data Pipeline
+    // NOTE: Ensure you are loading the 60,000 image training dataset here!
     auto dataset = vision::datasets::MNIST("train-images.idx3-ubyte", "train-labels.idx1-ubyte");
     
-    // Explicitly use torch::DataLoader to completely bypass the old DataLoader conflict
-    torch::DataLoader train_loader(dataset, /*batch_size=*/64, /*shuffle=*/true);
+    // Batch size 64 provides smoother gradients than 32
+    torch::DataLoader train_loader(dataset, 64, /*shuffle=*/true);
 
     // 2. Model, Optimizer, Loss
     MLPNet model;
     
-    // Cache parameters to local variable to fix R-value reference compilation error
+    // Cache parameters to local variable
     auto params = model.parameters();
     
+    // Initialize using proper PyTorch He/Kaiming initialization for ReLU
     nn::init::kaiming_uniform_(params);
-    optim::AdamW optimizer(params, /*lr=*/0.001);
+    optim::AdamW optimizer(params, 0.001);
     
     auto criterion = nn::CrossEntropyLoss();
 
@@ -66,27 +68,22 @@ int main() {
         size_t correct = 0, total_samples = 0;
         int batch_idx = 0;
 
-        // Elegant Pythonic Range-based Loop!
         for (auto& batch : train_loader) {
             
-            // Forward & Backward Pass
             optimizer.zero_grad();
             
-            // This now works because of the operator() overload
             Tensor output = model(batch.data);
             Tensor loss = criterion(output, batch.target);
             
             loss.backward();
-            nn::utils::clip_grad_norm_(params, 1.0); // Use cached params!
+            nn::utils::clip_grad_norm_(params, 1.0);
             optimizer.step();
 
-            // Track Metrics
             total_loss += loss.item<double>();
             correct += metrics::accuracy(output, batch.target);
             total_samples += batch.data.shape()[0];
             batch_idx++;
 
-            // Console Progress
             if (batch_idx % 50 == 0) {
                  std::cout << "Train Epoch: " << epoch 
                            << " [" << std::setw(5) << total_samples << "/" << train_loader.size() << "]\t"
@@ -98,7 +95,6 @@ int main() {
         std::cout << "\nEpoch " << epoch << " Finished. Avg Loss: " << (total_loss / batch_idx) 
                   << " Accuracy: " << (100.0 * correct / total_samples) << "%\n";
         
-        // Save Checkpoint
         checkpoints::save_weights(params, "mnist_weights.bin");
     }
 
