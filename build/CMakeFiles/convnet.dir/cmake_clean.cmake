@@ -1,10 +1,9 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/convnet.dir/test/convnet_test.cpp.obj"
-  "CMakeFiles/convnet.dir/test/convnet_test.cpp.obj.d"
-  "convnet.exe"
-  "convnet.exe.manifest"
+  "CMakeFiles/convnet.dir/link.d"
+  "CMakeFiles/convnet.dir/test/convnet_test.cpp.o"
+  "CMakeFiles/convnet.dir/test/convnet_test.cpp.o.d"
+  "convnet"
   "convnet.pdb"
-  "libconvnet.dll.a"
 )
 
 # Per-language clean rules from dependency scanning.

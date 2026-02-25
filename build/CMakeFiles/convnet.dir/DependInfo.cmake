@@ -8,7 +8,8 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "D:/C programs/CTensor/test/convnet_test.cpp" "CMakeFiles/convnet.dir/test/convnet_test.cpp.obj" "gcc" "CMakeFiles/convnet.dir/test/convnet_test.cpp.obj.d"
+  "/home/none/CTensor/test/convnet_test.cpp" "CMakeFiles/convnet.dir/test/convnet_test.cpp.o" "gcc" "CMakeFiles/convnet.dir/test/convnet_test.cpp.o.d"
+  "" "convnet" "gcc" "CMakeFiles/convnet.dir/link.d"
   )
 
 # Targets to which this target links which contain Fortran sources.

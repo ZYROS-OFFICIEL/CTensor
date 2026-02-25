@@ -1,9 +1,8 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/transformetest.dir/test/transforme_test.cpp.obj"
-  "CMakeFiles/transformetest.dir/test/transforme_test.cpp.obj.d"
-  "libtransformetest.dll.a"
-  "transformetest.exe"
-  "transformetest.exe.manifest"
+  "CMakeFiles/transformetest.dir/link.d"
+  "CMakeFiles/transformetest.dir/test/transforme_test.cpp.o"
+  "CMakeFiles/transformetest.dir/test/transforme_test.cpp.o.d"
+  "transformetest"
   "transformetest.pdb"
 )
 

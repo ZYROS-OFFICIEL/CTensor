@@ -8,7 +8,8 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "D:/C programs/CTensor/test/time_avx.cpp" "CMakeFiles/app.dir/test/time_avx.cpp.obj" "gcc" "CMakeFiles/app.dir/test/time_avx.cpp.obj.d"
+  "/home/none/CTensor/test/time_avx.cpp" "CMakeFiles/app.dir/test/time_avx.cpp.o" "gcc" "CMakeFiles/app.dir/test/time_avx.cpp.o.d"
+  "" "app" "gcc" "CMakeFiles/app.dir/link.d"
   )
 
 # Targets to which this target links which contain Fortran sources.

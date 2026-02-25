@@ -1,8 +1,8 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/ops_avx512.dir/src/cpu/AVX512/ops_avx512_d64.cpp.obj"
-  "CMakeFiles/ops_avx512.dir/src/cpu/AVX512/ops_avx512_d64.cpp.obj.d"
-  "CMakeFiles/ops_avx512.dir/src/cpu/AVX512/ops_avx512_f32.cpp.obj"
-  "CMakeFiles/ops_avx512.dir/src/cpu/AVX512/ops_avx512_f32.cpp.obj.d"
+  "CMakeFiles/ops_avx512.dir/src/cpu/AVX512/ops_avx512_d64.cpp.o"
+  "CMakeFiles/ops_avx512.dir/src/cpu/AVX512/ops_avx512_d64.cpp.o.d"
+  "CMakeFiles/ops_avx512.dir/src/cpu/AVX512/ops_avx512_f32.cpp.o"
+  "CMakeFiles/ops_avx512.dir/src/cpu/AVX512/ops_avx512_f32.cpp.o.d"
 )
 
 # Per-language clean rules from dependency scanning.

@@ -1,9 +1,8 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/testmnist.dir/test/testmnist.cpp.obj"
-  "CMakeFiles/testmnist.dir/test/testmnist.cpp.obj.d"
-  "libtestmnist.dll.a"
-  "testmnist.exe"
-  "testmnist.exe.manifest"
+  "CMakeFiles/testmnist.dir/link.d"
+  "CMakeFiles/testmnist.dir/test/testmnist.cpp.o"
+  "CMakeFiles/testmnist.dir/test/testmnist.cpp.o.d"
+  "testmnist"
   "testmnist.pdb"
 )
 
