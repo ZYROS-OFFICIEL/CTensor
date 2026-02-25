@@ -8,6 +8,7 @@
 #include <iomanip>
 #include <ctime>
 #include <algorithm>
+#include <random>
 #include <omp.h>
 
 
