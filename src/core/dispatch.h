@@ -19,6 +19,9 @@
         DISPATCH_CASE(DType::Int32,    int32_t,  __VA_ARGS__) \
         DISPATCH_CASE(DType::Double64, double,   __VA_ARGS__) \
         DISPATCH_CASE(DType::UInt8,    uint8_t,  __VA_ARGS__) \
+        DISPATCH_CASE(DType::UInt16,   uint16_t, __VA_ARGS__) \
+        DISPATCH_CASE(DType::UInt32,   uint32_t, __VA_ARGS__) \
+        DISPATCH_CASE(DType::UInt64,   uint64_t, __VA_ARGS__) \
         DISPATCH_CASE(DType::Int8,     int8_t,   __VA_ARGS__) \
         DISPATCH_CASE(DType::Int16,    int16_t,  __VA_ARGS__) \
         DISPATCH_CASE(DType::Int64,    int64_t,  __VA_ARGS__) \
