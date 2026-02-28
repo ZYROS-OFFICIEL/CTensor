@@ -33,6 +33,9 @@ inline size_t dtype_size(DType dt) {
         case DType::Int32:   return sizeof(int32_t);
         case DType::Double64:return sizeof(double);
         case DType::UInt8:   return sizeof(uint8_t);
+        case DType::UInt16: return sizeof(uint16_t);
+        case DType::UInt32: return sizeof(uint32_t);
+        case DType::UInt64: return sizeof(uint64_t);
         case DType::Int8:    return sizeof(int8_t);
         case DType::Int16:   return sizeof(int16_t);
         case DType::Int64:   return sizeof(int64_t);
