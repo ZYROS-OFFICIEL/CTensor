@@ -57,6 +57,9 @@ inline double read_scalar_at(const void* data, size_t idx, DType dt) {
         case DType::Int32:    return static_cast<double>( static_cast<const int32_t*>(data)[idx] );
         case DType::Double64: return static_cast<double>( static_cast<const double*>(data)[idx] );
         case DType::UInt8:    return static_cast<double>( static_cast<const uint8_t*>(data)[idx] );
+        case DType::UInt16:    return static_cast<double>( static_cast<const uint16_t*>(data)[idx] );
+        case DType::UInt32:    return static_cast<double>( static_cast<const uint32_t*>(data)[idx] );
+        case DType::UInt64:    return static_cast<double>( static_cast<const uint64_t*>(data)[idx] );
         case DType::Int8:     return static_cast<double>( static_cast<const int8_t*>(data)[idx] );
         case DType::Int16:    return static_cast<double>( static_cast<const int16_t*>(data)[idx] );
         case DType::Int64:    return static_cast<double>( static_cast<const int64_t*>(data)[idx] );
