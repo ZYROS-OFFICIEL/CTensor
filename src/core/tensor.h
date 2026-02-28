@@ -13,19 +13,20 @@
 #include <atomic>
 #include <algorithm>
 
-// ----------------- DType System -----------------
+
+// DTYPE 
+
+/*
+ DType Represents the underlying data type of the Tensor's elements.
+  Supports various bit-widths of floats and integers.
+ */
 enum class DType { 
-    Float32, 
-    Int32, 
-    Double64,
-    UInt8,   
-    Int8,   
-    Int16,   
-    Int64,  
-    Bool,   
-    Float16  
+    Float32, Int32, Double64, UInt8, Int8, Int16, Int64, Bool, Float16  
 };
 
+/*
+ *  Returns the size in bytes for a given DType.
+ */
 inline size_t dtype_size(DType dt) {
     switch (dt) {
         case DType::Float32: return sizeof(float);
@@ -36,12 +37,17 @@ inline size_t dtype_size(DType dt) {
         case DType::Int16:   return sizeof(int16_t);
         case DType::Int64:   return sizeof(int64_t);
         case DType::Bool:    return sizeof(bool); 
-        case DType::Float16: return 2; 
+        case DType::Float16: return 2; // Float16 is 2 bytes
     }
     return sizeof(float);
 }
 
-// read/write helpers
+/*
+   Reads a scalar from a type-erased void* buffer, casting it safely to double.
+ data : Pointer to the raw buffer.
+ idx : Linear index of the element to read.
+ dt : The DType specifying how to interpret the raw bytes.
+ */
 inline double read_scalar_at(const void* data, size_t idx, DType dt) {
     switch (dt) {
         case DType::Float32:  return static_cast<double>( static_cast<const float*>(data)[idx] );
@@ -56,6 +62,9 @@ inline double read_scalar_at(const void* data, size_t idx, DType dt) {
     }
 }
 
+/*
+    Writes a double value into a type-erased void* buffer, downcasting to the target type.
+ */
 inline void write_scalar_at(void* data, size_t idx, DType dt, double val) {
     switch (dt) {
         case DType::Float32:  static_cast<float*>(data)[idx]   = static_cast<float>(val); break;
@@ -70,20 +79,23 @@ inline void write_scalar_at(void* data, size_t idx, DType dt, double val) {
     }
 }
 
-// forward for autograd node
+// Forward declaration for Autograd functionality
 struct GradFn; 
 
-// ======================================================================================
-//                              OPTIMIZATION 1: SMALL VECTOR
-// ======================================================================================
+// Helper 1: SMALL VECTOR
 
-// A hybrid vector that stores up to N elements on the stack, and switches to heap if larger.
+/*
+ A hybrid vector designed to minimize heap allocations.
+ Deep learning tensors rarely exceed 5 dimensions. By storing up to N 
+ elements directly on the stack, we avoid expensive dynamic memory allocation 
+ for shapes and strides during tensor creation. If it exceeds N, it falls back to std::vector.
+ */
 template <typename T, size_t N>
 class SmallVector {
 private:
     size_t size_ = 0;
     T stack_data_[N];
-    std::vector<T> heap_data_; // Only used if size_ > N
+    std::vector<T> heap_data_; 
 
 public:
     SmallVector() = default;
@@ -104,24 +116,11 @@ public:
         }
     }
 
-    // Accessors
-    T& operator[](size_t i) {
-        if (size_ > N) return heap_data_[i];
-        return stack_data_[i];
-    }
-
-    const T& operator[](size_t i) const {
-        if (size_ > N) return heap_data_[i];
-        return stack_data_[i];
-    }
-
-    const T* data() const {
-        return (size_ > N) ? heap_data_.data() : stack_data_;
-    }
-
-    T* data() {
-        return (size_ > N) ? heap_data_.data() : stack_data_;
-    }
+    // Accessors transparently handle whether data is on stack or heap
+    T& operator[](size_t i) { return (size_ > N) ? heap_data_[i] : stack_data_[i]; }
+    const T& operator[](size_t i) const { return (size_ > N) ? heap_data_[i] : stack_data_[i]; }
+    const T* data() const { return (size_ > N) ? heap_data_.data() : stack_data_; }
+    T* data() { return (size_ > N) ? heap_data_.data() : stack_data_; }
 
     size_t size() const { return size_; }
     bool empty() const { return size_ == 0; }
@@ -130,7 +129,7 @@ public:
         if (size_ < N) {
             stack_data_[size_++] = val;
         } else {
-            if (size_ == N) {
+            if (size_ == N) { // Transition from stack to heap
                 heap_data_.reserve(N + 1);
                 heap_data_.assign(stack_data_, stack_data_ + N);
             }
@@ -139,43 +138,43 @@ public:
         }
     }
 
-    // Convert to std::vector for compatibility if needed
     std::vector<T> to_vector() const {
         if (size_ > N) return heap_data_;
         return std::vector<T>(stack_data_, stack_data_ + size_);
     }
     
-    // Iterators
     T* begin() { return data(); }
     T* end() { return data() + size_; }
     const T* begin() const { return data(); }
     const T* end() const { return data() + size_; }
 };
 
-// ======================================================================================
-//                              OPTIMIZATION 2: INTRUSIVE POINTER
-// ======================================================================================
+// Helper 2: INTRUSIVE POINTER (REFERENCE COUNTING)
 
-// Base class for reference counting
+/*
+Base class for thread-safe intrusive reference counting.
+Unlike std::shared_ptr, the reference count is stored directly inside the object,
+saving a separate allocation for the control block.
+ */
 class RefCounted {
 public:
     mutable std::atomic<int32_t> ref_count_{0};
 
     RefCounted() { ref_count_.store(0, std::memory_order_relaxed); }
-    
     virtual ~RefCounted() = default;
 
     void retain() const {
         ref_count_.fetch_add(1, std::memory_order_relaxed);
     }
 
-    // Returns true if the object should be deleted
+    // Returns true if this was the last reference and object should be destroyed
     bool release() const {
-        // atomic fetch_sub returns the PREVIOUS value. 
-        // If previous was 1, now it is 0, so we delete.
         return ref_count_.fetch_sub(1, std::memory_order_acq_rel) == 1;
     }
 };
+
+
+//A smart pointer for objects inheriting from RefCounted.
 
 template <typename T>
 class intrusive_ptr {
@@ -184,27 +183,21 @@ private:
 
 public:
     intrusive_ptr() : ptr_(nullptr) {}
-    
-    // FIX: Add constructor for nullptr_t to allow direct assignment/init from nullptr
     intrusive_ptr(std::nullptr_t) : ptr_(nullptr) {}
 
-    // Constructor from raw pointer (adopts ownership or retains? Standard is usually adoption for raw, 
-    // but here we manually retain usually. Let's assume we pass a new object that has ref=0).
     explicit intrusive_ptr(T* p, bool add_ref = true) : ptr_(p) {
         if (ptr_ && add_ref) ptr_->retain();
     }
 
-    // Copy Constructor
+    // Rule of 5 semantics
     intrusive_ptr(const intrusive_ptr& other) : ptr_(other.ptr_) {
         if (ptr_) ptr_->retain();
     }
 
-    // Move Constructor
     intrusive_ptr(intrusive_ptr&& other) noexcept : ptr_(other.ptr_) {
         other.ptr_ = nullptr;
     }
 
-    // Assignment
     intrusive_ptr& operator=(const intrusive_ptr& other) {
         if (this != &other) {
             if (ptr_ && ptr_->release()) delete ptr_;
@@ -223,7 +216,6 @@ public:
         return *this;
     }
 
-    // FIX: Allow assignment from nullptr
     intrusive_ptr& operator=(std::nullptr_t) {
         if (ptr_ && ptr_->release()) delete ptr_;
         ptr_ = nullptr;
@@ -231,9 +223,7 @@ public:
     }
 
     ~intrusive_ptr() {
-        if (ptr_ && ptr_->release()) {
-            delete ptr_;
-        }
+        if (ptr_ && ptr_->release()) delete ptr_;
     }
 
     T* get() const { return ptr_; }
@@ -248,7 +238,10 @@ public:
 };
 
 
-// ----------------- Storage -----------------
+// STORAGE & INTERNAL IMPLEMENTATION
+
+//Represents raw untyped contiguous memory on a specific device (CPU/GPU).
+
 struct Storage {
     std::shared_ptr<void> data;
     size_t size = 0;
@@ -256,13 +249,13 @@ struct Storage {
     static std::shared_ptr<Storage> allocate(size_t n, DType dt, bool requires_grad = false, Device dev = Device(DeviceType::CPU));
 };
 
-// ----------------- Strides Helper -----------------
+/*
+ Calculates memory strides required to navigate multi-dimensional shapes.
+ Example: Shape [2, 3, 4] -> Strides [12, 4, 1]
+ */
 inline SmallVector<size_t, 5> calc_strides(const SmallVector<size_t, 5>& shape) {
     if (shape.empty()) return {};
     SmallVector<size_t, 5> strides;
-    // We cannot resize easily with the push_back logic unless we construct sizing, 
-    // but push_back is fast enough for 5 items.
-    // However, strides calculation is reverse.
     std::vector<size_t> temp(shape.size());
     size_t current = 1;
     for (int i = (int)shape.size() - 1; i >= 0; --i) {
@@ -272,29 +265,27 @@ inline SmallVector<size_t, 5> calc_strides(const SmallVector<size_t, 5>& shape) 
     return SmallVector<size_t, 5>(temp);
 }
 
-// ----------------- low-level impl -----------------
-// Inherits from RefCounted for Intrusive optimization
+/*
+ The heavy-weight backend object representing a Tensor.
+ Inherits from RefCounted so multiple lightweight `Tensor` frontends can point to it.
+ */
 struct Tensorimpl : public RefCounted {
     std::shared_ptr<Storage> data;
     
-    // Grad is tricky. It refers to another Tensorimpl. 
-    // To prevent infinite recursion in definitions, we use intrusive_ptr.
-    // However, Tensor struct isn't defined yet. We use void* or forward decl.
-    // Simplest: store it as intrusive_ptr<Tensorimpl> directly.
-    intrusive_ptr<Tensorimpl> grad; // Initialized to nullptr by default ctor
+    // Gradient points to another Tensorimpl. Using intrusive_ptr prevents infinite recursion.
+    intrusive_ptr<Tensorimpl> grad; 
     
     size_t offset = 0;
     size_t ndim = 0;
     
-    // OPTIMIZATION 1: SmallVector
     SmallVector<size_t, 5> shape;
     SmallVector<size_t, 5> strides;
     
     bool requires_grad = false;
     DType dtype = DType::Float32;
-    std::shared_ptr<GradFn> grad_fn;
+    std::shared_ptr<GradFn> grad_fn; // Node in the computation graph
 
-    // Default constructor
+    // Default physical allocation constructor
     Tensorimpl(const std::vector<size_t>& shape_, DType dtype_, bool requires_grad_, Device dev_)
         : shape(shape_), strides(calc_strides(shape)), dtype(dtype_), requires_grad(requires_grad_), ndim(shape_.size()) {
         
@@ -303,7 +294,7 @@ struct Tensorimpl : public RefCounted {
         data = Storage::allocate(total_el, dtype, requires_grad, dev_);
     }
 
-    // View constructor
+    // Logical view constructor (shares storage with another tensor)
     Tensorimpl(std::shared_ptr<Storage> storage_,
                size_t offset_,
                const SmallVector<size_t, 5>& shape_,
@@ -316,9 +307,16 @@ struct Tensorimpl : public RefCounted {
     virtual ~Tensorimpl() = default;
 };
 
-// ----------------- Tensor (public API) -----------------
+// ============================================================================
+// PUBLIC TENSOR API
+// ============================================================================
+
+/*
+    The primary user-facing Tensor class.
+  This is a lightweight handle wrapping `intrusive_ptr<Tensorimpl>`.
+  Passing this by value is cheap and shares the underlying memory.
+ */
 struct Tensor {
-    // OPTIMIZATION 2: Intrusive Pointer usage
     intrusive_ptr<Tensorimpl> impl;
 
     Device device() const;
@@ -326,7 +324,6 @@ struct Tensor {
 
     Tensor() = default;
     
-    // Constructor declarations
     Tensor(const std::vector<size_t>& shape_, DType dtype_ = DType::Float32, bool requires_grad_ = false);
     Tensor(const size_t* shape_ptr, size_t ndim, DType dtype, bool requires_grad)
         : Tensor(std::vector<size_t>(shape_ptr, shape_ptr + ndim), dtype, requires_grad) {}
@@ -338,22 +335,23 @@ struct Tensor {
 
     ~Tensor() = default;
 
+    // Core Properties
     size_t numel() const;
     size_t numel_() const { return numel(); }
-    std::vector<size_t> shape() const; // Returns std::vector for user API compatibility
+    std::vector<size_t> shape() const; 
     inline DType _dtype() const;
     inline size_t dtype_bytes() const;
     bool requires_grad() const;
 
-    // --- Contiguity Helpers ---
+    // Memory layout checks
     bool is_contiguous() const;
     Tensor contiguous() const; 
 
-    // data read / write helpers
+    // Raw element access
     inline double read_scalar(size_t idx) const;
     inline void write_scalar(size_t idx, double val);
 
-    // convenience constructors
+    // Factory methods
     static Tensor ones(const std::vector<size_t>& shape_, DType dt = DType::Float32, bool requires_grad_ = false);
     static Tensor zeros(const std::vector<size_t>& shape_, DType dt = DType::Float32, bool requires_grad_ = false);
     static Tensor full(const std::vector<size_t>& shape_, double value, DType dt = DType::Float32, bool requires_grad_ = false);
@@ -361,15 +359,21 @@ struct Tensor {
     static Tensor empty(const std::vector<size_t>& shape_, DType dt = DType::Float32, bool requires_grad_ = false);
     static Tensor from_vector(const std::vector<double>& data, const std::vector<size_t>& shape, DType dtype = DType::Float32, bool requires_grad = false);
 
+    // Graph and memory management
     Tensor clone() const;
     Tensor detach() const;
     Tensor detach() ;
     Tensor& requires_grad_(bool b);
 
-    // ---------------- Templated Proxy ----------------
+    // ------------------------------------------------------------------------
+    // MULTI-DIMENSIONAL INDEXING (PROXY PATTERN)
+    // ------------------------------------------------------------------------
+    /**
+     * @brief Enables intuitive indexing like `tensor[1][2] = 5;`.
+     * Tracks the current depth and memory offset without copying data.
+     */
     template <bool Writable>
     struct ProxyBase {
-        using TDataPtr = std::conditional_t<Writable, void*, const void*>;
         intrusive_ptr<Tensorimpl> impl;
         size_t offset;
         size_t depth;
@@ -377,6 +381,7 @@ struct Tensor {
         ProxyBase(intrusive_ptr<Tensorimpl> impl_, size_t off, size_t dp = 0)
             : impl(std::move(impl_)), offset(off), depth(dp) {}
 
+        // Moves one dimension deeper
         ProxyBase operator[](size_t i) const {
             if (!impl) throw std::runtime_error("Invalid tensor");
             if (depth >= impl->ndim) throw std::out_of_range("Too many indices");
@@ -386,13 +391,14 @@ struct Tensor {
             return ProxyBase(impl, new_offset, depth + 1);
         }
 
+        // Implicit conversion to double for reading
         operator double() const {
             if (!impl) throw std::runtime_error("Invalid tensor");
             if (depth != impl->ndim) throw std::out_of_range("Not at leaf index"); 
             return read_scalar_at(impl->data->data.get(), offset, impl->dtype);
         }
 
-        // Helper to recursively fill a sub-tensor
+        // Recursive filler for assigning scalars to sub-tensors (e.g. tensor[0] = 5)
         void recursive_fill(size_t current_depth, size_t current_offset, double val) {
             if (current_depth == impl->ndim) {
                 write_scalar_at(impl->data->data.get(), current_offset, impl->dtype, val);
@@ -406,6 +412,7 @@ struct Tensor {
             }
         }
 
+        // Assignment operator for writing (Only enabled if Writable = true)
         template <bool W = Writable, typename = std::enable_if_t<W>>
         ProxyBase& operator=(double val) {
             if (!impl) throw std::runtime_error("Invalid tensor");
@@ -430,7 +437,7 @@ struct Tensor {
     Proxy operator[](size_t i);
     ConstProxy operator[](size_t i) const;
 
-    // shape ops
+    // Operations and Reshaping
     Tensor astype(DType new_dtype) const;
     void to_(DType new_dtype);
     Tensor& t_(); 
@@ -447,8 +454,9 @@ struct Tensor {
     void save_image(const std::string& path) const;
 
     Tensor gather(const Tensor& index, size_t dim=1) const;
-    Tensor argmax(int dim = -1) const; // <--- NEW API
+    Tensor argmax(int dim = -1) const;
     
+    // Scalar extraction
     template<typename T>
     T item() const {
         if (!impl) throw std::runtime_error("item() on empty tensor");
@@ -456,27 +464,27 @@ struct Tensor {
         return static_cast<T>(read_scalar(0));
     }
     
+    // Autograd
     std::shared_ptr<GradFn> grad_fn;
-
     void backward(); 
     
     Tensor grad() const {
         if (!impl || !impl->grad) return Tensor();
         Tensor g;
-        g.impl = impl->grad; // Copying intrusive_ptr increments count
+        g.impl = impl->grad; // Copying intrusive_ptr safely increments ref count
         return g;
     }
 
     void zero_grad();
 };
 
-
 #ifdef USE_CUDA
     #include <cuda_runtime.h>
 #endif
 
 
-// ---------- inline small wrappers ----------
+// INLINE IMPLEMENTATIONS
+
 inline DType Tensor::_dtype() const {
     if (!impl) throw std::runtime_error("Tensor is empty");
     return impl->dtype;
@@ -503,7 +511,6 @@ inline bool Tensor::requires_grad() const {
 }
 
 inline Tensor::Tensor(const std::vector<size_t>& shape_, DType dtype_, bool requires_grad_) {
-    // Manually allocate and wrap in intrusive_ptr
     Tensorimpl* raw = new Tensorimpl(shape_, dtype_, requires_grad_, Device(DeviceType::CPU));
     impl = intrusive_ptr<Tensorimpl>(raw); 
 }
@@ -533,6 +540,7 @@ inline size_t Tensor::numel() const {
     for(auto s : impl->shape) n *= s;
     return n;
 }
+
 inline void print_t(const Tensor& t) {
     size_t n = t.numel_();
     std::cout << "[";
@@ -542,8 +550,8 @@ inline void print_t(const Tensor& t) {
         if (i != n - 1) std::cout << ", ";
     }
     std::cout << "]\n";
-    
 }
+
 inline const char* dtype_to_str(DType dt) {
     switch (dt) {
         case DType::Float32: return "float32";
