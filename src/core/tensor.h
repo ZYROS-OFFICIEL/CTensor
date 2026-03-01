@@ -313,10 +313,7 @@ struct Tensorimpl : public RefCounted {
     virtual ~Tensorimpl() = default;
 };
 
-// ============================================================================
 // PUBLIC TENSOR API
-// ============================================================================
-
 /*
     The primary user-facing Tensor class.
   This is a lightweight handle wrapping `intrusive_ptr<Tensorimpl>`.
@@ -371,12 +368,10 @@ struct Tensor {
     Tensor detach() ;
     Tensor& requires_grad_(bool b);
 
-    // ------------------------------------------------------------------------
     // MULTI-DIMENSIONAL INDEXING (PROXY PATTERN)
-    // ------------------------------------------------------------------------
-    /**
-     * @brief Enables intuitive indexing like `tensor[1][2] = 5;`.
-     * Tracks the current depth and memory offset without copying data.
+    /*
+        Enables intuitive indexing like `tensor[1][2] = 5;`.
+        Tracks the current depth and memory offset without copying data.
      */
     template <bool Writable>
     struct ProxyBase {
