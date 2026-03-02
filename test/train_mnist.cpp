@@ -5,9 +5,7 @@
 
 using namespace torch;
 
-// =======================================================================
 //                              MODEL
-// =======================================================================
 
 class MLPNet : public nn::Module {
 public:
@@ -33,20 +31,16 @@ public:
     }
 };
 
-// =======================================================================
 //                              MAIN
-// =======================================================================
 
 int main() {
     omp_set_num_threads(4);
     std::cout << "PyTorch-Style CTensor MNIST Training\n";
 
-    // 1. Data Pipeline
-    // NOTE: Ensure you are loading the 60,000 image training dataset here!
     auto dataset = vision::datasets::MNIST("train-images.idx3-ubyte", "train-labels.idx1-ubyte");
     
     // Batch size 64 provides smoother gradients than 32
-    torch::DataLoader train_loader(dataset, 64, /*shuffle=*/true);
+    torch::DataLoader train_loader(dataset, 32, /*shuffle=*/true);
 
     // 2. Model, Optimizer, Loss
     MLPNet model;
@@ -56,7 +50,7 @@ int main() {
     
     // Initialize using proper PyTorch He/Kaiming initialization for ReLU
     nn::init::kaiming_uniform_(params);
-    optim::AdamW optimizer(params, 0.001);
+    optim::AdamW optimizer(params, 0.01);
     
     auto criterion = nn::CrossEntropyLoss();
 
@@ -76,7 +70,7 @@ int main() {
             Tensor loss = criterion(output, batch.target);
             
             loss.backward();
-            nn::utils::clip_grad_norm_(params, 1.0);
+            
             optimizer.step();
 
             total_loss += loss.item<double>();
@@ -84,11 +78,13 @@ int main() {
             total_samples += batch.data.shape()[0];
             batch_idx++;
 
-            if (batch_idx % 50 == 0) {
+            // FIX 3: Print more frequently (every 10 batches instead of 50) 
+            // and use \n instead of \r so the console history isn't overwritten.
+            if (batch_idx % 10 == 0) {
                  std::cout << "Train Epoch: " << epoch 
                            << " [" << std::setw(5) << total_samples << "/" << train_loader.size() << "]\t"
                            << "Loss: " << std::fixed << std::setprecision(4) << (total_loss / batch_idx) << "\t"
-                           << "Acc: " << std::setprecision(2) << (100.0 * correct / total_samples) << "% \r" << std::flush;
+                           << "Acc: " << std::setprecision(2) << (100.0 * correct / total_samples) << "%\n";
             }
         }
         
