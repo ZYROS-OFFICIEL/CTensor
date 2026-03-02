@@ -21,7 +21,7 @@
   Supports various bit-widths of floats and integers.
  */
 enum class DType { 
-    Float32, Int32, Double64, UInt8, Int8, Int16, Int64, Bool, Float16  
+    Float32, Int32, Double64, UInt8,UInt16,UInt32,UInt64, Int8, Int16, Int64, Bool, Float16  
 };
 
 /*
