@@ -64,6 +64,7 @@ namespace nn {
     using Module = ::Module;
     using Linear = ::Linear;
     using Flatten = ::Flatten;
+    using Conv2d = ::Conv2d;
 
     // --- Functional API ---
     namespace functional {
