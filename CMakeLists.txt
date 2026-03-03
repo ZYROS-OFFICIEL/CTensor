@@ -98,11 +98,13 @@ if (MYPROJECT_BUILD_TESTS)
     add_executable(trainmnist test/train_mnist.cpp)
     add_executable(transformetest test/transforme_test.cpp)
     add_executable(convnet test/convnet_test.cpp)
+    add_executable(ConvNet test/train_conv.cpp)
     target_link_libraries(app PRIVATE myproject)
     target_link_libraries(testmnist PRIVATE myproject)
     target_link_libraries(trainmnist PRIVATE myproject)
     target_link_libraries(transformetest PRIVATE myproject)
     target_link_libraries(convnet PRIVATE myproject)
+    target_link_libraries(ConvNet PRIVATE myproject)
 endif()
 
 install(
