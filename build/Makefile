@@ -317,6 +317,19 @@ convnet/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/convnet.dir/build.make CMakeFiles/convnet.dir/build
 .PHONY : convnet/fast
 
+#=============================================================================
+# Target rules for targets named ConvNet
+
+# Build rule for target.
+ConvNet: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 ConvNet
+.PHONY : ConvNet
+
+# fast build rule for target.
+ConvNet/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ConvNet.dir/build.make CMakeFiles/ConvNet.dir/build
+.PHONY : ConvNet/fast
+
 src/core/autograd.o: src/core/autograd.cpp.o
 .PHONY : src/core/autograd.o
 
@@ -845,6 +858,30 @@ test/time_avx.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/app.dir/build.make CMakeFiles/app.dir/test/time_avx.cpp.s
 .PHONY : test/time_avx.cpp.s
 
+test/train_conv.o: test/train_conv.cpp.o
+.PHONY : test/train_conv.o
+
+# target to build an object file
+test/train_conv.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ConvNet.dir/build.make CMakeFiles/ConvNet.dir/test/train_conv.cpp.o
+.PHONY : test/train_conv.cpp.o
+
+test/train_conv.i: test/train_conv.cpp.i
+.PHONY : test/train_conv.i
+
+# target to preprocess a source file
+test/train_conv.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ConvNet.dir/build.make CMakeFiles/ConvNet.dir/test/train_conv.cpp.i
+.PHONY : test/train_conv.cpp.i
+
+test/train_conv.s: test/train_conv.cpp.s
+.PHONY : test/train_conv.s
+
+# target to generate assembly for a file
+test/train_conv.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ConvNet.dir/build.make CMakeFiles/ConvNet.dir/test/train_conv.cpp.s
+.PHONY : test/train_conv.cpp.s
+
 test/train_mnist.o: test/train_mnist.cpp.o
 .PHONY : test/train_mnist.o
 
@@ -905,6 +942,7 @@ help:
 	@echo "... install/strip"
 	@echo "... list_install_components"
 	@echo "... rebuild_cache"
+	@echo "... ConvNet"
 	@echo "... app"
 	@echo "... conv"
 	@echo "... convnet"
@@ -983,6 +1021,9 @@ help:
 	@echo "... test/time_avx.o"
 	@echo "... test/time_avx.i"
 	@echo "... test/time_avx.s"
+	@echo "... test/train_conv.o"
+	@echo "... test/train_conv.i"
+	@echo "... test/train_conv.s"
 	@echo "... test/train_mnist.o"
 	@echo "... test/train_mnist.i"
 	@echo "... test/train_mnist.s"
