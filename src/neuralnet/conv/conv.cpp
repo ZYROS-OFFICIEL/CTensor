@@ -52,7 +52,7 @@ Tensor Conv1d::forward(const Tensor& input) {
 // --- Conv2d (Optimized im2col) ---
 Conv2d::Conv2d(int in_c, int out_c, int kh, int kw, int sh, int sw, int ph, int pw, DType dt)
     : in_channels(in_c), out_channels(out_c),
-      kernel_size_h(kh), kernel_size_w(kw),
+      kernel_size_h(kh), kernel_size_w(kw == -1 ? kh : kw),
       stride_h(sh), stride_w(sw),
       padding_h(ph), padding_w(pw)
 {

@@ -26,7 +26,7 @@ public:
     Tensor weight, bias;
 
     // Added DType
-    Conv2d(int in_c, int out_c, int kh, int kw, int sh = 1, int sw = 1, int ph = 0, int pw = 0, DType dt = DType::Float32);
+    Conv2d(int in_c, int out_c, int kh, int kw= -1, int sh = 1, int sw = 1, int ph = 0, int pw = 0, DType dt = DType::Float32);
 
     std::vector<Tensor*> parameters() override { return {&weight, &bias}; }
     Tensor forward(const Tensor& input);
