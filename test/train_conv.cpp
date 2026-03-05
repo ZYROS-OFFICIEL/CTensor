@@ -65,7 +65,7 @@ int main() {
     
     // Initialize using proper PyTorch He/Kaiming initialization for ReLU
     nn::init::kaiming_uniform_(params);
-    optim::AdamW optimizer(params, 0.01);
+    optim::AdamW optimizer(params, 0.001);
     
     auto criterion = nn::CrossEntropyLoss();
 
