@@ -31,6 +31,10 @@ public:
         
     size_t size() const { return internal_loader.size(); }
 
+    void reset() { internal_loader.reset(); }
+    bool has_next() const { return internal_loader.has_next(); }
+    std::pair<Tensor, Tensor> next() { return internal_loader.next(); }
+    
     struct Iterator {
         SimpleDataLoader* ptr;
         Batch current;
