@@ -62,50 +62,8 @@ int main() {
     
     // Cache parameters to local variable
     auto params = model.parameters();
-    
-    // Initialize using proper PyTorch He/Kaiming initialization for ReLU
-    ones_(params);
-    optim::AdamW optimizer(params, 0.01);
-    
-    auto criterion = nn::CrossEntropyLoss();
+    checkpoints::load_weights(params, "mnist_weights.bin");
 
-    // 3. Training Loop
-    for (int epoch = 1; epoch <= 5; ++epoch) {
-        model.train();
-        
-        double total_loss = 0.0;
-        size_t correct = 0, total_samples = 0;
-        int batch_idx = 0;
-
-        for (auto& batch : train_loader) {
-            
-            optimizer.zero_grad();
-            
-            Tensor output = model(batch.data);
-            Tensor loss = criterion(output, batch.target);
-            
-            loss.backward();
-            
-            optimizer.step();
-
-            total_loss += loss.item<double>();
-            correct += metrics::accuracy(output, batch.target);
-            total_samples += batch.data.shape()[0];
-            batch_idx++;
-
-            if (batch_idx % 10 == 0) {
-                 std::cout << "Train Epoch: " << epoch 
-                           << " [" << std::setw(5) << total_samples << "/" << train_loader.size() << "]\t"
-                           << "Loss: " << std::fixed << std::setprecision(4) << (total_loss / batch_idx) << "\t"
-                           << "Acc: " << std::setprecision(2) << (100.0 * correct / total_samples) << "%\n";
-            }
-        }
-        
-        std::cout << "\nEpoch " << epoch << " Finished. Avg Loss: " << (total_loss / batch_idx) 
-                  << " Accuracy: " << (100.0 * correct / total_samples) << "%\n";
-        
-        checkpoints::save_weights(params, "mnist_weights.bin");
-    }
-
+    evaluate(model , train_loader);
     return 0;
 }
