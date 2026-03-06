@@ -512,8 +512,8 @@ public:
 };
 
 // --- Generic Training Function ---
-template <typename ModelType>
-void train_epoch(ModelType& model, DataLoader& loader, Optimizer& optim, int epoch, size_t log_interval = 100) {
+template <typename ModelType, typename LoaderType>
+void train_epoch(ModelType& model, LoaderType& loader, Optimizer& optim, int epoch, size_t log_interval = 100) {
     double total_loss = 0.0;
     int batch_idx = 0;
     size_t processed = 0;
@@ -554,8 +554,8 @@ void train_epoch(ModelType& model, DataLoader& loader, Optimizer& optim, int epo
 }
 
 // --- Generic Evaluation Function ---
-template <typename ModelType>
-double evaluate(ModelType& model, DataLoader& loader) {
+template <typename ModelType, typename LoaderType>
+double evaluate(ModelType& model, LoaderType& loader) {
     double total_loss = 0.0;
     int correct = 0;
     size_t total_samples = 0;
