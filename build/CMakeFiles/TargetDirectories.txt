@@ -11,6 +11,7 @@
 /home/none/CTensor/build/CMakeFiles/transformetest.dir
 /home/none/CTensor/build/CMakeFiles/convnet.dir
 /home/none/CTensor/build/CMakeFiles/ConvNet.dir
+/home/none/CTensor/build/CMakeFiles/InfConvNet.dir
 /home/none/CTensor/build/CMakeFiles/edit_cache.dir
 /home/none/CTensor/build/CMakeFiles/rebuild_cache.dir
 /home/none/CTensor/build/CMakeFiles/list_install_components.dir

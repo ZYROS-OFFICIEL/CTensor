@@ -62,11 +62,10 @@ int main() {
     
     // Cache parameters to local variable
     auto params = model.parameters();
-    
+
     // Initialize using proper PyTorch He/Kaiming initialization for ReLU
     nn::init::kaiming_uniform_(params);
     optim::AdamW optimizer(params, 0.001);
-    
     auto criterion = nn::CrossEntropyLoss();
 
     // 3. Training Loop
