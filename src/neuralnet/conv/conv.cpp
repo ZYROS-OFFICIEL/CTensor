@@ -1,5 +1,5 @@
 #include "conv.h"
-#include "ops.h" // Use optimized ops
+#include "ops_dispatch.h" // Use optimized ops
 #include <stdexcept>
 
 // --- Conv1d ---
@@ -22,7 +22,6 @@ Tensor Conv1d::forward(const Tensor& input) {
     bool req = input.requires_grad() || weight.requires_grad() || bias.requires_grad();
     Tensor output(out_shape, input._dtype(), req);
 
-    // Naive implementation for Conv1d (can be optimized later)
     for (size_t b = 0; b < batch; ++b) {
         for (int oc = 0; oc < out_channels; ++oc) {
             for (int ow = 0; ow < out_w; ++ow) {
@@ -78,7 +77,7 @@ Tensor Conv2d::forward(const Tensor& input) {
     // 2. Im2Col
     size_t num_patches = batch * out_h * out_w;
     Tensor input_patches = Tensor::zeros({kernel_patch_size, num_patches}, input._dtype(), false);
-    // --- RAW POINTER OPTIMIZATION START ---
+    
     const float* in_ptr = (const float*)input.impl->data->data.get();
     float* patch_ptr = (float*)input_patches.impl->data->data.get();
     
@@ -86,7 +85,7 @@ Tensor Conv2d::forward(const Tensor& input) {
     size_t s1 = input.impl->strides[1]; 
     size_t s2 = input.impl->strides[2]; 
     size_t s3 = input.impl->strides[3]; 
-    size_t patch_stride = num_patches; // Stride for row-major matrix
+    size_t patch_stride = num_patches; 
 
     #pragma omp parallel for
     for (size_t i = 0; i < num_patches; ++i) {
@@ -108,13 +107,13 @@ Tensor Conv2d::forward(const Tensor& input) {
                         val = in_ptr[offset];
                     }
                     
-                    // Direct Write: Bypasses operator[] checks/allocations
                     patch_ptr[patch_row * patch_stride + i] = val;
                     patch_row++;
                 }
             }
         }
     }
+    
     // 3. MatMul
     Tensor output_flat = matmul(w_flat, input_patches);
 
@@ -122,12 +121,18 @@ Tensor Conv2d::forward(const Tensor& input) {
     Tensor bias_col = bias.reshape({(size_t)out_channels, 1});
     output_flat = output_flat + bias_col;
 
-    // 5. Reshape
+    // 5. Reshape and Permute
     Tensor output_reshaped = output_flat.reshape({(size_t)out_channels, batch, (size_t)out_h, (size_t)out_w});
     Tensor output = output_reshaped.permute({1, 0, 2, 3});
 
+    // ==========================================
+    // CRITICAL FIX: FORCE MEMORY CONTIGUITY
+    // Without this, Flatten() scrambles the batch 
+    // dimension because permute() only alters strides.
+    // ==========================================
+    output = output + 0.0; 
+
     if (input.requires_grad() || weight.requires_grad() || bias.requires_grad()) {
-        // Link to GradConv2d (which contains the optimized backward logic)
         output.impl->grad_fn = std::make_shared<GradConv2d>(input, weight, bias, stride_h, stride_w, padding_h, padding_w);
     }
     return output;
@@ -197,6 +202,9 @@ Tensor Conv3d::forward(const Tensor& input) {
     Tensor output_reshaped = output_flat.reshape({(size_t)out_channels, batch, (size_t)out_d, (size_t)out_h, (size_t)out_w});
     Tensor output = output_reshaped.permute({1, 0, 2, 3, 4});
 
+    // CRITICAL FIX: FORCE MEMORY CONTIGUITY
+    output = output + 0.0;
+
     if (input.requires_grad() || weight.requires_grad() || bias.requires_grad()) {
         output.impl->grad_fn = std::make_shared<GradConv3d>(input, weight, bias, stride_d, stride_h, stride_w, padding_d, padding_h, padding_w);
     }
@@ -213,7 +221,6 @@ void GradConv1d::backward(const Tensor& self) {
     Tensor grad_weight = Tensor::zeros(weight.shape(), weight._dtype(), false);
     Tensor grad_bias   = Tensor::zeros(bias.shape(), bias._dtype(), false);
 
-    // Naive backward (consistent with naive forward)
     size_t batch = input.impl->shape[0];
     size_t in_c  = input.impl->shape[1];
     size_t width = input.impl->shape[2];
@@ -225,7 +232,6 @@ void GradConv1d::backward(const Tensor& self) {
         for (size_t oc = 0; oc < out_c; ++oc) {
             for (size_t ow = 0; ow < out_w; ++ow) {
                 double go = grad_output[b][oc][ow]; 
-                // Bias
                 double cur_b = grad_bias[oc];
                 grad_bias[oc] = cur_b + go;
 
