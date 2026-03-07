@@ -64,4 +64,5 @@ set(CMAKE_DEPEND_INFO_FILES
   "CMakeFiles/transformetest.dir/DependInfo.cmake"
   "CMakeFiles/convnet.dir/DependInfo.cmake"
   "CMakeFiles/ConvNet.dir/DependInfo.cmake"
+  "CMakeFiles/InfConvNet.dir/DependInfo.cmake"
   )

@@ -330,6 +330,19 @@ ConvNet/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ConvNet.dir/build.make CMakeFiles/ConvNet.dir/build
 .PHONY : ConvNet/fast
 
+#=============================================================================
+# Target rules for targets named InfConvNet
+
+# Build rule for target.
+InfConvNet: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 InfConvNet
+.PHONY : InfConvNet
+
+# fast build rule for target.
+InfConvNet/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/InfConvNet.dir/build.make CMakeFiles/InfConvNet.dir/build
+.PHONY : InfConvNet/fast
+
 src/core/autograd.o: src/core/autograd.cpp.o
 .PHONY : src/core/autograd.o
 
@@ -810,6 +823,30 @@ test/convnet_test.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/convnet.dir/build.make CMakeFiles/convnet.dir/test/convnet_test.cpp.s
 .PHONY : test/convnet_test.cpp.s
 
+test/inf_conv.o: test/inf_conv.cpp.o
+.PHONY : test/inf_conv.o
+
+# target to build an object file
+test/inf_conv.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/InfConvNet.dir/build.make CMakeFiles/InfConvNet.dir/test/inf_conv.cpp.o
+.PHONY : test/inf_conv.cpp.o
+
+test/inf_conv.i: test/inf_conv.cpp.i
+.PHONY : test/inf_conv.i
+
+# target to preprocess a source file
+test/inf_conv.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/InfConvNet.dir/build.make CMakeFiles/InfConvNet.dir/test/inf_conv.cpp.i
+.PHONY : test/inf_conv.cpp.i
+
+test/inf_conv.s: test/inf_conv.cpp.s
+.PHONY : test/inf_conv.s
+
+# target to generate assembly for a file
+test/inf_conv.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/InfConvNet.dir/build.make CMakeFiles/InfConvNet.dir/test/inf_conv.cpp.s
+.PHONY : test/inf_conv.cpp.s
+
 test/testmnist.o: test/testmnist.cpp.o
 .PHONY : test/testmnist.o
 
@@ -943,6 +980,7 @@ help:
 	@echo "... list_install_components"
 	@echo "... rebuild_cache"
 	@echo "... ConvNet"
+	@echo "... InfConvNet"
 	@echo "... app"
 	@echo "... conv"
 	@echo "... convnet"
@@ -1015,6 +1053,9 @@ help:
 	@echo "... test/convnet_test.o"
 	@echo "... test/convnet_test.i"
 	@echo "... test/convnet_test.s"
+	@echo "... test/inf_conv.o"
+	@echo "... test/inf_conv.i"
+	@echo "... test/inf_conv.s"
 	@echo "... test/testmnist.o"
 	@echo "... test/testmnist.i"
 	@echo "... test/testmnist.s"
