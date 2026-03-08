@@ -5,7 +5,6 @@ CMakeFiles/conv.dir/src/neuralnet/conv/conv.cpp.o
  /home/none/CTensor/src/neuralnet/conv/conv.cpp
  /home/none/CTensor/src/core/autograd.h
  /home/none/CTensor/src/core/device.h
- /home/none/CTensor/src/core/ops.h
  /home/none/CTensor/src/core/ops_dispatch.h
  /home/none/CTensor/src/core/tensor.h
  /home/none/CTensor/src/neuralnet/conv/conv.h
