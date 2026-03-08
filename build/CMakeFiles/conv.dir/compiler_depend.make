@@ -4,7 +4,6 @@
 CMakeFiles/conv.dir/src/neuralnet/conv/conv.cpp.o: /home/none/CTensor/src/neuralnet/conv/conv.cpp \
   /home/none/CTensor/src/core/autograd.h \
   /home/none/CTensor/src/core/device.h \
-  /home/none/CTensor/src/core/ops.h \
   /home/none/CTensor/src/core/ops_dispatch.h \
   /home/none/CTensor/src/core/tensor.h \
   /home/none/CTensor/src/neuralnet/conv/conv.h \
@@ -410,8 +409,6 @@ CMakeFiles/conv.dir/src/neuralnet/conv/conv.cpp.o: /home/none/CTensor/src/neural
 
 /usr/include/c++/15.2.1/tr1/bessel_function.tcc:
 
-/usr/include/c++/15.2.1/string_view:
-
 /usr/include/c++/15.2.1/bits/basic_ios.tcc:
 
 /usr/include/bits/libm-simd-decl-stubs.h:
@@ -586,12 +583,6 @@ CMakeFiles/conv.dir/src/neuralnet/conv/conv.cpp.o: /home/none/CTensor/src/neural
 
 /usr/include/bits/types/__fpos_t.h:
 
-/usr/include/c++/15.2.1/x86_64-pc-linux-gnu/bits/c++config.h:
-
-/usr/include/bits/types/__sigset_t.h:
-
-/usr/include/asm-generic/posix_types.h:
-
 /usr/include/bits/waitflags.h:
 
 /usr/include/c++/15.2.1/bits/stl_pair.h:
@@ -601,8 +592,6 @@ CMakeFiles/conv.dir/src/neuralnet/conv/conv.cpp.o: /home/none/CTensor/src/neural
 /usr/include/c++/15.2.1/atomic:
 
 /usr/include/bits/floatn.h:
-
-/home/none/CTensor/src/core/ops.h:
 
 /usr/include/c++/15.2.1/backward/auto_ptr.h:
 
@@ -657,6 +646,12 @@ CMakeFiles/conv.dir/src/neuralnet/conv/conv.cpp.o: /home/none/CTensor/src/neural
 /usr/include/c++/15.2.1/streambuf:
 
 /usr/include/bits/fp-logb.h:
+
+/usr/include/c++/15.2.1/x86_64-pc-linux-gnu/bits/c++config.h:
+
+/usr/include/bits/types/__sigset_t.h:
+
+/usr/include/asm-generic/posix_types.h:
 
 /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/limits.h:
 
@@ -983,3 +978,5 @@ CMakeFiles/conv.dir/src/neuralnet/conv/conv.cpp.o: /home/none/CTensor/src/neural
 /usr/include/c++/15.2.1/set:
 
 /usr/include/c++/15.2.1/string:
+
+/usr/include/c++/15.2.1/string_view:

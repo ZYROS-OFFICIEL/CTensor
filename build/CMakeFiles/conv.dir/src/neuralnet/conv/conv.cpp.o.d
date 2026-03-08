@@ -240,5 +240,4 @@ CMakeFiles/conv.dir/src/neuralnet/conv/conv.cpp.o: \
  /usr/include/c++/15.2.1/bits/stl_multiset.h \
  /usr/include/c++/15.2.1/cstring /usr/include/string.h \
  /usr/include/strings.h /home/none/CTensor/src/core/ops_dispatch.h \
- /home/none/CTensor/src/neuralnet/module.h \
- /home/none/CTensor/src/core/ops.h
+ /home/none/CTensor/src/neuralnet/module.h
