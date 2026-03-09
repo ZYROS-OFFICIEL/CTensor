@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live C++ Training Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen p-6 flex flex-col space-y-6">
+
+    <div class="flex items-center space-x-3 border-b border-gray-800 pb-4">
+        <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-white shadow-[0_0_15px_rgba(37,99,235,0.5)]">
+            <span class="animate-pulse">●</span>
+        </div>
+        <div>
+            <h1 class="text-2xl font-bold tracking-wider">Live Training Monitor</h1>
+            <p class="text-xs text-gray-400">Fetching data from C++ API...</p>
+        </div>
+    </div>
+    
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-gray-900 border border-gray-800 p-4 rounded-xl">
+            <p class="text-gray-400 text-xs font-semibold uppercase tracking-wider">Current Epoch</p>
+            <p id="statEpoch" class="text-3xl font-bold mt-1">-</p>
+        </div>
+        <div class="bg-gray-900 border border-gray-800 p-4 rounded-xl">
+            <p class="text-gray-400 text-xs font-semibold uppercase tracking-wider">Samples</p>
+            <p id="statSamples" class="text-3xl font-bold mt-1">-</p>
+        </div>
+        <div class="bg-gray-900 border border-gray-800 p-4 rounded-xl">
+            <p class="text-gray-400 text-xs font-semibold uppercase tracking-wider">Latest Loss</p>
+            <p id="statLoss" class="text-3xl font-bold text-red-400 mt-1">-</p>
+        </div>
+        <div class="bg-gray-900 border border-gray-800 p-4 rounded-xl">
+            <p class="text-gray-400 text-xs font-semibold uppercase tracking-wider">Latest Accuracy</p>
+            <p id="statAcc" class="text-3xl font-bold text-emerald-400 mt-1">-</p>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-grow">
+        <div class="bg-gray-900 border border-gray-800 p-4 rounded-xl flex flex-col min-h-[300px]">
+            <h2 class="text-lg font-semibold mb-2">Training Loss</h2>
+            <div class="relative flex-grow"><canvas id="lossChart"></canvas></div>
+        </div>
+
+        <div class="bg-gray-900 border border-gray-800 p-4 rounded-xl flex flex-col min-h-[300px]">
+            <h2 class="text-lg font-semibold mb-2">Training Accuracy (%)</h2>
+            <div class="relative flex-grow"><canvas id="accChart"></canvas></div>
+        </div>
+    </div>
+
+    <script>
+        // Setup Chart.js
+        Chart.defaults.color = '#9ca3af';
+        const commonOpts = {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { x: { grid: { color: '#1f2937' } }, y: { grid: { color: '#1f2937' } } },
+            animation: { duration: 0 } // Disable animation for instant updates
+        };
+
+        const lossChart = new Chart(document.getElementById('lossChart').getContext('2d'), {
+            type: 'line',
+            data: { labels: [], datasets: [{ label: 'Loss', data: [], borderColor: '#f87171', backgroundColor: 'rgba(248, 113, 113, 0.1)', fill: true, tension: 0.3 }] },
+            options: commonOpts
+        });
+
+        const accChart = new Chart(document.getElementById('accChart').getContext('2d'), {
+            type: 'line',
+            data: { labels: [], datasets: [{ label: 'Accuracy', data: [], borderColor: '#34d399', backgroundColor: 'rgba(52, 211, 153, 0.1)', fill: true, tension: 0.3 }] },
+            options: { ...commonOpts, scales: { y: { min: 0, max: 100, grid: { color: '#1f2937' } } } }
+        });
+
+        let dataCount = 0;
+
+        // Fetch data from API
+        async function fetchMetrics() {
+            try {
+                const response = await fetch('/api/data');
+                const data = await response.json();
+                
+                // Only update if we have new data
+                if (data.length > dataCount) {
+                    dataCount = data.length;
+                    
+                    const labels = data.map(d => `E${d.epoch} (${d.samples})`);
+                    const losses = data.map(d => d.loss);
+                    const accs = data.map(d => d.acc);
+
+                    lossChart.data.labels = labels;
+                    lossChart.data.datasets[0].data = losses;
+                    lossChart.update();
+
+                    accChart.data.labels = labels;
+                    accChart.data.datasets[0].data = accs;
+                    accChart.update();
+
+                    // Update Top Stats
+                    const last = data[data.length - 1];
+                    document.getElementById('statEpoch').textContent = last.epoch;
+                    document.getElementById('statSamples').textContent = last.samples;
+                    document.getElementById('statLoss').textContent = last.loss.toFixed(4);
+                    document.getElementById('statAcc').textContent = last.acc.toFixed(2) + '%';
+                }
+            } catch (err) {
+                console.error("Failed to fetch API:", err);
+            }
+        }
+
+        // Poll every 1 second
+        setInterval(fetchMetrics, 1000);
+    </script>
+</body>
+</html>
