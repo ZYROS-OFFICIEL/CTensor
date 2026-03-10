@@ -10,6 +10,7 @@ CMakeFiles/InfConvNet.dir/test/inf_conv.cpp.o: /home/none/CTensor/test/inf_conv.
   /home/none/CTensor/src/core/ops_dispatch.h \
   /home/none/CTensor/src/core/opsmp.h \
   /home/none/CTensor/src/core/tensor.h \
+  /home/none/CTensor/src/dashboard/dashboard.h \
   /home/none/CTensor/src/neuralnet.h \
   /home/none/CTensor/src/neuralnet/Relu.h \
   /home/none/CTensor/src/neuralnet/batchnorm/batchnorm.h \
@@ -76,6 +77,7 @@ CMakeFiles/InfConvNet.dir/test/inf_conv.cpp.o: /home/none/CTensor/test/inf_conv.
   /usr/include/bits/pthreadtypes.h \
   /usr/include/bits/sched.h \
   /usr/include/bits/select.h \
+  /usr/include/bits/semaphore.h \
   /usr/include/bits/setjmp.h \
   /usr/include/bits/stdint-intn.h \
   /usr/include/bits/stdint-least.h \
@@ -138,6 +140,7 @@ CMakeFiles/InfConvNet.dir/test/inf_conv.cpp.o: /home/none/CTensor/test/inf_conv.
   /usr/include/c++/15.2.1/bits/allocator.h \
   /usr/include/c++/15.2.1/bits/atomic_base.h \
   /usr/include/c++/15.2.1/bits/atomic_lockfree_defines.h \
+  /usr/include/c++/15.2.1/bits/atomic_timed_wait.h \
   /usr/include/c++/15.2.1/bits/atomic_wait.h \
   /usr/include/c++/15.2.1/bits/basic_ios.h \
   /usr/include/c++/15.2.1/bits/basic_ios.tcc \
@@ -145,6 +148,7 @@ CMakeFiles/InfConvNet.dir/test/inf_conv.cpp.o: /home/none/CTensor/test/inf_conv.
   /usr/include/c++/15.2.1/bits/basic_string.tcc \
   /usr/include/c++/15.2.1/bits/char_traits.h \
   /usr/include/c++/15.2.1/bits/charconv.h \
+  /usr/include/c++/15.2.1/bits/chrono.h \
   /usr/include/c++/15.2.1/bits/codecvt.h \
   /usr/include/c++/15.2.1/bits/concept_check.h \
   /usr/include/c++/15.2.1/bits/cpp_type_traits.h \
@@ -184,6 +188,7 @@ CMakeFiles/InfConvNet.dir/test/inf_conv.cpp.o: /home/none/CTensor/test/inf_conv.
   /usr/include/c++/15.2.1/bits/ostream.h \
   /usr/include/c++/15.2.1/bits/ostream.tcc \
   /usr/include/c++/15.2.1/bits/ostream_insert.h \
+  /usr/include/c++/15.2.1/bits/parse_numbers.h \
   /usr/include/c++/15.2.1/bits/postypes.h \
   /usr/include/c++/15.2.1/bits/predefined_ops.h \
   /usr/include/c++/15.2.1/bits/ptr_traits.h \
@@ -199,6 +204,7 @@ CMakeFiles/InfConvNet.dir/test/inf_conv.cpp.o: /home/none/CTensor/test/inf_conv.
   /usr/include/c++/15.2.1/bits/ranges_util.h \
   /usr/include/c++/15.2.1/bits/refwrap.h \
   /usr/include/c++/15.2.1/bits/requires_hosted.h \
+  /usr/include/c++/15.2.1/bits/semaphore_base.h \
   /usr/include/c++/15.2.1/bits/shared_ptr.h \
   /usr/include/c++/15.2.1/bits/shared_ptr_atomic.h \
   /usr/include/c++/15.2.1/bits/shared_ptr_base.h \
@@ -207,6 +213,7 @@ CMakeFiles/InfConvNet.dir/test/inf_conv.cpp.o: /home/none/CTensor/test/inf_conv.
   /usr/include/c++/15.2.1/bits/std_abs.h \
   /usr/include/c++/15.2.1/bits/std_function.h \
   /usr/include/c++/15.2.1/bits/std_mutex.h \
+  /usr/include/c++/15.2.1/bits/std_thread.h \
   /usr/include/c++/15.2.1/bits/stl_algo.h \
   /usr/include/c++/15.2.1/bits/stl_algobase.h \
   /usr/include/c++/15.2.1/bits/stl_bvector.h \
@@ -231,6 +238,7 @@ CMakeFiles/InfConvNet.dir/test/inf_conv.cpp.o: /home/none/CTensor/test/inf_conv.
   /usr/include/c++/15.2.1/bits/streambuf_iterator.h \
   /usr/include/c++/15.2.1/bits/string_view.tcc \
   /usr/include/c++/15.2.1/bits/stringfwd.h \
+  /usr/include/c++/15.2.1/bits/this_thread_sleep.h \
   /usr/include/c++/15.2.1/bits/uniform_int_dist.h \
   /usr/include/c++/15.2.1/bits/unique_ptr.h \
   /usr/include/c++/15.2.1/bits/unordered_map.h \
@@ -286,15 +294,19 @@ CMakeFiles/InfConvNet.dir/test/inf_conv.cpp.o: /home/none/CTensor/test/inf_conv.
   /usr/include/c++/15.2.1/pstl/glue_numeric_defs.h \
   /usr/include/c++/15.2.1/pstl/pstl_config.h \
   /usr/include/c++/15.2.1/random \
+  /usr/include/c++/15.2.1/ratio \
+  /usr/include/c++/15.2.1/semaphore \
   /usr/include/c++/15.2.1/set \
   /usr/include/c++/15.2.1/sstream \
   /usr/include/c++/15.2.1/stack \
   /usr/include/c++/15.2.1/stdexcept \
   /usr/include/c++/15.2.1/stdlib.h \
+  /usr/include/c++/15.2.1/stop_token \
   /usr/include/c++/15.2.1/streambuf \
   /usr/include/c++/15.2.1/string \
   /usr/include/c++/15.2.1/string_view \
   /usr/include/c++/15.2.1/system_error \
+  /usr/include/c++/15.2.1/thread \
   /usr/include/c++/15.2.1/tr1/bessel_function.tcc \
   /usr/include/c++/15.2.1/tr1/beta_function.tcc \
   /usr/include/c++/15.2.1/tr1/ell_integral.tcc \
@@ -348,6 +360,7 @@ CMakeFiles/InfConvNet.dir/test/inf_conv.cpp.o: /home/none/CTensor/test/inf_conv.
   /usr/include/math.h \
   /usr/include/pthread.h \
   /usr/include/sched.h \
+  /usr/include/semaphore.h \
   /usr/include/stdc-predef.h \
   /usr/include/stdint.h \
   /usr/include/stdio.h \
@@ -358,6 +371,7 @@ CMakeFiles/InfConvNet.dir/test/inf_conv.cpp.o: /home/none/CTensor/test/inf_conv.
   /usr/include/sys/select.h \
   /usr/include/sys/single_threaded.h \
   /usr/include/sys/syscall.h \
+  /usr/include/sys/time.h \
   /usr/include/sys/types.h \
   /usr/include/syscall.h \
   /usr/include/time.h \
@@ -567,8 +581,6 @@ CMakeFiles/InfConvNet.dir/test/inf_conv.cpp.o:
 
 /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/prfchwintrin.h:
 
-/usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/prfchiintrin.h:
-
 /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/pmmintrin.h:
 
 /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/omp.h:
@@ -582,8 +594,6 @@ CMakeFiles/InfConvNet.dir/test/inf_conv.cpp.o:
 /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/lwpintrin.h:
 
 /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/fxsrintrin.h:
-
-/usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/fmaintrin.h:
 
 /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/f16cintrin.h:
 
@@ -651,6 +661,8 @@ CMakeFiles/InfConvNet.dir/test/inf_conv.cpp.o:
 
 /usr/include/sys/types.h:
 
+/usr/include/sys/time.h:
+
 /usr/include/sys/cdefs.h:
 
 /usr/include/string.h:
@@ -703,8 +715,6 @@ CMakeFiles/InfConvNet.dir/test/inf_conv.cpp.o:
 
 /usr/include/c++/15.2.1/x86_64-pc-linux-gnu/bits/basic_file.h:
 
-/usr/include/c++/15.2.1/x86_64-pc-linux-gnu/bits/atomic_word.h:
-
 /usr/include/c++/15.2.1/unordered_map:
 
 /usr/include/c++/15.2.1/typeinfo:
@@ -732,6 +742,10 @@ CMakeFiles/InfConvNet.dir/test/inf_conv.cpp.o:
 /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/avx10_2-512mediaintrin.h:
 
 /usr/include/c++/15.2.1/tr1/bessel_function.tcc:
+
+/usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/prfchiintrin.h:
+
+/usr/include/c++/15.2.1/thread:
 
 /usr/include/c++/15.2.1/string_view:
 
@@ -789,13 +803,13 @@ CMakeFiles/InfConvNet.dir/test/inf_conv.cpp.o:
 
 /usr/include/c++/15.2.1/fstream:
 
-/usr/include/c++/15.2.1/ext/type_traits.h:
-
 /usr/include/c++/15.2.1/ext/string_conversions.h:
 
 /usr/include/c++/15.2.1/locale:
 
 /usr/include/c++/15.2.1/ext/aligned_buffer.h:
+
+/usr/include/c++/15.2.1/cstring:
 
 /usr/include/c++/15.2.1/algorithm:
 
@@ -812,10 +826,6 @@ CMakeFiles/InfConvNet.dir/test/inf_conv.cpp.o:
 /usr/include/c++/15.2.1/ext/alloc_traits.h:
 
 /usr/include/bits/unistd_ext.h:
-
-/usr/include/bits/types/wint_t.h:
-
-/usr/include/c++/15.2.1/bits/memoryfwd.h:
 
 /usr/include/c++/15.2.1/bits/stl_stack.h:
 
@@ -841,7 +851,13 @@ libmyproject.a:
 
 /usr/include/bits/struct_rwlock.h:
 
+/usr/include/c++/15.2.1/stop_token:
+
 /usr/include/bits/types/locale_t.h:
+
+/usr/include/c++/15.2.1/x86_64-pc-linux-gnu/bits/atomic_word.h:
+
+/usr/include/c++/15.2.1/bits/parse_numbers.h:
 
 /usr/include/bits/types/__locale_t.h:
 
@@ -967,6 +983,22 @@ libmyproject.a:
 
 /usr/include/bits/local_lim.h:
 
+/usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/avxintrin.h:
+
+/usr/include/bits/libm-simd-decl-stubs.h:
+
+/usr/include/c++/15.2.1/bits/basic_ios.tcc:
+
+/usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/gfniintrin.h:
+
+/usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/amxtf32intrin.h:
+
+/usr/include/c++/15.2.1/cerrno:
+
+/usr/include/c++/15.2.1/ctime:
+
+/usr/include/bits/timex.h:
+
 /usr/include/bits/errno.h:
 
 /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/avx512bf16vlintrin.h:
@@ -1000,6 +1032,10 @@ libmyproject.a:
 /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/avx10_2-512convertintrin.h:
 
 /home/none/CTensor/src/core/dispatch.h:
+
+/usr/include/c++/15.2.1/deque:
+
+/home/none/CTensor/src/core/opsmp.h:
 
 /usr/include/c++/15.2.1/climits:
 
@@ -1037,6 +1073,18 @@ libmyproject.a:
 
 /home/none/CTensor/src/core.h:
 
+/usr/include/bits/types/wint_t.h:
+
+/usr/include/c++/15.2.1/bits/memoryfwd.h:
+
+/usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/fmaintrin.h:
+
+/usr/include/bits/semaphore.h:
+
+/home/none/CTensor/src/core/autograd.h:
+
+/usr/include/bits/types/mbstate_t.h:
+
 /usr/include/c++/15.2.1/bits/ostream.h:
 
 /usr/include/asm/unistd.h:
@@ -1048,12 +1096,6 @@ libmyproject.a:
 /usr/include/bits/waitflags.h:
 
 /usr/include/c++/15.2.1/bits/stl_pair.h:
-
-/home/none/CTensor/src/core/autograd.h:
-
-/usr/include/bits/types/mbstate_t.h:
-
-/usr/include/c++/15.2.1/atomic:
 
 /usr/include/bits/floatn.h:
 
@@ -1082,6 +1124,16 @@ libmyproject.a:
 /home/none/CTensor/src/neuralnet/check.h:
 
 /usr/include/asm-generic/errno-base.h:
+
+/usr/include/c++/15.2.1/exception:
+
+/usr/include/asm-generic/bitsperlong.h:
+
+/usr/include/c++/15.2.1/bits/ranges_util.h:
+
+/usr/include/c++/15.2.1/bits/stl_heap.h:
+
+/usr/include/asm-generic/types.h:
 
 /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/avx512vnniintrin.h:
 
@@ -1147,9 +1199,17 @@ libmyproject.a:
 
 /usr/include/asm/posix_types_64.h:
 
+/usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/avx512vlintrin.h:
+
+/usr/include/c++/15.2.1/cwctype:
+
+/usr/include/c++/15.2.1/compare:
+
 /usr/include/bits/time.h:
 
 /usr/include/asm/posix_types.h:
+
+/usr/include/c++/15.2.1/bits/atomic_timed_wait.h:
 
 /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/avxneconvertintrin.h:
 
@@ -1177,19 +1237,9 @@ libmyproject.a:
 
 /usr/include/c++/15.2.1/bits/std_mutex.h:
 
-/usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/avxintrin.h:
-
-/usr/include/bits/libm-simd-decl-stubs.h:
-
-/usr/include/c++/15.2.1/bits/basic_ios.tcc:
-
-/usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/gfniintrin.h:
-
-/usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/amxtf32intrin.h:
-
-/usr/include/c++/15.2.1/cerrno:
-
 /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/sm4intrin.h:
+
+/usr/include/c++/15.2.1/bits/std_thread.h:
 
 /usr/include/bits/types/struct_FILE.h:
 
@@ -1198,6 +1248,8 @@ libmyproject.a:
 /usr/include/c++/15.2.1/bits/stl_iterator.h:
 
 /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/limits.h:
+
+/usr/include/c++/15.2.1/ratio:
 
 /usr/include/bits/floatn-common.h:
 
@@ -1225,6 +1277,8 @@ libmyproject.a:
 
 /usr/include/bits/libc-header-start.h:
 
+/usr/include/c++/15.2.1/atomic:
+
 /usr/include/c++/15.2.1/backward/auto_ptr.h:
 
 /usr/include/c++/15.2.1/cctype:
@@ -1243,23 +1297,17 @@ libmyproject.a:
 
 /usr/include/c++/15.2.1/bits/allocated_ptr.h:
 
-/usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/avx512vlintrin.h:
-
-/usr/include/c++/15.2.1/compare:
-
-/usr/include/c++/15.2.1/cwctype:
-
 /home/none/CTensor/src/neuralnet/layer.h:
 
 /usr/include/c++/15.2.1/bits/atomic_base.h:
 
 /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/ia32intrin.h:
 
+/usr/include/semaphore.h:
+
 /usr/include/c++/15.2.1/bits/atomic_wait.h:
 
-/home/none/CTensor/src/core/opsmp.h:
-
-/usr/include/c++/15.2.1/deque:
+/home/none/CTensor/src/dashboard/dashboard.h:
 
 /usr/include/c++/15.2.1/bit:
 
@@ -1272,6 +1320,8 @@ libmyproject.a:
 /usr/include/bits/mathcalls-helper-functions.h:
 
 /usr/include/c++/15.2.1/bits/charconv.h:
+
+/usr/include/c++/15.2.1/bits/chrono.h:
 
 /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/tbmintrin.h:
 
@@ -1292,6 +1342,12 @@ libmyproject.a:
 /usr/include/c++/15.2.1/bits/deque.tcc:
 
 /usr/include/c++/15.2.1/bits/erase_if.h:
+
+/usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/avx10_2mediaintrin.h:
+
+/usr/include/c++/15.2.1/debug/assertions.h:
+
+/usr/include/c++/15.2.1/bits/shared_ptr_base.h:
 
 /usr/include/c++/15.2.1/vector:
 
@@ -1322,6 +1378,8 @@ libmyproject.a:
 /usr/include/c++/15.2.1/bits/locale_classes.h:
 
 /usr/include/c++/15.2.1/bits/locale_conv.h:
+
+/usr/include/c++/15.2.1/semaphore:
 
 /usr/include/c++/15.2.1/bits/locale_facets.h:
 
@@ -1383,6 +1441,10 @@ libmyproject.a:
 
 /usr/include/c++/15.2.1/bits/random.h:
 
+/usr/include/c++/15.2.1/ext/type_traits.h:
+
+/usr/include/c++/15.2.1/bits/this_thread_sleep.h:
+
 /usr/include/c++/15.2.1/bits/random.tcc:
 
 /usr/include/c++/15.2.1/x86_64-pc-linux-gnu/bits/c++allocator.h:
@@ -1395,6 +1457,10 @@ libmyproject.a:
 
 /usr/include/c++/15.2.1/bits/ranges_uninitialized.h:
 
+/usr/include/c++/15.2.1/bits/semaphore_base.h:
+
+/usr/include/c++/15.2.1/bits/std_function.h:
+
 /usr/include/sys/single_threaded.h:
 
 /usr/include/c++/15.2.1/bits/shared_ptr.h:
@@ -1406,8 +1472,6 @@ libmyproject.a:
 /usr/include/c++/15.2.1/bits/iterator_concepts.h:
 
 /usr/include/c++/15.2.1/bits/std_abs.h:
-
-/usr/include/c++/15.2.1/bits/std_function.h:
 
 /usr/include/c++/15.2.1/bits/stl_deque.h:
 
@@ -1434,16 +1498,6 @@ libmyproject.a:
 /usr/include/asm-generic/errno.h:
 
 /usr/include/c++/15.2.1/bits/stl_vector.h:
-
-/usr/include/asm-generic/bitsperlong.h:
-
-/usr/include/c++/15.2.1/bits/ranges_util.h:
-
-/usr/include/c++/15.2.1/bits/stl_heap.h:
-
-/usr/include/asm-generic/types.h:
-
-/usr/include/c++/15.2.1/exception:
 
 /usr/include/c++/15.2.1/bits/streambuf_iterator.h:
 
@@ -1494,15 +1548,3 @@ libmyproject.a:
 /usr/include/c++/15.2.1/cstddef:
 
 /usr/include/c++/15.2.1/cstdint:
-
-/usr/include/c++/15.2.1/cstring:
-
-/usr/include/bits/timex.h:
-
-/usr/include/c++/15.2.1/ctime:
-
-/usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/avx10_2mediaintrin.h:
-
-/usr/include/c++/15.2.1/bits/shared_ptr_base.h:
-
-/usr/include/c++/15.2.1/debug/assertions.h:

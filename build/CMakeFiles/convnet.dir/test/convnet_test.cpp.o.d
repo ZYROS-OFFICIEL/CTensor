@@ -395,6 +395,14 @@ CMakeFiles/convnet.dir/test/convnet_test.cpp.o: \
  /usr/include/c++/15.2.1/bits/random.h \
  /usr/include/c++/15.2.1/x86_64-pc-linux-gnu/bits/opt_random.h \
  /usr/include/c++/15.2.1/bits/random.tcc \
+ /home/none/CTensor/src/dashboard/dashboard.h \
+ /usr/include/c++/15.2.1/thread /usr/include/c++/15.2.1/stop_token \
+ /usr/include/c++/15.2.1/bits/std_thread.h \
+ /usr/include/c++/15.2.1/semaphore \
+ /usr/include/c++/15.2.1/bits/semaphore_base.h \
+ /usr/include/c++/15.2.1/bits/atomic_timed_wait.h \
+ /usr/include/c++/15.2.1/bits/this_thread_sleep.h /usr/include/sys/time.h \
+ /usr/include/semaphore.h /usr/include/bits/semaphore.h \
  /home/none/CTensor/src/neuralnet/training_utils.h \
  /home/none/CTensor/src/neuralnet/batchnorm/batchnorm.h \
  /home/none/CTensor/src/neuralnet/conv/conv.h \

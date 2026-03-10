@@ -4,7 +4,7 @@
 # compile CXX with /usr/bin/c++
 CXX_DEFINES = 
 
-CXX_INCLUDES = -I/home/none/CTensor/src -I/home/none/CTensor/src/core -I/home/none/CTensor/src/cpu/AVX2 -I/home/none/CTensor/src/cpu/AVX512 -I/home/none/CTensor/src/neuralnet -I/home/none/CTensor/src/neuralnet/conv -I/home/none/CTensor/src/neuralnet/dataset -I/home/none/CTensor/src/neuralnet/pooling -I/home/none/CTensor/src/neuralnet/dropout -I/home/none/CTensor/src/neuralnet/dataloader -I/home/none/CTensor/src/neuralnet/batchnorm -I/home/none/CTensor/src/neuralnet/weights
+CXX_INCLUDES = -I/home/none/CTensor/src -I/home/none/CTensor/src/core -I/home/none/CTensor/src/cpu/AVX2 -I/home/none/CTensor/src/cpu/AVX512 -I/home/none/CTensor/src/neuralnet -I/home/none/CTensor/src/neuralnet/conv -I/home/none/CTensor/src/neuralnet/dataset -I/home/none/CTensor/src/neuralnet/pooling -I/home/none/CTensor/src/neuralnet/dropout -I/home/none/CTensor/src/neuralnet/dataloader -I/home/none/CTensor/src/neuralnet/batchnorm -I/home/none/CTensor/src/neuralnet/weights -I/home/none/CTensor/src/dashboard
 
 CXX_FLAGS = -std=gnu++20
 
