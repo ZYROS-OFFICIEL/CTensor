@@ -2,6 +2,7 @@
 #include "module.h"
 #include <vector>
 #include "neuralnet/dataloader/dataloader.h" 
+#include "dashboard/dashboard.h"
 #include <cstring>
 #include <cmath>
 #include <iostream>
@@ -560,7 +561,7 @@ double evaluate(ModelType& model, LoaderType& loader) {
     int correct = 0;
     size_t total_samples = 0;
     int batch_count = 0;
-    
+    start_dashboard_server();
     loader.reset(); 
 
     while(true) {
@@ -597,7 +598,12 @@ double evaluate(ModelType& model, LoaderType& loader) {
         total_samples += batch;
         batch_count++;
         
-        if (batch_count % 50 == 0) std::cout << "." << std::flush;
+        if (batch_count % 50 == 0) {
+            std::cout << "." << std::flush;
+            double current_avg_loss = total_loss / batch_count;
+            double current_accuracy = 100.0 * correct / total_samples;
+            api_log_metrics(1, total_samples, current_avg_loss, current_accuracy);
+        }
     }
     
     double avg_loss = (batch_count > 0) ? total_loss / batch_count : 0.0;
@@ -605,7 +611,7 @@ double evaluate(ModelType& model, LoaderType& loader) {
 
     std::cout << "\nTest Set: Avg Loss: " << avg_loss << ", Accuracy: " << correct << "/" << total_samples 
               << " (" << std::fixed << std::setprecision(2) << accuracy << "%)\n";
-              
+    api_log_metrics(1,total_samples,avg_loss,accuracy);
     return accuracy;
 }
 
