@@ -17,6 +17,7 @@ set(PROJECT_INCLUDES
     src/neuralnet/dataloader
     src/neuralnet/batchnorm
     src/neuralnet/weights
+    src/dashboard
 )
 
 # --------------------------------------------------
@@ -100,6 +101,7 @@ if (MYPROJECT_BUILD_TESTS)
     add_executable(convnet test/convnet_test.cpp)
     add_executable(ConvNet test/train_conv.cpp)
     add_executable(InfConvNet test/inf_conv.cpp)
+
     target_link_libraries(app PRIVATE myproject)
     target_link_libraries(testmnist PRIVATE myproject)
     target_link_libraries(trainmnist PRIVATE myproject)
