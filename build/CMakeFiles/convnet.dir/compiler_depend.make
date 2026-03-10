@@ -10,6 +10,7 @@ CMakeFiles/convnet.dir/test/convnet_test.cpp.o: /home/none/CTensor/test/convnet_
   /home/none/CTensor/src/core/ops_dispatch.h \
   /home/none/CTensor/src/core/opsmp.h \
   /home/none/CTensor/src/core/tensor.h \
+  /home/none/CTensor/src/dashboard/dashboard.h \
   /home/none/CTensor/src/neuralnet.h \
   /home/none/CTensor/src/neuralnet/Relu.h \
   /home/none/CTensor/src/neuralnet/batchnorm/batchnorm.h \
@@ -76,6 +77,7 @@ CMakeFiles/convnet.dir/test/convnet_test.cpp.o: /home/none/CTensor/test/convnet_
   /usr/include/bits/pthreadtypes.h \
   /usr/include/bits/sched.h \
   /usr/include/bits/select.h \
+  /usr/include/bits/semaphore.h \
   /usr/include/bits/setjmp.h \
   /usr/include/bits/stdint-intn.h \
   /usr/include/bits/stdint-least.h \
@@ -138,6 +140,7 @@ CMakeFiles/convnet.dir/test/convnet_test.cpp.o: /home/none/CTensor/test/convnet_
   /usr/include/c++/15.2.1/bits/allocator.h \
   /usr/include/c++/15.2.1/bits/atomic_base.h \
   /usr/include/c++/15.2.1/bits/atomic_lockfree_defines.h \
+  /usr/include/c++/15.2.1/bits/atomic_timed_wait.h \
   /usr/include/c++/15.2.1/bits/atomic_wait.h \
   /usr/include/c++/15.2.1/bits/basic_ios.h \
   /usr/include/c++/15.2.1/bits/basic_ios.tcc \
@@ -204,6 +207,7 @@ CMakeFiles/convnet.dir/test/convnet_test.cpp.o: /home/none/CTensor/test/convnet_
   /usr/include/c++/15.2.1/bits/ranges_util.h \
   /usr/include/c++/15.2.1/bits/refwrap.h \
   /usr/include/c++/15.2.1/bits/requires_hosted.h \
+  /usr/include/c++/15.2.1/bits/semaphore_base.h \
   /usr/include/c++/15.2.1/bits/shared_ptr.h \
   /usr/include/c++/15.2.1/bits/shared_ptr_atomic.h \
   /usr/include/c++/15.2.1/bits/shared_ptr_base.h \
@@ -212,6 +216,7 @@ CMakeFiles/convnet.dir/test/convnet_test.cpp.o: /home/none/CTensor/test/convnet_
   /usr/include/c++/15.2.1/bits/std_abs.h \
   /usr/include/c++/15.2.1/bits/std_function.h \
   /usr/include/c++/15.2.1/bits/std_mutex.h \
+  /usr/include/c++/15.2.1/bits/std_thread.h \
   /usr/include/c++/15.2.1/bits/stl_algo.h \
   /usr/include/c++/15.2.1/bits/stl_algobase.h \
   /usr/include/c++/15.2.1/bits/stl_bvector.h \
@@ -236,6 +241,7 @@ CMakeFiles/convnet.dir/test/convnet_test.cpp.o: /home/none/CTensor/test/convnet_
   /usr/include/c++/15.2.1/bits/streambuf_iterator.h \
   /usr/include/c++/15.2.1/bits/string_view.tcc \
   /usr/include/c++/15.2.1/bits/stringfwd.h \
+  /usr/include/c++/15.2.1/bits/this_thread_sleep.h \
   /usr/include/c++/15.2.1/bits/unicode-data.h \
   /usr/include/c++/15.2.1/bits/unicode.h \
   /usr/include/c++/15.2.1/bits/uniform_int_dist.h \
@@ -298,16 +304,19 @@ CMakeFiles/convnet.dir/test/convnet_test.cpp.o: /home/none/CTensor/test/convnet_
   /usr/include/c++/15.2.1/pstl/pstl_config.h \
   /usr/include/c++/15.2.1/random \
   /usr/include/c++/15.2.1/ratio \
+  /usr/include/c++/15.2.1/semaphore \
   /usr/include/c++/15.2.1/set \
   /usr/include/c++/15.2.1/span \
   /usr/include/c++/15.2.1/sstream \
   /usr/include/c++/15.2.1/stack \
   /usr/include/c++/15.2.1/stdexcept \
   /usr/include/c++/15.2.1/stdlib.h \
+  /usr/include/c++/15.2.1/stop_token \
   /usr/include/c++/15.2.1/streambuf \
   /usr/include/c++/15.2.1/string \
   /usr/include/c++/15.2.1/string_view \
   /usr/include/c++/15.2.1/system_error \
+  /usr/include/c++/15.2.1/thread \
   /usr/include/c++/15.2.1/tr1/bessel_function.tcc \
   /usr/include/c++/15.2.1/tr1/beta_function.tcc \
   /usr/include/c++/15.2.1/tr1/ell_integral.tcc \
@@ -361,6 +370,7 @@ CMakeFiles/convnet.dir/test/convnet_test.cpp.o: /home/none/CTensor/test/convnet_
   /usr/include/math.h \
   /usr/include/pthread.h \
   /usr/include/sched.h \
+  /usr/include/semaphore.h \
   /usr/include/stdc-predef.h \
   /usr/include/stdint.h \
   /usr/include/stdio.h \
@@ -371,6 +381,7 @@ CMakeFiles/convnet.dir/test/convnet_test.cpp.o: /home/none/CTensor/test/convnet_
   /usr/include/sys/select.h \
   /usr/include/sys/single_threaded.h \
   /usr/include/sys/syscall.h \
+  /usr/include/sys/time.h \
   /usr/include/sys/types.h \
   /usr/include/syscall.h \
   /usr/include/time.h \
@@ -580,8 +591,6 @@ CMakeFiles/convnet.dir/test/convnet_test.cpp.o:
 
 /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/prfchwintrin.h:
 
-/usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/prfchiintrin.h:
-
 /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/pmmintrin.h:
 
 /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/omp.h:
@@ -595,8 +604,6 @@ CMakeFiles/convnet.dir/test/convnet_test.cpp.o:
 /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/lwpintrin.h:
 
 /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/fxsrintrin.h:
-
-/usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/fmaintrin.h:
 
 /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/f16cintrin.h:
 
@@ -661,6 +668,8 @@ CMakeFiles/convnet.dir/test/convnet_test.cpp.o:
 /usr/include/syscall.h:
 
 /usr/include/sys/types.h:
+
+/usr/include/sys/time.h:
 
 /usr/include/sys/cdefs.h:
 
@@ -740,6 +749,10 @@ CMakeFiles/convnet.dir/test/convnet_test.cpp.o:
 
 /usr/include/c++/15.2.1/tr1/bessel_function.tcc:
 
+/usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/prfchiintrin.h:
+
+/usr/include/c++/15.2.1/thread:
+
 /usr/include/c++/15.2.1/string_view:
 
 /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/movdirintrin.h:
@@ -802,8 +815,6 @@ CMakeFiles/convnet.dir/test/convnet_test.cpp.o:
 
 /usr/include/c++/15.2.1/fstream:
 
-/usr/include/c++/15.2.1/ext/type_traits.h:
-
 /usr/include/c++/15.2.1/ext/string_conversions.h:
 
 /usr/include/c++/15.2.1/locale:
@@ -813,6 +824,28 @@ CMakeFiles/convnet.dir/test/convnet_test.cpp.o:
 /usr/include/c++/15.2.1/cstring:
 
 /usr/include/c++/15.2.1/cstdlib:
+
+/usr/include/c++/15.2.1/cstdio:
+
+/usr/include/c++/15.2.1/cstdint:
+
+/usr/lib/libgcc_s.so:
+
+/usr/include/c++/15.2.1/cstddef:
+
+/usr/include/c++/15.2.1/concepts:
+
+/usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/avx512vlintrin.h:
+
+/usr/include/c++/15.2.1/cwctype:
+
+/usr/include/c++/15.2.1/compare:
+
+/usr/include/stdint.h:
+
+/usr/include/endian.h:
+
+/usr/include/c++/15.2.1/cmath:
 
 /usr/include/c++/15.2.1/algorithm:
 
@@ -831,10 +864,6 @@ CMakeFiles/convnet.dir/test/convnet_test.cpp.o:
 /usr/include/bits/wordsize.h:
 
 /usr/include/bits/timesize.h:
-
-/usr/include/bits/types/wint_t.h:
-
-/usr/include/c++/15.2.1/bits/memoryfwd.h:
 
 /usr/include/c++/15.2.1/bits/stl_stack.h:
 
@@ -859,6 +888,8 @@ libmyproject.a:
 /usr/include/bits/types/struct_timespec.h:
 
 /usr/include/bits/struct_rwlock.h:
+
+/usr/include/c++/15.2.1/stop_token:
 
 /usr/include/bits/types/locale_t.h:
 
@@ -1002,6 +1033,18 @@ libmyproject.a:
 
 /usr/include/bits/local_lim.h:
 
+/usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/avxintrin.h:
+
+/usr/include/bits/libm-simd-decl-stubs.h:
+
+/usr/include/c++/15.2.1/bits/basic_ios.tcc:
+
+/usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/gfniintrin.h:
+
+/usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/amxtf32intrin.h:
+
+/usr/include/c++/15.2.1/cerrno:
+
 /usr/include/c++/15.2.1/ctime:
 
 /usr/include/bits/timex.h:
@@ -1064,6 +1107,18 @@ libmyproject.a:
 
 /home/none/CTensor/src/core.h:
 
+/usr/include/bits/types/wint_t.h:
+
+/usr/include/c++/15.2.1/bits/memoryfwd.h:
+
+/usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/fmaintrin.h:
+
+/usr/include/bits/semaphore.h:
+
+/home/none/CTensor/src/core/autograd.h:
+
+/usr/include/bits/types/mbstate_t.h:
+
 /usr/include/c++/15.2.1/bits/ostream.h:
 
 /usr/include/asm/unistd.h:
@@ -1075,14 +1130,6 @@ libmyproject.a:
 /usr/include/bits/waitflags.h:
 
 /usr/include/c++/15.2.1/bits/stl_pair.h:
-
-/home/none/CTensor/src/core/autograd.h:
-
-/usr/include/bits/types/mbstate_t.h:
-
-/usr/include/c++/15.2.1/format:
-
-/usr/include/c++/15.2.1/atomic:
 
 /usr/include/bits/floatn.h:
 
@@ -1188,15 +1235,11 @@ libmyproject.a:
 
 /usr/include/asm/posix_types_64.h:
 
-/usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/avx512vlintrin.h:
-
-/usr/include/c++/15.2.1/cwctype:
-
-/usr/include/c++/15.2.1/compare:
-
 /usr/include/bits/time.h:
 
 /usr/include/asm/posix_types.h:
+
+/usr/include/c++/15.2.1/bits/atomic_timed_wait.h:
 
 /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/avxneconvertintrin.h:
 
@@ -1224,19 +1267,9 @@ libmyproject.a:
 
 /usr/include/c++/15.2.1/bits/std_mutex.h:
 
-/usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/avxintrin.h:
-
-/usr/include/bits/libm-simd-decl-stubs.h:
-
-/usr/include/c++/15.2.1/bits/basic_ios.tcc:
-
-/usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/gfniintrin.h:
-
-/usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/amxtf32intrin.h:
-
-/usr/include/c++/15.2.1/cerrno:
-
 /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/sm4intrin.h:
+
+/usr/include/c++/15.2.1/bits/std_thread.h:
 
 /usr/include/bits/types/struct_FILE.h:
 
@@ -1274,6 +1307,10 @@ libmyproject.a:
 
 /usr/include/bits/libc-header-start.h:
 
+/usr/include/c++/15.2.1/format:
+
+/usr/include/c++/15.2.1/atomic:
+
 /usr/include/c++/15.2.1/backward/auto_ptr.h:
 
 /usr/include/c++/15.2.1/cctype:
@@ -1298,7 +1335,11 @@ libmyproject.a:
 
 /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/ia32intrin.h:
 
+/usr/include/semaphore.h:
+
 /usr/include/c++/15.2.1/bits/atomic_wait.h:
+
+/home/none/CTensor/src/dashboard/dashboard.h:
 
 /usr/include/c++/15.2.1/bit:
 
@@ -1366,13 +1407,13 @@ libmyproject.a:
 
 /usr/include/c++/15.2.1/bits/istream.tcc:
 
-/usr/include/c++/15.2.1/cstdio:
-
 /usr/include/alloca.h:
 
 /usr/include/c++/15.2.1/bits/locale_classes.h:
 
 /usr/include/c++/15.2.1/bits/locale_conv.h:
+
+/usr/include/c++/15.2.1/semaphore:
 
 /usr/include/c++/15.2.1/bits/locale_facets.h:
 
@@ -1438,6 +1479,10 @@ libmyproject.a:
 
 /usr/include/c++/15.2.1/bits/random.h:
 
+/usr/include/c++/15.2.1/ext/type_traits.h:
+
+/usr/include/c++/15.2.1/bits/this_thread_sleep.h:
+
 /usr/include/c++/15.2.1/bits/random.tcc:
 
 /usr/include/c++/15.2.1/x86_64-pc-linux-gnu/bits/c++allocator.h:
@@ -1450,6 +1495,10 @@ libmyproject.a:
 
 /usr/include/c++/15.2.1/bits/ranges_uninitialized.h:
 
+/usr/include/c++/15.2.1/bits/semaphore_base.h:
+
+/usr/include/c++/15.2.1/bits/std_function.h:
+
 /usr/include/sys/single_threaded.h:
 
 /usr/include/c++/15.2.1/bits/shared_ptr.h:
@@ -1461,8 +1510,6 @@ libmyproject.a:
 /usr/include/c++/15.2.1/bits/iterator_concepts.h:
 
 /usr/include/c++/15.2.1/bits/std_abs.h:
-
-/usr/include/c++/15.2.1/bits/std_function.h:
 
 /usr/include/c++/15.2.1/bits/stl_deque.h:
 
@@ -1531,17 +1578,3 @@ libmyproject.a:
 /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/avxifmaintrin.h:
 
 /usr/include/c++/15.2.1/clocale:
-
-/usr/include/stdint.h:
-
-/usr/include/endian.h:
-
-/usr/include/c++/15.2.1/cmath:
-
-/usr/include/c++/15.2.1/concepts:
-
-/usr/lib/libgcc_s.so:
-
-/usr/include/c++/15.2.1/cstddef:
-
-/usr/include/c++/15.2.1/cstdint:
