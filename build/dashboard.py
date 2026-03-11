@@ -3,9 +3,13 @@ import socketserver
 import json
 import os
 import argparse
+from collections import defaultdict
 
-# In-memory storage for our training metrics
-training_data = []
+# Store metrics grouped by tag
+# Format: {"Loss/Train": [{"step": 1, "value": 0.5}, ...], "Accuracy": [...]}
+training_data = defaultdict(list)
+# Keep track of the latest values to show in the UI sidebar/header
+latest_stats = {}
 
 class DashboardHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
@@ -20,7 +24,13 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self.send_header('Content-type', 'application/json')
             self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
             self.end_headers()
-            self.wfile.write(json.dumps(training_data).encode('utf-8'))
+            
+            # Send both the arrays and the latest snapshots
+            response_payload = {
+                "metrics": training_data,
+                "latest": latest_stats
+            }
+            self.wfile.write(json.dumps(response_payload).encode('utf-8'))
             
         else:
             return super().do_GET()
@@ -34,9 +44,16 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 try:
                     # Parse the JSON from C++
                     payload = json.loads(post_data.decode('utf-8'))
-                    training_data.append(payload)
                     
-                    print(f"Received -> Epoch: {payload['epoch']}, Loss: {payload['loss']:.4f}, Acc: {payload['acc']:.2f}%")
+                    tag = payload.get('tag', 'Metric')
+                    step = payload.get('step', 0)
+                    value = payload.get('value', 0.0)
+
+                    # Append to specific tag history
+                    training_data[tag].append({"step": step, "value": value})
+                    latest_stats[tag] = value
+                    
+                    print(f"Logged -> [{tag}] Step: {step}, Value: {value:.4f}")
                     
                     self.send_response(200)
                     self.send_header('Content-type', 'application/json')
@@ -54,18 +71,16 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
 
 if __name__ == "__main__":
-    # Set up argument parsing for the port
-    parser = argparse.ArgumentParser(description="Live Training Dashboard Server")
+    parser = argparse.ArgumentParser(description="CTBoard-Lite Server")
     parser.add_argument("-p", "--port", type=int, default=8080, help="Port to run the server on (default: 8080)")
     args = parser.parse_args()
     
     PORT = args.port
 
-    # Ensure dashboard.html exists in the same directory
     if not os.path.exists('dashboard.html'):
         print("Warning: dashboard.html not found in the current directory!")
         
     with socketserver.TCPServer(("", PORT), DashboardHandler) as httpd:
-        print(f"🚀 Training Dashboard API listening at http://localhost:{PORT}")
-        print("Waiting for C++ data...")
+        print(f"🚀 CTBoard-Lite API listening at http://localhost:{PORT}")
+        print("Waiting for C++ scalar data...")
         httpd.serve_forever()
