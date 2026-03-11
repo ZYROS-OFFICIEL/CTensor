@@ -602,7 +602,7 @@ double evaluate(ModelType& model, LoaderType& loader) {
             std::cout << "." << std::flush;
             double current_avg_loss = total_loss / batch_count;
             double current_accuracy = 100.0 * correct / total_samples;
-            api_log_metrics(1, total_samples, current_avg_loss, current_accuracy);
+            log_metrics(1, total_samples, current_avg_loss, current_accuracy);
         }
     }
     
@@ -611,7 +611,7 @@ double evaluate(ModelType& model, LoaderType& loader) {
 
     std::cout << "\nTest Set: Avg Loss: " << avg_loss << ", Accuracy: " << correct << "/" << total_samples 
               << " (" << std::fixed << std::setprecision(2) << accuracy << "%)\n";
-    api_log_metrics(1,total_samples,avg_loss,accuracy);
+    log_metrics(1,total_samples,avg_loss,accuracy);
     return accuracy;
 }
 
