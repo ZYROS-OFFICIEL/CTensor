@@ -47,3 +47,35 @@ tensor.print_shape()
 
 ---
 
+## Data Type (`dtype`)
+
+**Definition**
+
+Specifies the underlying numeric type of the tensor elements.
+
+Examples:
+
+* `Float32`
+* `Int32`
+* `Bool`
+
+**Access**
+
+```cpp
+tensor._dtype()
+```
+
+Returns:
+
+```
+DType
+```
+
+To get the **byte size of a single element**:
+
+```cpp
+tensor.dtype_bytes()
+```
+
+---
+
