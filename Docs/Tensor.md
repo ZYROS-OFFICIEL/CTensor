@@ -79,3 +79,28 @@ tensor.dtype_bytes()
 
 ---
 
+## Total Elements (`numel`)
+
+**Definition**
+
+The total number of scalar elements contained in the tensor.
+
+This is calculated as:
+
+```
+product of all dimensions in the shape
+```
+
+**Access**
+
+```cpp
+tensor.numel()
+```
+
+Returns:
+
+```
+size_t
+```
+
+---
