@@ -104,3 +104,28 @@ size_t
 ```
 
 ---
+
+## Device (`device`)
+
+**Definition**
+
+Specifies the hardware where the tensor's memory is allocated.
+
+Examples:
+
+* `CPU`
+* `GPU`
+
+**Access**
+
+```cpp
+tensor.device()
+```
+
+Returns:
+
+```
+Device
+```
+
+---
