@@ -129,3 +129,61 @@ Device
 ```
 
 ---
+
+## Requires Gradient (`requires_grad`)
+
+**Definition**
+
+A boolean flag that determines whether the **Autograd engine** should track operations performed on this tensor in order to compute gradients during `.backward()`.
+
+**Access**
+
+```cpp
+tensor.requires_grad()
+```
+
+Returns:
+
+```
+bool
+```
+
+Modify it in-place:
+
+```cpp
+tensor.requires_grad_(true)
+tensor.requires_grad_(false)
+```
+
+---
+
+## Contiguity (`is_contiguous`)
+
+**Definition**
+
+Indicates whether the tensor's data is stored **densely in memory using standard C-order (row-major)** without gaps.
+
+Operations such as:
+
+* **permuting**
+* **slicing**
+
+may produce **non-contiguous tensors**.
+
+**Access**
+
+```cpp
+tensor.is_contiguous()
+```
+
+Returns:
+
+```
+bool
+```
+
+To force the tensor to become contiguous in memory:
+
+```cpp
+tensor.contiguous()
+```
