@@ -18,4 +18,32 @@ Below are the primary metadata properties and how to access them via the `Tensor
 
 ---
 
+## Shape (`shape`)
+
+**Definition**
+
+The size of the tensor along each of its dimensions.
+
+Example:  
+A 2D matrix might have a shape of `[3, 4]`.
+
+**Access**
+
+```cpp
+tensor.shape()
+````
+
+Returns:
+
+```
+std::vector<size_t>
+```
+
+You can also print it directly using:
+
+```cpp
+tensor.print_shape()
+```
+
+---
 
