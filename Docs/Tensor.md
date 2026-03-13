@@ -253,3 +253,24 @@ Tensor
 ```
 
 ---
+
+## Arange (`arange`)
+
+**Definition**
+
+Returns a 1-D tensor with values from the interval `[start, end)` separated by a common difference `step`.
+
+**Usage**
+
+```cpp
+Tensor::arange(0.0, 10.0, 1.0, DType::Float32)
+```
+
+Returns:
+
+```
+Tensor
+```
+
+---
+
