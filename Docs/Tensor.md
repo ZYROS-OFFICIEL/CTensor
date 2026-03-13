@@ -187,3 +187,29 @@ To force the tensor to become contiguous in memory:
 ```cpp
 tensor.contiguous()
 ```
+
+# Initialization & Factory Methods
+
+These are static methods used to easily create new tensors from scratch.
+
+---
+
+## Zeros (`zeros`)
+
+**Definition**
+
+Creates a new tensor of the specified shape filled entirely with zeros.
+
+**Usage**
+
+```cpp
+Tensor::zeros({3, 4}, DType::Float32)
+```
+
+Returns:
+
+```
+Tensor
+```
+
+---
