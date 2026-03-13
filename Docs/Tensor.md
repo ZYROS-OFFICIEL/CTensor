@@ -418,3 +418,29 @@ Returns:
 ```
 Tensor
 ```
+
+---
+
+# Memory & Graph Management
+
+---
+
+## Clone (`clone`)
+
+**Definition**
+
+Performs a **deep copy** of the tensor's memory. It guarantees that the returned tensor is packed tightly into a C-contiguous layout.
+
+**Usage**
+
+```cpp
+tensor.clone()
+```
+
+Returns:
+
+```
+Tensor
+```
+
+---
