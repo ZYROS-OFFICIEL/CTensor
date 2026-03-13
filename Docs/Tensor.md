@@ -528,3 +528,47 @@ Tensor
 ```
 
 ---
+
+# Element Access & Indexing
+
+---
+
+## Indexing (`operator[]`)
+
+**Definition**
+
+Enables intuitive multi-dimensional indexing. Uses a proxy pattern so no data is copied during access.
+
+**Usage**
+
+```cpp
+double val = tensor[1][2];
+tensor[0][0] = 5.0;
+```
+
+Returns:
+
+```
+Proxy (assignable) or double (readable)
+```
+
+---
+
+## Item (`item`)
+
+**Definition**
+
+Extracts the single scalar value from a 1-element tensor, casting it safely to a standard C++ type.
+
+**Usage**
+
+```cpp
+float val = tensor.item<float>()
+```
+
+Returns:
+
+```
+T (The requested template type)
+```
+
