@@ -465,3 +465,27 @@ Tensor
 
 ---
 
+# Autograd & Gradients
+
+---
+
+## Backward (`backward`)
+
+**Definition**
+
+Triggers the reverse-mode auto-differentiation engine. Computes and accumulates gradients for this tensor and all its dependencies.
+
+**Usage**
+
+```cpp
+tensor.backward()
+```
+
+Returns:
+
+```
+void
+```
+
+---
+
