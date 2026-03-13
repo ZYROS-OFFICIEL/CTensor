@@ -294,3 +294,127 @@ Tensor
 ```
 
 ---
+
+# Shape Manipulation & Layout
+
+Methods for changing how the underlying memory is interpreted mathematically.
+
+---
+
+## Reshape (`reshape`)
+
+**Definition**
+
+Changes the shape of the tensor without copying data, if possible. The total number of elements must remain the same.
+
+**Usage**
+
+```cpp
+tensor.reshape({2, 6})
+```
+
+Returns:
+
+```
+Tensor
+```
+
+---
+
+## Permute (`permute`)
+
+**Definition**
+
+Rearranges the dimensions of the tensor (e.g., matrix transpose). This shuffles the `shape` and `strides` without copying memory.
+
+**Usage**
+
+```cpp
+tensor.permute({1, 0})
+```
+
+Returns:
+
+```
+Tensor
+```
+
+---
+
+## In-Place Transpose (`t_`)
+
+**Definition**
+
+Performs a fast, in-place 2D matrix transpose. Only supports 2D tensors.
+
+**Usage**
+
+```cpp
+tensor.t_()
+```
+
+Returns:
+
+```
+Tensor&
+```
+
+---
+
+## Squeeze (`squeeze`)
+
+**Definition**
+
+Removes all dimensions of size 1 from the tensor's shape. (e.g., `[1, 3, 1, 4]` becomes `[3, 4]`).
+
+**Usage**
+
+```cpp
+tensor.squeeze()
+```
+
+Returns:
+
+```
+Tensor
+```
+
+---
+
+## Unsqueeze (`unsqueeze`)
+
+**Definition**
+
+Inserts a dimension of size 1 at the specified index.
+
+**Usage**
+
+```cpp
+tensor.unsqueeze(0)
+```
+
+Returns:
+
+```
+Tensor
+```
+
+---
+
+## Flatten (`flatten`)
+
+**Definition**
+
+Reshapes the entire tensor into a 1-D array containing all elements.
+
+**Usage**
+
+```cpp
+tensor.flatten()
+```
+
+Returns:
+
+```
+Tensor
+```
