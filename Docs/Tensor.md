@@ -274,3 +274,23 @@ Tensor
 
 ---
 
+## From Vector (`from_vector`)
+
+**Definition**
+
+Creates a tensor by copying data from a standard C++ `std::vector`.
+
+**Usage**
+
+```cpp
+std::vector<double> data = {1.0, 2.0, 3.0, 4.0};
+Tensor::from_vector(data, {2, 2})
+```
+
+Returns:
+
+```
+Tensor
+```
+
+---
