@@ -508,3 +508,23 @@ void
 ```
 
 ---
+
+## Get Gradient (`grad`)
+
+**Definition**
+
+Retrieves the gradient tensor that was accumulated during the `.backward()` pass.
+
+**Usage**
+
+```cpp
+tensor.grad()
+```
+
+Returns:
+
+```
+Tensor
+```
+
+---
