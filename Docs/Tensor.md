@@ -213,3 +213,43 @@ Tensor
 ```
 
 ---
+
+## Ones (`ones`)
+
+**Definition**
+
+Creates a new tensor of the specified shape filled entirely with ones.
+
+**Usage**
+
+```cpp
+Tensor::ones({2, 2}, DType::Float32)
+```
+
+Returns:
+
+```
+Tensor
+```
+
+---
+
+## Random (`rand`)
+
+**Definition**
+
+Creates a new tensor filled with uniformly distributed random numbers between `0.0` and `1.0`.
+
+**Usage**
+
+```cpp
+Tensor::rand({3, 3})
+```
+
+Returns:
+
+```
+Tensor
+```
+
+---
