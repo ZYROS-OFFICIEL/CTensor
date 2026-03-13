@@ -489,3 +489,22 @@ void
 
 ---
 
+## Zero Grad (`zero_grad`)
+
+**Definition**
+
+Clears the gradient accumulation buffer. Necessary before calling `.backward()` in a new training loop so gradients don't double up.
+
+**Usage**
+
+```cpp
+tensor.zero_grad()
+```
+
+Returns:
+
+```
+void
+```
+
+---
