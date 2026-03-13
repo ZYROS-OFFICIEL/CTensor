@@ -444,3 +444,24 @@ Tensor
 ```
 
 ---
+
+## Detach (`detach`)
+
+**Definition**
+
+Creates a new logical view of the SAME physical memory, but breaks the autograd graph by setting `requires_grad` to `false`.
+
+**Usage**
+
+```cpp
+tensor.detach()
+```
+
+Returns:
+
+```
+Tensor
+```
+
+---
+
