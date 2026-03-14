@@ -7,7 +7,6 @@
 void Transforme::normalize_(const std::vector<float>& mean, const std::vector<float>& stdv) {
     // Add the lambda to the pipeline
     pipeline.push_back([mean, stdv](const Tensor& input) -> Tensor {
-        // We assume 'impl' is accessible here (friend class or public member)
         if (!input.impl) throw std::runtime_error("normalize: empty tensor");
 
         Tensor output(input.shape(), input._dtype(), input.impl->requires_grad);
