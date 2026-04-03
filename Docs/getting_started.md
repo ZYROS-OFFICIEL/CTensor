@@ -1,36 +1,56 @@
 # CTensor
-CTensor is a tensor library for different tensor applications although engineered for deep learning.
 
-## Installation 
+**CTensor** is a tensor library for different tensor applications, although engineered primarily for deep learning.
 
-To install CTensor to your machine you should follow these steps:
 
-1. Clone the repo:
-'git clone https://github.com/ZYROS-OFFICIEL/CTensor'
-2. Indicate to cmake the build directory : 
-'cmake -B build'
-3. Build:
-'cmake --build build'
+## Installation
 
-And you are done .Great!
+To install CTensor on your machine, follow these steps:
 
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/ZYROS-OFFICIEL/CTensor
+
+
+2. Indicate to CMake the build directory:
+
+   ```bash
+   cmake -B build
+   ```
+
+3. Build the project:
+
+   ```bash
+   cmake --build build
+   ```
+
+And you are done. Great!
+
+---
 
 ## Core Concepts
 
 If you know PyTorch, you already know CTensor. The library is built around a few familiar namespaces:
 
-torch::nn: Contains neural network layers (Linear, Flatten), activations (relu, sigmoid), and loss functions (CrossEntropyLoss).
+* **`torch::nn`**
+  Contains neural network layers (Linear, Flatten), activations (ReLU, Sigmoid), and loss functions (CrossEntropyLoss).
 
-torch::optim: Contains optimizers like SGD, Adam, AdamW, RMSprop, etc.
+* **`torch::optim`**
+  Contains optimizers like SGD, Adam, AdamW, RMSprop, etc.
 
-torch::DataLoader: A simple Pythonic iterator for batching datasets.
+* **`torch::DataLoader`**
+  A simple Pythonic iterator for batching datasets.
 
-metrics: Easy-to-use metric calculators (e.g., accuracy, mse, f1_score).
+* **`metrics`**
+  Easy-to-use metric calculators (e.g., accuracy, MSE, F1 score).
 
-1. Defining a Model
+---
 
-Creating a neural network is as simple as inheriting from torch::nn::Module. Define your layers as class members and implement the forward pass and operator().
+## Defining a Model
 
+Creating a neural network is as simple as inheriting from `torch::nn::Module`. Define your layers as class members and implement the forward pass and `operator()`.
+
+```cpp
 #include "core.h"
 #include "neuralnet.h"
 
@@ -60,23 +80,32 @@ public:
         return nn::combine_params(fc1, fc2, fc3);
     }
 };
+```
 
+---
 
-2. Loading Data
+## Loading Data
 
 CTensor includes built-in vision dataset loaders and standard transforms.
 
+```cpp
 // 1. Load MNIST from raw bytes
-auto dataset = vision::datasets::MNIST("train-images.idx3-ubyte", "train-labels.idx1-ubyte");
+auto dataset = vision::datasets::MNIST(
+    "train-images.idx3-ubyte",
+    "train-labels.idx1-ubyte"
+);
 
 // 2. Wrap it in a DataLoader (Batch Size 64, Shuffle = True)
 torch::DataLoader train_loader(dataset, 64, true);
+```
 
+---
 
-3. The Training Loop
+## The Training Loop
 
 The training loop looks virtually identical to PyTorch. We use range-based for loops to iterate through the dataloader cleanly.
 
+```cpp
 int main() {
     // Instantiate Model
     MLPNet model;
@@ -112,5 +141,30 @@ int main() {
     checkpoints::save_weights(params, "mnist_weights.bin");
     return 0;
 }
+```
 
-If you want to learn more you can folllow the sources below.
+
+## Learn More
+
+If you want to learn more, you can explore the API reference and documentation below.
+
+---
+
+## API Reference & Documentation
+
+Explore the modular documentation below to learn more about the internals and API of CTensor, structured similarly to standard PyTorch references:
+
+* [Tensors & Metadata](Tensor.md)
+  Learn about the core multi-dimensional array class, metadata (shape, dtype), factory methods, and memory management.
+
+* [Tensor Operations API](Ops.md)
+  Explore the mathematical, logical, and reduction operations available for tensors, as well as C++ operator overloading.
+
+* [Hardware & Devices](Device.md)
+  Device structures, allocations, and CPU/CUDA targeting.
+
+* [Neural Network Module (`torch::nn`)](nn.md)
+  The high-level API for neural network layers, loss functions, parameters, and DataLoaders.
+
+* [Autograd Engine](Autograd.md)
+  Dive into the reverse-mode automatic differentiation engine, gradient buffers, and computation graph nodes.

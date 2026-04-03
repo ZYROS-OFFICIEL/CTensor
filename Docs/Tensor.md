@@ -571,17 +571,3 @@ Returns:
 ```
 T (The requested template type)
 ```
-
-API Reference & Documentation
-
-Explore the modular documentation below to learn more about the internals and API of CTensor, structured similarly to standard PyTorch references:
-
-Tensors & Metadata: Learn about the core multi-dimensional array class, metadata (shape, dtype), factory methods, and memory management.
-
-Tensor Operations API: Explore the mathematical, logical, and reduction operations available for tensors, as well as C++ operator overloading.
-
-Hardware & Devices: Device structures, allocations, and CPU/CUDA targeting.
-
-Neural Network Module (torch::nn): The high-level API for neural network layers, loss functions, parameters, and DataLoaders.
-
-Autograd Engine: Dive into the reverse-mode automatic differentiation engine, gradient buffers, and computation graph nodes.
