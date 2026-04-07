@@ -242,7 +242,51 @@ public:
         ptr_ = nullptr;
     }
 };
+//Memory pool
+//Block struct
+struct Block {
+    void* ptr;
+    size_t size;
+    bool free = true;
+};
 
+class CudaMemoryPool {
+private:
+    std::unordered_map<size_t, std::vector<Block>> pool;
+
+    size_t round_size(size_t n) {
+        return (n + 511) & ~511; 
+    }
+
+public:
+    void* allocate(size_t n) {
+        size_t size = round_size(n);
+        
+        auto& blocks = pool[size];
+        for (auto& block : blocks) {
+            if (block.free) {
+                block.free = false;
+                return block.ptr;
+            }
+        }
+
+        void* ptr;
+        cudaMallocManaged(&ptr, size); 
+        blocks.push_back({ptr, size, false});
+        return ptr;
+    }
+
+    void deallocate(void* ptr, size_t n) {
+        size_t size = round_size(n);
+        auto& blocks = pool[size];
+        for (auto& block : blocks) {
+            if (block.ptr == ptr) {
+                block.free = true; 
+                return;
+            }
+        }
+    }
+};
 
 // STORAGE & INTERNAL IMPLEMENTATION
 
