@@ -5,6 +5,7 @@
 #include <numeric>
 #include <algorithm>
 #include <cstdlib>
+#include <cuda>
 
 // Storage Implementation
 
@@ -26,8 +27,14 @@ std::shared_ptr<Storage> Storage::allocate(size_t n, DType dt, bool requires_gra
         void* ptr = std::calloc(n, dtype_size(dt));
         if (!ptr && n > 0) throw std::runtime_error("Memory allocation failed");
         s->data = std::shared_ptr<void>(ptr, std::free);
+    }else if(dev.type == DeviceType::CUDA){
+        //Allocate in the GPU
+        void* ptr = CudaMemoryPool::allocate(n);
+        s->data = std::shared_ptr<void>(ptr, [](void* p) {
+            CudaMemoryPool::instance().deallocate(p, bytes);
+        });
     }
-    // CUDA allocation logic would branch here
+    
     return s;
 }
 
