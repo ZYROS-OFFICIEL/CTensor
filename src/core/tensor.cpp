@@ -21,14 +21,14 @@ std::shared_ptr<Storage> Storage::allocate(size_t n, DType dt, bool requires_gra
     s->device = dev;
     size_t bytes = n * dtype_size(dt);
     
-    if (dev.type == DeviceType::CPU) {
+    if (dev.type == DeviceType::CUDA) {
         //Allocate in the GPU
         void* ptr = CudaMemoryPool::allocate(bytes);
         s->data = std::shared_ptr<void>(ptr, [](void* p) {
             CudaMemoryPool::instance().deallocate(p, bytes);
         });
 
-    }else if(dev.type == DeviceType::CUDA){
+    }else if(dev.type == DeviceType::CPU){
         // Allocate zero-initialized memory safely.
         // The custom deleter (std::free) ensures memory is freed when the ref-count hits 0.
         void* ptr = std::calloc(n, dtype_size(dt));
