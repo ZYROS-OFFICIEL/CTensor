@@ -271,7 +271,11 @@ public:
         }
 
         void* ptr;
-        cudaMallocManaged(&ptr, size); 
+        if(device.type == DeviceType::CUDA){
+            cudaMalloc(&ptr, size); 
+        }else {
+            ptr = malloc(size)
+        }
         blocks.push_back({ptr, size, false});
         return ptr;
     }
