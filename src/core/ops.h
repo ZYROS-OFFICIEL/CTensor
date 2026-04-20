@@ -3,17 +3,8 @@
 #include <vector>
 #include <string>
 
-// ========================================================================
-//                              OPS NAMESPACE
-// ========================================================================
-// This namespace contains the functional API (e.g., Ops::add(a, b))
-// The dispatcher logic (Device/Type/Arch) will be hidden behind these functions.
-
 namespace Ops {
 
-    // --------------------------------------------------------------------
-    // 1. Binary Math Operations
-    // --------------------------------------------------------------------
     Tensor add(const Tensor& a, const Tensor& b);
     Tensor sub(const Tensor& a, const Tensor& b);
     Tensor mul(const Tensor& a, const Tensor& b);
