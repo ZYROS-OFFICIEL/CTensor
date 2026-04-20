@@ -7,14 +7,7 @@
 #include <cstdlib>
 #include <cuda>
 
-// Storage Implementation
 
-/*
- Allocates raw, untyped memory for the tensor.
- We use std::calloc instead of std::malloc because it automatically 
- zero-initializes the memory. This acts as a nice default and makes 
- functions like `Tensor::zeros` practically free.
- */
 std::shared_ptr<Storage> Storage::allocate(size_t n, DType dt, bool requires_grad, Device dev) {
     auto s = std::make_shared<Storage>();
     s->size = n;
