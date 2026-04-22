@@ -111,7 +111,7 @@ class SmallVector {
 
     void init_heap(size_t reserve) {
         new (heap_buf_) std::vector<T>();
-        hv().reserve(reserve);          
+        hv().reserve(reserve);
         heap_active_ = true;
     }
 
