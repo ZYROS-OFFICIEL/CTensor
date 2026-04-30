@@ -176,6 +176,106 @@ static inline int32_t compute_offset_bytes(size_t lin_idx,
     }
     return offset;
 }
+
+template<typename Func>
+Tensor binary_fused_512(const Tensor& A, const Tensor& B, Func op) {
+    auto as = A.shape(), bs = B.shape();
+    auto os = broadcast_shape(as, bs);
+    size_t n = 1;
+    for (auto s : os) n *= s;
+    Tensor out(os, DType::Float32);
+    const float* ap  = get_ptr<float>(A);
+    const float* bp  = get_ptr<float>(B);
+    float*       op_ = get_ptr<float>(out);
+    auto om  = build_index_multipliers(os);
+    auto ast = shape_to_strides_bytes(as);
+    auto bst = shape_to_strides_bytes(bs);
+    bool ac = A.is_contiguous() && as == os;
+    bool bc = B.is_contiguous() && bs == os;
+    bool as_ = A.numel() == 1;
+    bool bs_ = B.numel() == 1;
+    #pragma omp parallel for schedule(static)
+    for (size_t i = 0; i < n; i += 16) {
+        size_t rem = n - i;
+        __mmask16 k = (rem >= 16) ? 0xFFFF : tail_mask(rem);
+        __m512 va, vb;
+        if      (ac)  va = _mm512_maskz_loadu_ps(k, ap + i);
+        else if (as_) va = _mm512_set1_ps(ap[0]);
+        else {
+            int32_t buf[16] = {};
+            for (int l = 0; l < 16 && (k >> l & 1); ++l)
+                buf[l] = compute_offset_bytes(i + l, os, om, as, ast);
+            va = _mm512_mask_i32gather_ps(ZMM_0_PS, k, _mm512_loadu_si512(buf), ap, 1);
+        }
+        if      (bc)  vb = _mm512_maskz_loadu_ps(k, bp + i);
+        else if (bs_) vb = _mm512_set1_ps(bp[0]);
+        else {
+            int32_t buf[16] = {};
+            for (int l = 0; l < 16 && (k >> l & 1); ++l)
+                buf[l] = compute_offset_bytes(i + l, os, om, bs, bst);
+            vb = _mm512_mask_i32gather_ps(ZMM_0_PS, k, _mm512_loadu_si512(buf), bp, 1);
+        }
+        _mm512_mask_storeu_ps(op_ + i, k, op(va, vb));
+    }
+    return out;
+}
+ 
+template<typename Func>
+Tensor ternary_fused_512(const Tensor& A, const Tensor& B, const Tensor& C, Func op) {
+    auto as = A.shape(), bs = B.shape(), cs = C.shape();
+    auto os = broadcast_shape(broadcast_shape(as, bs), cs);
+    size_t n = 1;
+    for (auto s : os) n *= s;
+    Tensor out(os, DType::Float32);
+    const float* ap  = get_ptr<float>(A);
+    const float* bp  = get_ptr<float>(B);
+    const float* cp  = get_ptr<float>(C);
+    float*       op_ = get_ptr<float>(out);
+    auto om  = build_index_multipliers(os);
+    auto ast = shape_to_strides_bytes(as);
+    auto bst = shape_to_strides_bytes(bs);
+    auto cst = shape_to_strides_bytes(cs);
+    bool ac = A.is_contiguous() && as == os, as_ = A.numel() == 1;
+    bool bc = B.is_contiguous() && bs == os, bs_ = B.numel() == 1;
+    bool cc = C.is_contiguous() && cs == os, cs_ = C.numel() == 1;
+    #pragma omp parallel for schedule(static)
+    for (size_t i = 0; i < n; i += 16) {
+        size_t rem = n - i;
+        __mmask16 k = (rem >= 16) ? 0xFFFF : tail_mask(rem);
+        auto load = [&](const float* ptr, bool contig, bool scalar,
+                        const std::vector<size_t>& shape,
+                        const std::vector<int64_t>& strides) -> __m512 {
+            if (contig)  return _mm512_maskz_loadu_ps(k, ptr + i);
+            if (scalar)  return _mm512_set1_ps(ptr[0]);
+            int32_t buf[16] = {};
+            for (int l = 0; l < 16 && (k >> l & 1); ++l)
+                buf[l] = compute_offset_bytes(i + l, os, om, shape, strides);
+            return _mm512_mask_i32gather_ps(ZMM_0_PS, k, _mm512_loadu_si512(buf), ptr, 1);
+        };
+        __m512 va = load(ap, ac, as_, as, ast);
+        __m512 vb = load(bp, bc, bs_, bs, bst);
+        __m512 vc = load(cp, cc, cs_, cs, cst);
+        _mm512_mask_storeu_ps(op_ + i, k, op(va, vb, vc));
+    }
+    return out;
+}
+ 
+template<typename Func>
+Tensor unary_fused_512(const Tensor& A, Func op) {
+    size_t n = A.numel();
+    Tensor out(A.shape(), DType::Float32);
+    const float* ap  = get_ptr<float>(A);
+    float*       op_ = get_ptr<float>(out);
+    #pragma omp parallel for schedule(static)
+    for (size_t i = 0; i < n; i += 16) {
+        size_t rem = n - i;
+        __mmask16 k = (rem >= 16) ? 0xFFFF : tail_mask(rem);
+        __m512 va = _mm512_maskz_loadu_ps(k, ap + i);
+        _mm512_mask_storeu_ps(op_ + i, k, op(va));
+    }
+    return out;
+}
+ 
 }
  
 #endif
