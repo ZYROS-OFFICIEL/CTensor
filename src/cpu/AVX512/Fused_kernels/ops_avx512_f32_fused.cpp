@@ -275,7 +275,55 @@ Tensor unary_fused_512(const Tensor& A, Func op) {
     }
     return out;
 }
+
+Tensor fma_avx512_f32(const Tensor& a, const Tensor& b, const Tensor& c) {
+    return ternary_fused_512(a, b, c, [](__m512 x, __m512 y, __m512 z) {
+        return _mm512_fmadd_ps(x, y, z);
+    });
+}
  
+Tensor fms_avx512_f32(const Tensor& a, const Tensor& b, const Tensor& c) {
+    return ternary_fused_512(a, b, c, [](__m512 x, __m512 y, __m512 z) {
+        return _mm512_fmsub_ps(x, y, z);
+    });
+}
+ 
+Tensor nfma_avx512_f32(const Tensor& a, const Tensor& b, const Tensor& c) {
+    return ternary_fused_512(a, b, c, [](__m512 x, __m512 y, __m512 z) {
+        return _mm512_fnmadd_ps(x, y, z);
+    });
+}
+ 
+Tensor add_scale_avx512_f32(const Tensor& a, const Tensor& b, float scale) {
+    __m512 vs = _mm512_set1_ps(scale);
+    return binary_fused_512(a, b, [vs](__m512 x, __m512 y) {
+        return _mm512_mul_ps(_mm512_add_ps(x, y), vs);
+    });
+}
+ 
+Tensor add_relu_avx512_f32(const Tensor& a, const Tensor& b) {
+    return binary_fused_512(a, b, [](__m512 x, __m512 y) {
+        return relu512_ps(_mm512_add_ps(x, y));
+    });
+}
+ 
+Tensor add_sigmoid_avx512_f32(const Tensor& a, const Tensor& b) {
+    return binary_fused_512(a, b, [](__m512 x, __m512 y) {
+        return sigmoid512_ps(_mm512_add_ps(x, y));
+    });
+}
+ 
+Tensor add_tanh_avx512_f32(const Tensor& a, const Tensor& b) {
+    return binary_fused_512(a, b, [](__m512 x, __m512 y) {
+        return tanh512_ps(_mm512_add_ps(x, y));
+    });
+}
+ 
+Tensor mul_add_avx512_f32(const Tensor& a, const Tensor& b, const Tensor& c) {
+    return fma_avx512_f32(a, b, c);
+}
+ 
+
 }
  
 #endif
