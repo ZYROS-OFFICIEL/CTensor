@@ -323,6 +323,55 @@ Tensor mul_add_avx512_f32(const Tensor& a, const Tensor& b, const Tensor& c) {
     return fma_avx512_f32(a, b, c);
 }
  
+ 
+Tensor add_exp_avx512_f32(const Tensor& a, const Tensor& b) {
+    return binary_fused_512(a, b, [](__m512 x, __m512 y) {
+        return exp512_ps(_mm512_add_ps(x, y));
+    });
+}
+ 
+Tensor add_ln_avx512_f32(const Tensor& a, const Tensor& b) {
+    return binary_fused_512(a, b, [](__m512 x, __m512 y) {
+        return log512_ps(_mm512_add_ps(x, y));
+    });
+}
+ 
+Tensor exp_neg_avx512_f32(const Tensor& a) {
+    return unary_fused_512(a, [](__m512 x) {
+        return exp512_ps(bitwise_xor(x, _mm512_set1_ps(-0.0f)));
+    });
+}
+ 
+Tensor ln_relu_avx512_f32(const Tensor& a) {
+    return unary_fused_512(a, [](__m512 x) {
+        return log512_ps(_mm512_max_ps(x, ZMM_0_PS));
+    });
+}
+ 
+Tensor sigmoid_ln_avx512_f32(const Tensor& a) {
+    return unary_fused_512(a, [](__m512 x) {
+        return log512_ps(sigmoid512_ps(x));
+    });
+}
+ 
+Tensor silu_avx512_f32(const Tensor& a) {
+    return unary_fused_512(a, [](__m512 x) {
+        return silu512_ps(x);
+    });
+}
+ 
+Tensor gelu_avx512_f32(const Tensor& a) {
+    return unary_fused_512(a, [](__m512 x) {
+        return gelu512_ps(x);
+    });
+}
+ 
+Tensor swiglu_avx512_f32(const Tensor& a, const Tensor& b) {
+    return binary_fused_512(a, b, [](__m512 x, __m512 y) {
+        return _mm512_mul_ps(silu512_ps(x), y);
+    });
+}
+ 
 
 }
  
