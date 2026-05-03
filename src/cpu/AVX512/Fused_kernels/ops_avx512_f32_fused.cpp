@@ -373,6 +373,92 @@ Tensor swiglu_avx512_f32(const Tensor& a, const Tensor& b) {
 }
  
 
+Tensor bias_add_relu_avx512_f32(const Tensor& x, const Tensor& bias) {
+    return add_relu_avx512_f32(x, bias);
+}
+ 
+Tensor bias_add_gelu_avx512_f32(const Tensor& x, const Tensor& bias) {
+    return binary_fused_512(x, bias, [](__m512 a, __m512 b) {
+        return gelu512_ps(_mm512_add_ps(a, b));
+    });
+}
+ 
+Tensor scale_shift_avx512_f32(const Tensor& x, float scale, float shift) {
+    __m512 vs = _mm512_set1_ps(scale);
+    __m512 vb = _mm512_set1_ps(shift);
+    return unary_fused_512(x, [vs, vb](__m512 a) {
+        return _mm512_fmadd_ps(a, vs, vb);
+    });
+}
+ 
+Tensor layer_norm_avx512_f32(const Tensor& x, const Tensor& weight,
+                              const Tensor& bias, float eps) {
+    auto shape = x.shape();
+    if (shape.size() < 1) throw std::runtime_error("layer_norm: need at least 1D");
+ 
+    size_t outer = 1;
+    for (size_t i = 0; i < shape.size() - 1; ++i) outer *= shape[i];
+    size_t D = shape.back();
+ 
+    if (weight.numel() != D || bias.numel() != D)
+        throw std::runtime_error("layer_norm: weight/bias must match last dim");
+ 
+    Tensor out(shape, DType::Float32);
+    const float* xp  = get_ptr<float>(x);
+    const float* wp  = get_ptr<float>(weight);
+    const float* bp  = get_ptr<float>(bias);
+    float*       op_ = get_ptr<float>(out);
+ 
+    #pragma omp parallel for schedule(static)
+    for (size_t row = 0; row < outer; ++row) {
+        const float* xrow = xp  + row * D;
+        float*       orow = op_ + row * D;
+ 
+        __m512 vsum = ZMM_0_PS;
+        size_t i = 0;
+        for (; i + 16 <= D; i += 16)
+            vsum = _mm512_add_ps(vsum, _mm512_loadu_ps(xrow + i));
+        if (i < D) {
+            __mmask16 k = tail_mask(D - i);
+            vsum = _mm512_add_ps(vsum, _mm512_maskz_loadu_ps(k, xrow + i));
+        }
+        float mean = hsum512_ps(vsum) / (float)D;
+        __m512 vmean = _mm512_set1_ps(mean);
+ 
+        __m512 vvar = ZMM_0_PS;
+        i = 0;
+        for (; i + 16 <= D; i += 16) {
+            __m512 diff = _mm512_sub_ps(_mm512_loadu_ps(xrow + i), vmean);
+            vvar = _mm512_fmadd_ps(diff, diff, vvar);
+        }
+        if (i < D) {
+            __mmask16 k = tail_mask(D - i);
+            __m512 diff = _mm512_sub_ps(_mm512_maskz_loadu_ps(k, xrow + i), vmean);
+            vvar = _mm512_fmadd_ps(diff, _mm512_maskz_mov_ps(k, diff), vvar);
+        }
+        float var   = hsum512_ps(vvar) / (float)D;
+        float inv_std = 1.0f / std::sqrt(var + eps);
+        __m512 vinv = _mm512_set1_ps(inv_std);
+ 
+        i = 0;
+        for (; i + 16 <= D; i += 16) {
+            __m512 norm = _mm512_mul_ps(_mm512_sub_ps(_mm512_loadu_ps(xrow + i), vmean), vinv);
+            __m512 w    = _mm512_loadu_ps(wp + i);
+            __m512 b    = _mm512_loadu_ps(bp + i);
+            _mm512_storeu_ps(orow + i, _mm512_fmadd_ps(norm, w, b));
+        }
+        if (i < D) {
+            __mmask16 k = tail_mask(D - i);
+            __m512 norm = _mm512_mul_ps(
+                _mm512_sub_ps(_mm512_maskz_loadu_ps(k, xrow + i), vmean), vinv);
+            __m512 w = _mm512_maskz_loadu_ps(k, wp + i);
+            __m512 b = _mm512_maskz_loadu_ps(k, bp + i);
+            _mm512_mask_storeu_ps(orow + i, k, _mm512_fmadd_ps(norm, w, b));
+        }
+    }
+    return out;
+}
+
 }
  
 #endif
