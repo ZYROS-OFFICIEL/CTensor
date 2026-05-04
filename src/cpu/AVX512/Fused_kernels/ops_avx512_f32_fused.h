@@ -10,21 +10,21 @@
 //    add_relu(a,b) = relu(a+b)
 
 
-Tensor fma_avx512_f32 (const Tensor& a, const Tensor& b, const Tensor& c); 
-Tensor fms_avx512_f32 (const Tensor& a, const Tensor& b, const Tensor& c);
+Tensor fma_avx512_f32(const Tensor& a, const Tensor& b, const Tensor& c); 
+Tensor fms_avx512_f32(const Tensor& a, const Tensor& b, const Tensor& c);
 Tensor nfma_avx512_f32(const Tensor& a, const Tensor& b, const Tensor& c); 
 Tensor add_scale_avx512_f32(const Tensor& a, const Tensor& b, float scale); 
 
-Tensor add_relu_avx512_f32    (const Tensor& a, const Tensor& b);   
-Tensor add_sigmoid_avx512_f32 (const Tensor& a, const Tensor& b);  
-Tensor add_tanh_avx512_f32    (const Tensor& a, const Tensor& b);   
-Tensor mul_add_avx512_f32     (const Tensor& a, const Tensor& b, const Tensor& c); 
-Tensor add_exp_avx512_f32     (const Tensor& a, const Tensor& b);   
-Tensor add_ln_avx512_f32      (const Tensor& a, const Tensor& b);   
+Tensor add_relu_avx512_f32(const Tensor& a, const Tensor& b);   
+Tensor add_sigmoid_avx512_f32(const Tensor& a, const Tensor& b);  
+Tensor add_tanh_avx512_f32(const Tensor& a, const Tensor& b);   
+Tensor mul_add_avx512_f32(const Tensor& a, const Tensor& b, const Tensor& c); 
+Tensor add_exp_avx512_f32(const Tensor& a, const Tensor& b);   
+Tensor add_ln_avx512_f32(const Tensor& a, const Tensor& b);   
 
-Tensor exp_neg_avx512_f32     (const Tensor& a);                     
-Tensor ln_relu_avx512_f32     (const Tensor& a);                     
-Tensor sigmoid_ln_avx512_f32  (const Tensor& a);                     
+Tensor exp_neg_avx512_f32(const Tensor& a);                     
+Tensor ln_relu_avx512_f32(const Tensor& a);                     
+Tensor sigmoid_ln_avx512_f32(const Tensor& a);                     
 
 Tensor silu_avx512_f32(const Tensor& a);
 
