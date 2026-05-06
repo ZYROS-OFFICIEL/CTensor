@@ -565,4 +565,4 @@ Tensor min_avx512_f32(const Tensor& t, int dim) {
     return out;
 }
 
-#endif // __AVX512F__
+#endif
