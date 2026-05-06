@@ -77,7 +77,11 @@ inline __m512d log512_pd(__m512d x) {
     __m512i xi    = _mm512_castpd_si512(x);
     __m512i exp_i = _mm512_srli_epi64(xi, 52);
     exp_i         = _mm512_sub_epi64(exp_i, _mm512_set1_epi64(1023));
+<<<<<<< HEAD
     __m512d e     = _mm512_cvtepi64_pd(exp_i);        // AVX512DQ
+=======
+    __m512d e     = _mm512_cvtepi64_pd(exp_i);        
+>>>>>>> e6cfde4 (Adding: declaration for fuse kernels in CUDA for F32)
     xi = _mm512_and_si512(xi, _mm512_set1_epi64(0x000FFFFFFFFFFFFFLL));
     xi = _mm512_or_si512 (xi, _mm512_set1_epi64(0x3FF0000000000000LL));
     x  = _mm512_castsi512_pd(xi);
