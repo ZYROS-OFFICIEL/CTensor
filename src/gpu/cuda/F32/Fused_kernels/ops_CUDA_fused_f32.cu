@@ -60,8 +60,69 @@ __device__ __forceinline__ float device_silu(float x) {
 }
 
 __device__ __forceinline__ float device_gelu(float x) {
-    const float c = 0.7978845608028654f; // sqrt(2/pi)
+    const float c = 0.7978845608028654f; 
     float inner = c * (x + 0.044715f * x * x * x);
     return 0.5f * x * (1.0f + tanhf(inner));
+}
+template<typename Op>
+__global__ void ternary_kernel(const float* __restrict__ a,
+                               const float* __restrict__ b,
+                               const float* __restrict__ c,
+                               float*       __restrict__ out,
+                               size_t n, Op op) {
+    size_t i = (size_t)blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < n) out[i] = op(a[i], b[i], c[i]);
+}
+
+template<typename Op>
+__global__ void binary_fused_kernel(const float* __restrict__ a,
+                                    const float* __restrict__ b,
+                                    float*       __restrict__ out,
+                                    size_t n, Op op) {
+    size_t i = (size_t)blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < n) out[i] = op(a[i], b[i]);
+}
+
+template<typename Op>
+__global__ void binary_scalar_kernel(const float* __restrict__ a,
+                                     const float* __restrict__ b,
+                                     float*       __restrict__ out,
+                                     size_t n, float scalar, Op op) {
+    size_t i = (size_t)blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < n) out[i] = op(a[i], b[i], scalar);
+}
+
+template<typename Op>
+__global__ void unary_fused_kernel(const float* __restrict__ in,
+                                   float*       __restrict__ out,
+                                   size_t n, Op op) {
+    size_t i = (size_t)blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < n) out[i] = op(in[i]);
+}
+
+__global__ void scale_shift_kernel(const float* __restrict__ in,
+                                   float*       __restrict__ out,
+                                   size_t n, float scale, float shift) {
+    size_t i = (size_t)blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < n) out[i] = in[i] * scale + shift;
+}
+
+__global__ void bias_add_relu_kernel(const float* __restrict__ x,
+                                     const float* __restrict__ bias,
+                                     float*       __restrict__ out,
+                                     size_t D, size_t total) {
+    size_t i = (size_t)blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < total) {
+        float v = x[i] + bias[i % D];
+        out[i] = v > 0.0f ? v : 0.0f;
+    }
+}
+
+__global__ void bias_add_gelu_kernel(const float* __restrict__ x,
+                                     const float* __restrict__ bias,
+                                     float*       __restrict__ out,
+                                     size_t D, size_t total) {
+    size_t i = (size_t)blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < total) out[i] = device_gelu(x[i] + bias[i % D]);
 }
 }
