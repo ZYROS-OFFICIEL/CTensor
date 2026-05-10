@@ -183,5 +183,114 @@ static Tensor launch_unary(const Tensor& a, const char* name, Op op) {
     return out;
 }
 
+Tensor fma_cuda_f32(const Tensor& a, const Tensor& b, const Tensor& c) {
+    return launch_ternary(a, b, c, "fma_cuda_f32",
+        [] __device__(float x, float y, float z) { return x * y + z; });
+}
+
+Tensor fms_cuda_f32(const Tensor& a, const Tensor& b, const Tensor& c) {
+    return launch_ternary(a, b, c, "fms_cuda_f32",
+        [] __device__(float x, float y, float z) { return x * y - z; });
+}
+
+Tensor nfma_cuda_f32(const Tensor& a, const Tensor& b, const Tensor& c) {
+    return launch_ternary(a, b, c, "nfma_cuda_f32",
+        [] __device__(float x, float y, float z) { return -x * y + z; });
+}
+
+Tensor mul_add_cuda_f32(const Tensor& a, const Tensor& b, const Tensor& c) {
+    return fma_cuda_f32(a, b, c);
+}
+Tensor add_scale_cuda_f32(const Tensor& a, const Tensor& b, float scale) {
+    if (a.impl->shape != b.impl->shape)
+        throw std::runtime_error("add_scale_cuda_f32: shape mismatch");
+    size_t n = numel_of(a);
+    Tensor out = alloc_cuda(a.impl->shape);
+    auto ag = to_cuda(a), bg = to_cuda(b);
+    dim3 grid((unsigned)((n + BLOCK - 1) / BLOCK));
+    binary_scalar_kernel<<<grid, BLOCK>>>(cuda_ptr(ag), cuda_ptr(bg),
+                                         cuda_ptr(out), n, scale,
+        [] __device__(float x, float y, float s) { return (x + y) * s; });
+    check_launch("add_scale_cuda_f32");
+    return out;
+}
+
+Tensor add_relu_cuda_f32(const Tensor& a, const Tensor& b) {
+    return launch_binary(a, b, "add_relu_cuda_f32",
+        [] __device__(float x, float y) { return fmaxf(x + y, 0.0f); });
+}
+
+Tensor add_sigmoid_cuda_f32(const Tensor& a, const Tensor& b) {
+    return launch_binary(a, b, "add_sigmoid_cuda_f32",
+        [] __device__(float x, float y) {
+            return 1.0f / (1.0f + expf(-(x + y)));
+        });
+}
+
+Tensor add_tanh_cuda_f32(const Tensor& a, const Tensor& b) {
+    return launch_binary(a, b, "add_tanh_cuda_f32",
+        [] __device__(float x, float y) { return tanhf(x + y); });
+}
+
+Tensor add_exp_cuda_f32(const Tensor& a, const Tensor& b) {
+    return launch_binary(a, b, "add_exp_cuda_f32",
+        [] __device__(float x, float y) { return expf(x + y); });
+}
+
+Tensor add_ln_cuda_f32(const Tensor& a, const Tensor& b) {
+    return launch_binary(a, b, "add_ln_cuda_f32",
+        [] __device__(float x, float y) { return logf(x + y); });
+}
+
+Tensor swiglu_cuda_f32(const Tensor& a, const Tensor& b) {
+    return launch_binary(a, b, "swiglu_cuda_f32",
+        [] __device__(float x, float y) {
+            float sig = 1.0f / (1.0f + expf(-x));
+            return x * sig * y;   // silu(x) * y
+        });
+}
+
+
+Tensor exp_neg_cuda_f32(const Tensor& a) {
+    return launch_unary(a, "exp_neg_cuda_f32",
+        [] __device__(float x) { return expf(-x); });
+}
+
+Tensor ln_relu_cuda_f32(const Tensor& a) {
+    return launch_unary(a, "ln_relu_cuda_f32",
+        [] __device__(float x) { return fmaxf(logf(x), 0.0f); });
+}
+
+Tensor sigmoid_ln_cuda_f32(const Tensor& a) {
+    return launch_unary(a, "sigmoid_ln_cuda_f32",
+        [] __device__(float x) {
+            return logf(1.0f / (1.0f + expf(-x)));
+        });
+}
+
+Tensor silu_cuda_f32(const Tensor& a) {
+    return launch_unary(a, "silu_cuda_f32",
+        [] __device__(float x) {
+            return x / (1.0f + expf(-x));
+        });
+}
+
+Tensor gelu_cuda_f32(const Tensor& a) {
+    return launch_unary(a, "gelu_cuda_f32",
+        [] __device__(float x) {
+            const float c = 0.7978845608028654f;
+            return 0.5f * x * (1.0f + tanhf(c * (x + 0.044715f * x * x * x)));
+        });
+}
+
+Tensor scale_shift_cuda_f32(const Tensor& x, float scale, float shift) {
+    size_t n = numel_of(x);
+    Tensor out = alloc_cuda(x.impl->shape);
+    auto xg = to_cuda(x);
+    dim3 grid((unsigned)((n + BLOCK - 1) / BLOCK));
+    scale_shift_kernel<<<grid, BLOCK>>>(cuda_ptr(xg), cuda_ptr(out), n, scale, shift);
+    check_launch("scale_shift_cuda_f32");
+    return out;
+}
 
 }
