@@ -52,18 +52,19 @@ inline Tensor to_cuda(const Tensor& t) {
 }
 
 __device__ __forceinline__ std::int64_t device_sigmoid(std::int64_t x) {
-    return 1.0f / (1.0f + expf(-x));
+    return (std::int64_t)(1.0f / (1.0f + expf(-(float)x)));
 }
 
 __device__ __forceinline__ std::int64_t device_silu(std::int64_t x) {
-    return x * device_sigmoid(x);
+    return (std::int64_t)((float)x * (float)device_sigmoid(x));
 }
 
 __device__ __forceinline__ std::int64_t device_gelu(std::int64_t x) {
-    const std::int64_t c = 0.7978845608028654f; 
-    std::int64_t inner = c * (x + 0.044715f * x * x * x);
-    return 0.5f * x * (1.0f + tanhf(inner));
+    float fx = (float)x;
+    float inner = 0.7978845608028654f * (fx + 0.044715f * fx * fx * fx);
+    return (std::int64_t)(0.5f * fx * (1.0f + tanhf(inner)));
 }
+
 template<typename Op>
 __global__ void ternary_kernel(const std::int64_t* __restrict__ a,
                                const std::int64_t* __restrict__ b,
@@ -75,71 +76,70 @@ __global__ void ternary_kernel(const std::int64_t* __restrict__ a,
 }
 
 template<typename Op>
-__global__ void binary_fused_kernel(const std::int64_t* __restrict__ a,const std::int64_t* __restrict__ b,std::int64_t* __restrict__ out,size_t n, Op op) {
+__global__ void binary_fused_kernel(const std::int64_t* __restrict__ a, const std::int64_t* __restrict__ b, std::int64_t* __restrict__ out, size_t n, Op op) {
     size_t i = (size_t)blockIdx.x * blockDim.x + threadIdx.x;
     if (i < n) out[i] = op(a[i], b[i]);
 }
 
 template<typename Op>
-__global__ void binary_scalar_kernel(const std::int64_t* __restrict__ a, const std::int64_t* __restrict__ b, std::int64_t*  __restrict__ out, size_t n, std::int64_t scalar, Op op) {
+__global__ void binary_scalar_kernel(const std::int64_t* __restrict__ a, const std::int64_t* __restrict__ b, std::int64_t* __restrict__ out, size_t n, std::int64_t scalar, Op op) {
     size_t i = (size_t)blockIdx.x * blockDim.x + threadIdx.x;
     if (i < n) out[i] = op(a[i], b[i], scalar);
 }
 
 template<typename Op>
-__global__ void unary_fused_kernel(const std::int64_t* __restrict__ in,std::int64_t*  __restrict__ out,size_t n, Op op) {
+__global__ void unary_fused_kernel(const std::int64_t* __restrict__ in, std::int64_t* __restrict__ out, size_t n, Op op) {
     size_t i = (size_t)blockIdx.x * blockDim.x + threadIdx.x;
     if (i < n) out[i] = op(in[i]);
 }
 
-__global__ void scale_shift_kernel(const std::int64_t* __restrict__ in,   std::int64_t*   __restrict__ out,   size_t n, std::int64_t scale, std::int64_t shift) {
+__global__ void scale_shift_kernel(const std::int64_t* __restrict__ in, std::int64_t* __restrict__ out, size_t n, std::int64_t scale, std::int64_t shift) {
     size_t i = (size_t)blockIdx.x * blockDim.x + threadIdx.x;
     if (i < n) out[i] = in[i] * scale + shift;
 }
 
-__global__ void bias_add_relu_kernel(const std::int64_t* __restrict__ x, const std::int64_t* __restrict__ bias, std::int64_t*  __restrict__ out, size_t D, size_t total) {
+__global__ void bias_add_relu_kernel(const std::int64_t* __restrict__ x, const std::int64_t* __restrict__ bias, std::int64_t* __restrict__ out, size_t D, size_t total) {
     size_t i = (size_t)blockIdx.x * blockDim.x + threadIdx.x;
     if (i < total) {
         std::int64_t v = x[i] + bias[i % D];
-        out[i] = v > 0.0f ? v : 0.0f;
+        out[i] = v > 0 ? v : (std::int64_t)0;
     }
 }
 
-__global__ void bias_add_gelu_kernel(const std::int64_t* __restrict__ x, const std::int64_t* __restrict__ bias, std::int64_t*  __restrict__ out, size_t D, size_t total) {
+__global__ void bias_add_gelu_kernel(const std::int64_t* __restrict__ x, const std::int64_t* __restrict__ bias, std::int64_t* __restrict__ out, size_t D, size_t total) {
     size_t i = (size_t)blockIdx.x * blockDim.x + threadIdx.x;
     if (i < total) out[i] = device_gelu(x[i] + bias[i % D]);
 }
 
 template<int BLOCK_SZ>
-__global__ void layer_norm_kernel(const std::int64_t* __restrict__ x,const std::int64_t* __restrict__ weight,const std::int64_t* __restrict__ bias,std::int64_t*       __restrict__ out,size_t D, std::int64_t eps) {
-
+__global__ void layer_norm_kernel(const std::int64_t* __restrict__ x, const std::int64_t* __restrict__ weight, const std::int64_t* __restrict__ bias, std::int64_t* __restrict__ out, size_t D, float eps) {
     size_t row = blockIdx.x;
     const std::int64_t* xrow = x   + row * D;
     std::int64_t*       orow = out + row * D;
 
-    using BlockReduce = cub::BlockReduce<std::int64_t, BLOCK_SZ>;
+    using BlockReduce = cub::BlockReduce<float, BLOCK_SZ>;
     __shared__ typename BlockReduce::TempStorage temp;
-    __shared__ std::int64_t smean, svar;
+    __shared__ float smean, svar;
 
-    std::int64_t sum = 0.0f;
+    float sum = 0.0f;
     for (size_t i = threadIdx.x; i < D; i += BLOCK_SZ)
-        sum += xrow[i];
+        sum += (float)xrow[i];
     sum = BlockReduce(temp).Sum(sum);
-    if (threadIdx.x == 0) smean = sum / (std::int64_t)D;
+    if (threadIdx.x == 0) smean = sum / (float)D;
     __syncthreads();
 
-    std::int64_t var = 0.0f;
+    float var = 0.0f;
     for (size_t i = threadIdx.x; i < D; i += BLOCK_SZ) {
-        std::int64_t d = xrow[i] - smean;
+        float d = (float)xrow[i] - smean;
         var += d * d;
     }
     var = BlockReduce(temp).Sum(var);
-    if (threadIdx.x == 0) svar = var / (std::int64_t)D;
+    if (threadIdx.x == 0) svar = var / (float)D;
     __syncthreads();
 
-    std::int64_t rstd = rsqrtf(svar + eps);
+    float rstd = rsqrtf(svar + eps);
     for (size_t i = threadIdx.x; i < D; i += BLOCK_SZ)
-        orow[i] = (xrow[i] - smean) * rstd * weight[i] + bias[i];
+        orow[i] = (std::int64_t)(((float)xrow[i] - smean) * rstd * (float)weight[i] + (float)bias[i]);
 }
 
 template<typename Op>
@@ -183,6 +183,8 @@ static Tensor launch_unary(const Tensor& a, const char* name, Op op) {
     return out;
 }
 
+}
+
 Tensor fma_cuda_int64(const Tensor& a, const Tensor& b, const Tensor& c) {
     return launch_ternary(a, b, c, "fma_cuda_int64",
         [] __device__(std::int64_t x, std::int64_t y, std::int64_t z) { return x * y + z; });
@@ -201,6 +203,7 @@ Tensor nfma_cuda_int64(const Tensor& a, const Tensor& b, const Tensor& c) {
 Tensor mul_add_cuda_int64(const Tensor& a, const Tensor& b, const Tensor& c) {
     return fma_cuda_int64(a, b, c);
 }
+
 Tensor add_scale_cuda_int64(const Tensor& a, const Tensor& b, std::int64_t scale) {
     if (a.impl->shape != b.impl->shape)
         throw std::runtime_error("add_scale_cuda_int64: shape mismatch");
@@ -217,69 +220,80 @@ Tensor add_scale_cuda_int64(const Tensor& a, const Tensor& b, std::int64_t scale
 
 Tensor add_relu_cuda_int64(const Tensor& a, const Tensor& b) {
     return launch_binary(a, b, "add_relu_cuda_int64",
-        [] __device__(std::int64_t x, std::int64_t y) { return fmaxf(x + y, 0.0f); });
+        [] __device__(std::int64_t x, std::int64_t y) {
+            std::int64_t v = x + y;
+            return v > 0 ? v : (std::int64_t)0;
+        });
 }
 
 Tensor add_sigmoid_cuda_int64(const Tensor& a, const Tensor& b) {
     return launch_binary(a, b, "add_sigmoid_cuda_int64",
         [] __device__(std::int64_t x, std::int64_t y) {
-            return 1.0f / (1.0f + expf(-(x + y)));
+            return (std::int64_t)(1.0f / (1.0f + expf(-(float)(x + y))));
         });
 }
 
 Tensor add_tanh_cuda_int64(const Tensor& a, const Tensor& b) {
     return launch_binary(a, b, "add_tanh_cuda_int64",
-        [] __device__(std::int64_t x, std::int64_t y) { return tanhf(x + y); });
+        [] __device__(std::int64_t x, std::int64_t y) {
+            return (std::int64_t)tanhf((float)(x + y));
+        });
 }
 
 Tensor add_exp_cuda_int64(const Tensor& a, const Tensor& b) {
     return launch_binary(a, b, "add_exp_cuda_int64",
-        [] __device__(std::int64_t x, std::int64_t y) { return expf(x + y); });
+        [] __device__(std::int64_t x, std::int64_t y) {
+            return (std::int64_t)expf((float)(x + y));
+        });
 }
 
 Tensor add_ln_cuda_int64(const Tensor& a, const Tensor& b) {
     return launch_binary(a, b, "add_ln_cuda_int64",
-        [] __device__(std::int64_t x, std::int64_t y) { return logf(x + y); });
+        [] __device__(std::int64_t x, std::int64_t y) {
+            return (std::int64_t)logf((float)(x + y));
+        });
 }
 
 Tensor swiglu_cuda_int64(const Tensor& a, const Tensor& b) {
     return launch_binary(a, b, "swiglu_cuda_int64",
         [] __device__(std::int64_t x, std::int64_t y) {
-            std::int64_t sig = 1.0f / (1.0f + expf(-x));
-            return x * sig * y;   // silu(x) * y
+            float fx = (float)x;
+            float sig = 1.0f / (1.0f + expf(-fx));
+            return (std::int64_t)(fx * sig * (float)y);
         });
 }
 
-
 Tensor exp_neg_cuda_int64(const Tensor& a) {
     return launch_unary(a, "exp_neg_cuda_int64",
-        [] __device__(std::int64_t x) { return expf(-x); });
+        [] __device__(std::int64_t x) { return (std::int64_t)expf(-(float)x); });
 }
 
 Tensor ln_relu_cuda_int64(const Tensor& a) {
     return launch_unary(a, "ln_relu_cuda_int64",
-        [] __device__(std::int64_t x) { return fmaxf(logf(x), 0.0f); });
+        [] __device__(std::int64_t x) { return (std::int64_t)fmaxf(logf((float)x), 0.0f); });
 }
 
 Tensor sigmoid_ln_cuda_int64(const Tensor& a) {
     return launch_unary(a, "sigmoid_ln_cuda_int64",
         [] __device__(std::int64_t x) {
-            return logf(1.0f / (1.0f + expf(-x)));
+            return (std::int64_t)logf(1.0f / (1.0f + expf(-(float)x)));
         });
 }
 
 Tensor silu_cuda_int64(const Tensor& a) {
     return launch_unary(a, "silu_cuda_int64",
         [] __device__(std::int64_t x) {
-            return x / (1.0f + expf(-x));
+            float fx = (float)x;
+            return (std::int64_t)(fx / (1.0f + expf(-fx)));
         });
 }
 
 Tensor gelu_cuda_int64(const Tensor& a) {
     return launch_unary(a, "gelu_cuda_int64",
         [] __device__(std::int64_t x) {
-            const std::int64_t c = 0.7978845608028654f;
-            return 0.5f * x * (1.0f + tanhf(c * (x + 0.044715f * x * x * x)));
+            float fx = (float)x;
+            const float c = 0.7978845608028654f;
+            return (std::int64_t)(0.5f * fx * (1.0f + tanhf(c * (fx + 0.044715f * fx * fx * fx))));
         });
 }
 
@@ -293,4 +307,37 @@ Tensor scale_shift_cuda_int64(const Tensor& x, std::int64_t scale, std::int64_t 
     return out;
 }
 
+Tensor bias_add_relu_cuda_int64(const Tensor& x, const Tensor& bias) {
+    size_t D     = numel_of(bias);
+    size_t total = numel_of(x);
+    Tensor out   = alloc_cuda(x.impl->shape);
+    auto xg = to_cuda(x), bg = to_cuda(bias);
+    dim3 grid((unsigned)((total + BLOCK - 1) / BLOCK));
+    bias_add_relu_kernel<<<grid, BLOCK>>>(cuda_ptr(xg), cuda_ptr(bg), cuda_ptr(out), D, total);
+    check_launch("bias_add_relu_cuda_int64");
+    return out;
 }
+
+Tensor bias_add_gelu_cuda_int64(const Tensor& x, const Tensor& bias) {
+    size_t D     = numel_of(bias);
+    size_t total = numel_of(x);
+    Tensor out   = alloc_cuda(x.impl->shape);
+    auto xg = to_cuda(x), bg = to_cuda(bias);
+    dim3 grid((unsigned)((total + BLOCK - 1) / BLOCK));
+    bias_add_gelu_kernel<<<grid, BLOCK>>>(cuda_ptr(xg), cuda_ptr(bg), cuda_ptr(out), D, total);
+    check_launch("bias_add_gelu_cuda_int64");
+    return out;
+}
+
+Tensor layer_norm_cuda_int64(const Tensor& x, const Tensor& weight, const Tensor& bias, float eps) {
+    size_t D    = x.impl->shape.back();
+    size_t rows = numel_of(x) / D;
+    Tensor out  = alloc_cuda(x.impl->shape);
+    auto xg = to_cuda(x), wg = to_cuda(weight), bg = to_cuda(bias);
+    layer_norm_kernel<BLOCK><<<(unsigned)rows, BLOCK>>>(
+        cuda_ptr(xg), cuda_ptr(wg), cuda_ptr(bg), cuda_ptr(out), D, eps);
+    check_launch("layer_norm_cuda_int64");
+    return out;
+}
+
+#endif
