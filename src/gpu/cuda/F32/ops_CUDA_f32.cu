@@ -253,9 +253,6 @@ __global__ void matmul_kernel(const float* __restrict__ A,
     int load_b_row = threadIdx.x / BN;
     int load_b_col = threadIdx.x % BN;
 
-    int threads_for_a = BM * BK / (BM * BK / blockDim.x);
-    (void)threads_for_a;
-
     for (int k0 = 0; k0 < K; k0 += BK) {
         for (int s = 0; s < BM * BK; s += blockDim.x) {
             int idx = s + threadIdx.x;
@@ -304,26 +301,6 @@ __global__ void matmul_kernel(const float* __restrict__ A,
 }
 
 
-template<typename CubOp>
-static float cub_reduce(const float* d_in, size_t n, CubOp op, float init) {
-    float* d_out;
-    check(cudaMalloc(&d_out, sizeof(float)), "cudaMalloc d_out");
-    check(cudaMemcpy(d_out, &init, sizeof(float), cudaMemcpyHostToDevice), "init d_out");
-
-    void*  d_tmp      = nullptr;
-    size_t tmp_bytes  = 0;
-    check(op(d_tmp, tmp_bytes, d_in, d_out, (int)n, 0, false), "cub size query");
-    check(cudaMalloc(&d_tmp, tmp_bytes), "cudaMalloc cub tmp");
-    check(op(d_tmp, tmp_bytes, d_in, d_out, (int)n, 0, false), "cub reduce");
-    check(cudaDeviceSynchronize(), "cub sync");
-
-    float result;
-    check(cudaMemcpy(&result, d_out, sizeof(float), cudaMemcpyDeviceToHost), "cudaMemcpy result");
-    cudaFree(d_tmp);
-    cudaFree(d_out);
-    return result;
-}
-
 static float gpu_sum(const float* d, size_t n) {
     float* d_out;
     check(cudaMalloc(&d_out, sizeof(float)), "cudaMalloc sum");
@@ -363,7 +340,8 @@ static float gpu_min(const float* d, size_t n) {
     return r;
 }
 
-} 
+}
+
 Tensor add_cuda_f32(const Tensor& a, const Tensor& b) {
     return binary_op(a, b, [] __device__(float x, float y) { return x + y; });
 }
