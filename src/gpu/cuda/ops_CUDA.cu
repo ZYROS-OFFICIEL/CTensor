@@ -3,6 +3,7 @@
 #ifdef USE_CUDA
 
 #include <cuda_runtime.h>
+#include <cuda_fp16.h>
 #include <cub/cub.cuh>
 #include <type_traits>
 #include <stdexcept>
@@ -24,15 +25,19 @@
 namespace {
 
 
+using float16_t = __half;
+
 template<typename T> struct is_floating              : std::false_type {};
 template<>           struct is_floating<float>       : std::true_type  {};
 template<>           struct is_floating<double>      : std::true_type  {};
+template<>           struct is_floating<float16_t>   : std::true_type  {};
 
 template<typename T> struct accum_traits             { using type = T;        };
 template<>           struct accum_traits<int8_t>     { using type = int32_t;  };
 template<>           struct accum_traits<uint8_t>    { using type = uint32_t; };
 template<>           struct accum_traits<int16_t>    { using type = int32_t;  };
 template<>           struct accum_traits<uint16_t>   { using type = uint32_t; };
+template<>           struct accum_traits<float16_t>  { using type = float;    };
 template<typename T> using  accum_t = typename accum_traits<T>::type;
 
 
@@ -336,7 +341,7 @@ Tensor matmul_typed(const Tensor& A, const Tensor& B, DType dt) {
 
 
 template<typename T>
-static T gpu_sum(const T* d, size_t n) {
+static accum_t<T> gpu_sum(const T* d, size_t n) {
     using A = accum_t<T>;
     A* d_out;
     check(cudaMalloc(&d_out, sizeof(A)), "cudaMalloc sum");
@@ -347,42 +352,51 @@ static T gpu_sum(const T* d, size_t n) {
     check(cudaDeviceSynchronize(), "sum sync");
     A r; check(cudaMemcpy(&r, d_out, sizeof(A), cudaMemcpyDeviceToHost), "sum copy");
     cudaFree(d_tmp); cudaFree(d_out);
-    return static_cast<T>(r);
+    return r;
 }
 
 template<typename T>
-static T gpu_max(const T* d, size_t n) {
-    T* d_out;
-    check(cudaMalloc(&d_out, sizeof(T)), "cudaMalloc max");
+static accum_t<T> gpu_max(const T* d, size_t n) {
+    using A = accum_t<T>;
+    A* d_out;
+    check(cudaMalloc(&d_out, sizeof(A)), "cudaMalloc max");
     void* d_tmp = nullptr; size_t tmp_bytes = 0;
     cub::DeviceReduce::Max(d_tmp, tmp_bytes, d, d_out, (int)n);
     check(cudaMalloc(&d_tmp, tmp_bytes), "cudaMalloc max tmp");
     cub::DeviceReduce::Max(d_tmp, tmp_bytes, d, d_out, (int)n);
     check(cudaDeviceSynchronize(), "max sync");
-    T r; check(cudaMemcpy(&r, d_out, sizeof(T), cudaMemcpyDeviceToHost), "max copy");
+    A r; check(cudaMemcpy(&r, d_out, sizeof(A), cudaMemcpyDeviceToHost), "max copy");
     cudaFree(d_tmp); cudaFree(d_out);
     return r;
 }
 
 template<typename T>
-static T gpu_min(const T* d, size_t n) {
-    T* d_out;
-    check(cudaMalloc(&d_out, sizeof(T)), "cudaMalloc min");
+static accum_t<T> gpu_min(const T* d, size_t n) {
+    using A = accum_t<T>;
+    A* d_out;
+    check(cudaMalloc(&d_out, sizeof(A)), "cudaMalloc min");
     void* d_tmp = nullptr; size_t tmp_bytes = 0;
     cub::DeviceReduce::Min(d_tmp, tmp_bytes, d, d_out, (int)n);
     check(cudaMalloc(&d_tmp, tmp_bytes), "cudaMalloc min tmp");
     cub::DeviceReduce::Min(d_tmp, tmp_bytes, d, d_out, (int)n);
     check(cudaDeviceSynchronize(), "min sync");
-    T r; check(cudaMemcpy(&r, d_out, sizeof(T), cudaMemcpyDeviceToHost), "min copy");
+    A r; check(cudaMemcpy(&r, d_out, sizeof(A), cudaMemcpyDeviceToHost), "min copy");
     cudaFree(d_tmp); cudaFree(d_out);
     return r;
 }
 
 } 
 
+#define DISPATCH_WITH_HALF(DTYPE, NAME, ...) \
+    switch (DTYPE) { \
+        case DType::Float16:  { using scalar_t = float16_t; __VA_ARGS__(); break; } \
+        default: DISPATCH_ALL_TYPES(DTYPE, NAME, __VA_ARGS__); \
+    }
+
 Tensor add_cuda(const Tensor& a, const Tensor& b) {
     DType dt = a._dtype();
-    DISPATCH_ALL_TYPES(dt, "add_cuda", [&] {
+    if (dt == DType::Bool) throw std::runtime_error("add_cuda: bool not supported");
+    DISPATCH_WITH_HALF(dt, "add_cuda", [&] {
         return binary_op_typed<scalar_t>(a, b, dt,
             [] __device__(scalar_t x, scalar_t y) { return static_cast<scalar_t>(x + y); });
     });
@@ -390,7 +404,8 @@ Tensor add_cuda(const Tensor& a, const Tensor& b) {
 
 Tensor sub_cuda(const Tensor& a, const Tensor& b) {
     DType dt = a._dtype();
-    DISPATCH_ALL_TYPES(dt, "sub_cuda", [&] {
+    if (dt == DType::Bool) throw std::runtime_error("sub_cuda: bool not supported");
+    DISPATCH_WITH_HALF(dt, "sub_cuda", [&] {
         return binary_op_typed<scalar_t>(a, b, dt,
             [] __device__(scalar_t x, scalar_t y) { return static_cast<scalar_t>(x - y); });
     });
@@ -398,7 +413,8 @@ Tensor sub_cuda(const Tensor& a, const Tensor& b) {
 
 Tensor mul_cuda(const Tensor& a, const Tensor& b) {
     DType dt = a._dtype();
-    DISPATCH_ALL_TYPES(dt, "mul_cuda", [&] {
+    if (dt == DType::Bool) throw std::runtime_error("mul_cuda: bool not supported");
+    DISPATCH_WITH_HALF(dt, "mul_cuda", [&] {
         return binary_op_typed<scalar_t>(a, b, dt,
             [] __device__(scalar_t x, scalar_t y) { return static_cast<scalar_t>(x * y); });
     });
@@ -406,7 +422,8 @@ Tensor mul_cuda(const Tensor& a, const Tensor& b) {
 
 Tensor div_cuda(const Tensor& a, const Tensor& b) {
     DType dt = a._dtype();
-    DISPATCH_ALL_TYPES(dt, "div_cuda", [&] {
+    if (dt == DType::Bool) throw std::runtime_error("div_cuda: bool not supported");
+    DISPATCH_WITH_HALF(dt, "div_cuda", [&] {
         return binary_op_typed<scalar_t>(a, b, dt,
             [] __device__(scalar_t x, scalar_t y) { return static_cast<scalar_t>(x / y); });
     });
@@ -414,14 +431,20 @@ Tensor div_cuda(const Tensor& a, const Tensor& b) {
 
 Tensor pow_cuda(const Tensor& a, const Tensor& b) {
     DType dt = a._dtype();
-    DISPATCH_ALL_TYPES(dt, "pow_cuda", [&] {
-        return binary_op_typed<scalar_t>(a, b, dt,
-            [] __device__(scalar_t x, scalar_t y) {
-                if constexpr (std::is_same_v<scalar_t, float>)  return powf(x, y);
-                if constexpr (std::is_same_v<scalar_t, double>) return pow(x, y);
-                return static_cast<scalar_t>(powf((float)x, (float)y));
-            });
-    });
+    switch (dt) {
+        case DType::Float32:
+            return binary_op_typed<float>(a, b, dt,
+                [] __device__(float x, float y) { return powf(x, y); });
+        case DType::Double64:
+            return binary_op_typed<double>(a, b, dt,
+                [] __device__(double x, double y) { return pow(x, y); });
+        case DType::Float16:
+            return binary_op_typed<float16_t>(a, b, dt,
+                [] __device__(float16_t x, float16_t y) {
+                    return __float2half(powf(__half2float(x), __half2float(y)));
+                });
+        default: throw std::runtime_error("pow_cuda: floating-point types only");
+    }
 }
 
 Tensor matmul_cuda(const Tensor& A, const Tensor& B) {
@@ -431,60 +454,78 @@ Tensor matmul_cuda(const Tensor& A, const Tensor& B) {
             return matmul_typed<float,  BM_F, BN_F, BK_F, TM_F, TN_F>(A, B, dt);
         case DType::Double64:
             return matmul_typed<double, BM_D, BN_D, BK_D, TM_D, TN_D>(A, B, dt);
+        case DType::Float16:
+            return matmul_typed<float16_t, BM_F, BN_F, BK_F, TM_F, TN_F>(A, B, dt);
         default:
-            throw std::runtime_error("matmul_cuda: only Float32 and Double64 supported");
+            throw std::runtime_error("matmul_cuda: only Float32, Float16 and Double64 supported");
     }
 }
 
 Tensor lt_cuda(const Tensor& a, const Tensor& b) {
     DType dt = a._dtype();
-    DISPATCH_ALL_TYPES(dt, "lt_cuda", [&] { return cmp_op_typed<scalar_t, 0>(a, b, dt); });
+    DISPATCH_WITH_HALF(dt, "lt_cuda", [&] { return cmp_op_typed<scalar_t, 0>(a, b, dt); });
 }
 Tensor le_cuda(const Tensor& a, const Tensor& b) {
     DType dt = a._dtype();
-    DISPATCH_ALL_TYPES(dt, "le_cuda", [&] { return cmp_op_typed<scalar_t, 1>(a, b, dt); });
+    DISPATCH_WITH_HALF(dt, "le_cuda", [&] { return cmp_op_typed<scalar_t, 1>(a, b, dt); });
 }
 Tensor gt_cuda(const Tensor& a, const Tensor& b) {
     DType dt = a._dtype();
-    DISPATCH_ALL_TYPES(dt, "gt_cuda", [&] { return cmp_op_typed<scalar_t, 2>(a, b, dt); });
+    DISPATCH_WITH_HALF(dt, "gt_cuda", [&] { return cmp_op_typed<scalar_t, 2>(a, b, dt); });
 }
 Tensor ge_cuda(const Tensor& a, const Tensor& b) {
     DType dt = a._dtype();
-    DISPATCH_ALL_TYPES(dt, "ge_cuda", [&] { return cmp_op_typed<scalar_t, 3>(a, b, dt); });
+    DISPATCH_WITH_HALF(dt, "ge_cuda", [&] { return cmp_op_typed<scalar_t, 3>(a, b, dt); });
 }
 Tensor eq_cuda(const Tensor& a, const Tensor& b) {
     DType dt = a._dtype();
-    DISPATCH_ALL_TYPES(dt, "eq_cuda", [&] { return cmp_op_typed<scalar_t, 4>(a, b, dt); });
+    DISPATCH_WITH_HALF(dt, "eq_cuda", [&] { return cmp_op_typed<scalar_t, 4>(a, b, dt); });
 }
 Tensor ne_cuda(const Tensor& a, const Tensor& b) {
     DType dt = a._dtype();
-    DISPATCH_ALL_TYPES(dt, "ne_cuda", [&] { return cmp_op_typed<scalar_t, 5>(a, b, dt); });
+    DISPATCH_WITH_HALF(dt, "ne_cuda", [&] { return cmp_op_typed<scalar_t, 5>(a, b, dt); });
 }
 
 Tensor abs_cuda(const Tensor& a) {
     DType dt = a._dtype();
-    DISPATCH_ALL_TYPES(dt, "abs_cuda", [&] {
-        return unary_op_typed<scalar_t>(a, dt, [] __device__(scalar_t x) {
-            if constexpr (std::is_same_v<scalar_t, float>)  return fabsf(x);
-            if constexpr (std::is_same_v<scalar_t, double>) return fabs(x);
-            return x < scalar_t(0) ? static_cast<scalar_t>(-x) : x;
-        });
-    });
+    switch (dt) {
+        case DType::Float32:
+            return unary_op_typed<float>  (a, dt, [] __device__(float   x) { return fabsf(x); });
+        case DType::Double64:
+            return unary_op_typed<double> (a, dt, [] __device__(double  x) { return fabs(x); });
+        case DType::Float16:
+            return unary_op_typed<float16_t>(a, dt, [] __device__(float16_t x) {
+                return __float2half(fabsf(__half2float(x)));
+            });
+        default:
+            DISPATCH_ALL_TYPES(dt, "abs_cuda", [&] {
+                return unary_op_typed<scalar_t>(a, dt, [] __device__(scalar_t x) {
+                    return x < scalar_t(0) ? static_cast<scalar_t>(-x) : x;
+                });
+            });
+    }
 }
 
 Tensor sqrt_cuda(const Tensor& a) {
     DType dt = a._dtype();
     switch (dt) {
         case DType::Float32:
-            return unary_op_typed<float> (a, dt, [] __device__(float  x) { return sqrtf(x); });
+            return unary_op_typed<float>    (a, dt, [] __device__(float     x) { return sqrtf(x); });
         case DType::Double64:
-            return unary_op_typed<double>(a, dt, [] __device__(double x) { return sqrt(x); });
+            return unary_op_typed<double>   (a, dt, [] __device__(double    x) { return sqrt(x); });
+        case DType::Float16:
+            return unary_op_typed<float16_t>(a, dt, [] __device__(float16_t x) { return hsqrt(x); });
         default: throw std::runtime_error("sqrt_cuda: floating-point types only");
     }
 }
 
 Tensor relu_cuda(const Tensor& a) {
     DType dt = a._dtype();
+    if (dt == DType::Bool) throw std::runtime_error("relu_cuda: bool not supported");
+    if (dt == DType::Float16)
+        return unary_op_typed<float16_t>(a, dt, [] __device__(float16_t x) {
+            return __hgt(x, __float2half(0.0f)) ? x : __float2half(0.0f);
+        });
     DISPATCH_ALL_TYPES(dt, "relu_cuda", [&] {
         return unary_op_typed<scalar_t>(a, dt, [] __device__(scalar_t x) {
             return x > scalar_t(0) ? x : scalar_t(0);
@@ -496,9 +537,11 @@ Tensor ln_cuda(const Tensor& a) {
     DType dt = a._dtype();
     switch (dt) {
         case DType::Float32:
-            return unary_op_typed<float> (a, dt, [] __device__(float  x) { return logf(x); });
+            return unary_op_typed<float>    (a, dt, [] __device__(float     x) { return logf(x); });
         case DType::Double64:
-            return unary_op_typed<double>(a, dt, [] __device__(double x) { return log(x); });
+            return unary_op_typed<double>   (a, dt, [] __device__(double    x) { return log(x); });
+        case DType::Float16:
+            return unary_op_typed<float16_t>(a, dt, [] __device__(float16_t x) { return hlog(x); });
         default: throw std::runtime_error("ln_cuda: floating-point types only");
     }
 }
@@ -507,9 +550,11 @@ Tensor exp_cuda(const Tensor& a) {
     DType dt = a._dtype();
     switch (dt) {
         case DType::Float32:
-            return unary_op_typed<float> (a, dt, [] __device__(float  x) { return expf(x); });
+            return unary_op_typed<float>    (a, dt, [] __device__(float     x) { return expf(x); });
         case DType::Double64:
-            return unary_op_typed<double>(a, dt, [] __device__(double x) { return exp(x); });
+            return unary_op_typed<double>   (a, dt, [] __device__(double    x) { return exp(x); });
+        case DType::Float16:
+            return unary_op_typed<float16_t>(a, dt, [] __device__(float16_t x) { return hexp(x); });
         default: throw std::runtime_error("exp_cuda: floating-point types only");
     }
 }
@@ -517,8 +562,9 @@ Tensor exp_cuda(const Tensor& a) {
 Tensor sin_cuda(const Tensor& a) {
     DType dt = a._dtype();
     switch (dt) {
-        case DType::Float32:  return unary_op_typed<float> (a, dt, [] __device__(float  x) { return sinf(x); });
-        case DType::Double64: return unary_op_typed<double>(a, dt, [] __device__(double x) { return sin(x);  });
+        case DType::Float32:  return unary_op_typed<float>    (a, dt, [] __device__(float     x) { return sinf(x); });
+        case DType::Double64: return unary_op_typed<double>   (a, dt, [] __device__(double    x) { return sin(x); });
+        case DType::Float16:  return unary_op_typed<float16_t>(a, dt, [] __device__(float16_t x) { return hsin(x); });
         default: throw std::runtime_error("sin_cuda: floating-point types only");
     }
 }
@@ -526,15 +572,18 @@ Tensor asin_cuda(const Tensor& a) {
     DType dt = a._dtype();
     switch (dt) {
         case DType::Float32:  return unary_op_typed<float> (a, dt, [] __device__(float  x) { return asinf(x); });
-        case DType::Double64: return unary_op_typed<double>(a, dt, [] __device__(double x) { return asin(x);  });
+        case DType::Double64: return unary_op_typed<double>(a, dt, [] __device__(double x) { return asin(x); });
+        case DType::Float16:  return unary_op_typed<float16_t>(a, dt, [] __device__(float16_t x) {
+                                  return __float2half(asinf(__half2float(x))); });
         default: throw std::runtime_error("asin_cuda: floating-point types only");
     }
 }
 Tensor cos_cuda(const Tensor& a) {
     DType dt = a._dtype();
     switch (dt) {
-        case DType::Float32:  return unary_op_typed<float> (a, dt, [] __device__(float  x) { return cosf(x); });
-        case DType::Double64: return unary_op_typed<double>(a, dt, [] __device__(double x) { return cos(x);  });
+        case DType::Float32:  return unary_op_typed<float>    (a, dt, [] __device__(float     x) { return cosf(x); });
+        case DType::Double64: return unary_op_typed<double>   (a, dt, [] __device__(double    x) { return cos(x); });
+        case DType::Float16:  return unary_op_typed<float16_t>(a, dt, [] __device__(float16_t x) { return hcos(x); });
         default: throw std::runtime_error("cos_cuda: floating-point types only");
     }
 }
@@ -542,7 +591,9 @@ Tensor acos_cuda(const Tensor& a) {
     DType dt = a._dtype();
     switch (dt) {
         case DType::Float32:  return unary_op_typed<float> (a, dt, [] __device__(float  x) { return acosf(x); });
-        case DType::Double64: return unary_op_typed<double>(a, dt, [] __device__(double x) { return acos(x);  });
+        case DType::Double64: return unary_op_typed<double>(a, dt, [] __device__(double x) { return acos(x); });
+        case DType::Float16:  return unary_op_typed<float16_t>(a, dt, [] __device__(float16_t x) {
+                                  return __float2half(acosf(__half2float(x))); });
         default: throw std::runtime_error("acos_cuda: floating-point types only");
     }
 }
@@ -550,7 +601,9 @@ Tensor tan_cuda(const Tensor& a) {
     DType dt = a._dtype();
     switch (dt) {
         case DType::Float32:  return unary_op_typed<float> (a, dt, [] __device__(float  x) { return tanf(x); });
-        case DType::Double64: return unary_op_typed<double>(a, dt, [] __device__(double x) { return tan(x);  });
+        case DType::Double64: return unary_op_typed<double>(a, dt, [] __device__(double x) { return tan(x); });
+        case DType::Float16:  return unary_op_typed<float16_t>(a, dt, [] __device__(float16_t x) {
+                                  return __float2half(tanf(__half2float(x))); });
         default: throw std::runtime_error("tan_cuda: floating-point types only");
     }
 }
@@ -558,15 +611,19 @@ Tensor atan_cuda(const Tensor& a) {
     DType dt = a._dtype();
     switch (dt) {
         case DType::Float32:  return unary_op_typed<float> (a, dt, [] __device__(float  x) { return atanf(x); });
-        case DType::Double64: return unary_op_typed<double>(a, dt, [] __device__(double x) { return atan(x);  });
+        case DType::Double64: return unary_op_typed<double>(a, dt, [] __device__(double x) { return atan(x); });
+        case DType::Float16:  return unary_op_typed<float16_t>(a, dt, [] __device__(float16_t x) {
+                                  return __float2half(atanf(__half2float(x))); });
         default: throw std::runtime_error("atan_cuda: floating-point types only");
     }
 }
 Tensor tanh_cuda(const Tensor& a) {
     DType dt = a._dtype();
     switch (dt) {
-        case DType::Float32:  return unary_op_typed<float> (a, dt, [] __device__(float  x) { return tanhf(x); });
-        case DType::Double64: return unary_op_typed<double>(a, dt, [] __device__(double x) { return tanh(x);  });
+        case DType::Float32:  return unary_op_typed<float>    (a, dt, [] __device__(float     x) { return tanhf(x); });
+        case DType::Double64: return unary_op_typed<double>   (a, dt, [] __device__(double    x) { return tanh(x); });
+        case DType::Float16:  return unary_op_typed<float16_t>(a, dt, [] __device__(float16_t x) {
+                                  return __float2half(tanhf(__half2float(x))); });
         default: throw std::runtime_error("tanh_cuda: floating-point types only");
     }
 }
@@ -574,7 +631,9 @@ Tensor sinh_cuda(const Tensor& a) {
     DType dt = a._dtype();
     switch (dt) {
         case DType::Float32:  return unary_op_typed<float> (a, dt, [] __device__(float  x) { return sinhf(x); });
-        case DType::Double64: return unary_op_typed<double>(a, dt, [] __device__(double x) { return sinh(x);  });
+        case DType::Double64: return unary_op_typed<double>(a, dt, [] __device__(double x) { return sinh(x); });
+        case DType::Float16:  return unary_op_typed<float16_t>(a, dt, [] __device__(float16_t x) {
+                                  return __float2half(sinhf(__half2float(x))); });
         default: throw std::runtime_error("sinh_cuda: floating-point types only");
     }
 }
@@ -582,7 +641,9 @@ Tensor cosh_cuda(const Tensor& a) {
     DType dt = a._dtype();
     switch (dt) {
         case DType::Float32:  return unary_op_typed<float> (a, dt, [] __device__(float  x) { return coshf(x); });
-        case DType::Double64: return unary_op_typed<double>(a, dt, [] __device__(double x) { return cosh(x);  });
+        case DType::Double64: return unary_op_typed<double>(a, dt, [] __device__(double x) { return cosh(x); });
+        case DType::Float16:  return unary_op_typed<float16_t>(a, dt, [] __device__(float16_t x) {
+                                  return __float2half(coshf(__half2float(x))); });
         default: throw std::runtime_error("cosh_cuda: floating-point types only");
     }
 }
@@ -590,9 +651,14 @@ Tensor sigmoid_cuda(const Tensor& a) {
     DType dt = a._dtype();
     switch (dt) {
         case DType::Float32:
-            return unary_op_typed<float> (a, dt, [] __device__(float  x) { return 1.0f / (1.0f + expf(-x)); });
+            return unary_op_typed<float>    (a, dt, [] __device__(float     x) { return 1.0f / (1.0f + expf(-x)); });
         case DType::Double64:
-            return unary_op_typed<double>(a, dt, [] __device__(double x) { return 1.0  / (1.0  + exp(-x));  });
+            return unary_op_typed<double>   (a, dt, [] __device__(double    x) { return 1.0  / (1.0  + exp(-x)); });
+        case DType::Float16:
+            return unary_op_typed<float16_t>(a, dt, [] __device__(float16_t x) {
+                float fx = __half2float(x);
+                return __float2half(1.0f / (1.0f + expf(-fx)));
+            });
         default: throw std::runtime_error("sigmoid_cuda: floating-point types only");
     }
 }
@@ -600,9 +666,14 @@ Tensor softplus_cuda(const Tensor& a) {
     DType dt = a._dtype();
     switch (dt) {
         case DType::Float32:
-            return unary_op_typed<float> (a, dt, [] __device__(float  x) { return logf(1.0f + expf(x)); });
+            return unary_op_typed<float>    (a, dt, [] __device__(float     x) { return logf(1.0f + expf(x)); });
         case DType::Double64:
-            return unary_op_typed<double>(a, dt, [] __device__(double x) { return log(1.0  + exp(x));   });
+            return unary_op_typed<double>   (a, dt, [] __device__(double    x) { return log(1.0  + exp(x)); });
+        case DType::Float16:
+            return unary_op_typed<float16_t>(a, dt, [] __device__(float16_t x) {
+                float fx = __half2float(x);
+                return __float2half(logf(1.0f + expf(fx)));
+            });
         default: throw std::runtime_error("softplus_cuda: floating-point types only");
     }
 }
@@ -612,6 +683,11 @@ Tensor sum_cuda(const Tensor& t, int dim) {
     Tensor t_gpu = t.device().is_cuda() ? t : t.to(Device(DeviceType::CUDA));
     DType dt = t._dtype();
     Tensor out({1}, dt);
+    if (dt == DType::Float16) {
+        float val = gpu_sum<float16_t>(cuda_ptr<float16_t>(t_gpu), t.numel());
+        reinterpret_cast<float16_t*>(out.impl->data->data.get())[0] = __float2half(val);
+        return out;
+    }
     DISPATCH_ALL_TYPES(dt, "sum_cuda", [&] {
         scalar_t val = gpu_sum<scalar_t>(cuda_ptr<scalar_t>(t_gpu), t.numel());
         reinterpret_cast<scalar_t*>(out.impl->data->data.get())[0] = val;
@@ -620,8 +696,22 @@ Tensor sum_cuda(const Tensor& t, int dim) {
 }
 
 Tensor mean_cuda(const Tensor& t, int dim) {
-    Tensor s = sum_cuda(t, dim);
     DType dt = t._dtype();
+    switch (dt) {
+        case DType::Float32:
+        case DType::Double64:
+        case DType::Float16:
+            break;
+        default:
+            throw std::runtime_error("mean_cuda: floating-point types only");
+    }
+    Tensor s = sum_cuda(t, dim);
+    if (dt == DType::Float16) {
+        float v = __half2float(reinterpret_cast<float16_t*>(s.impl->data->data.get())[0]);
+        reinterpret_cast<float16_t*>(s.impl->data->data.get())[0] =
+            __float2half(v / (float)t.numel());
+        return s;
+    }
     DISPATCH_ALL_TYPES(dt, "mean_cuda", [&] {
         reinterpret_cast<scalar_t*>(s.impl->data->data.get())[0] /=
             static_cast<scalar_t>(t.numel());
@@ -634,6 +724,11 @@ Tensor max_cuda(const Tensor& t, int dim) {
     Tensor t_gpu = t.device().is_cuda() ? t : t.to(Device(DeviceType::CUDA));
     DType dt = t._dtype();
     Tensor out({1}, dt);
+    if (dt == DType::Float16) {
+        float val = gpu_max<float16_t>(cuda_ptr<float16_t>(t_gpu), t.numel());
+        reinterpret_cast<float16_t*>(out.impl->data->data.get())[0] = __float2half(val);
+        return out;
+    }
     DISPATCH_ALL_TYPES(dt, "max_cuda", [&] {
         scalar_t val = gpu_max<scalar_t>(cuda_ptr<scalar_t>(t_gpu), t.numel());
         reinterpret_cast<scalar_t*>(out.impl->data->data.get())[0] = val;
@@ -646,6 +741,11 @@ Tensor min_cuda(const Tensor& t, int dim) {
     Tensor t_gpu = t.device().is_cuda() ? t : t.to(Device(DeviceType::CUDA));
     DType dt = t._dtype();
     Tensor out({1}, dt);
+    if (dt == DType::Float16) {
+        float val = gpu_min<float16_t>(cuda_ptr<float16_t>(t_gpu), t.numel());
+        reinterpret_cast<float16_t*>(out.impl->data->data.get())[0] = __float2half(val);
+        return out;
+    }
     DISPATCH_ALL_TYPES(dt, "min_cuda", [&] {
         scalar_t val = gpu_min<scalar_t>(cuda_ptr<scalar_t>(t_gpu), t.numel());
         reinterpret_cast<scalar_t*>(out.impl->data->data.get())[0] = val;
