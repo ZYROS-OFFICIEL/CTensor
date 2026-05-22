@@ -95,6 +95,7 @@ if (MYPROJECT_BUILD_TESTS)
     add_executable(test_tensor test/core/test_tensor.cpp)
     add_executable(test_ops test/core/test_ops.cpp)
     add_executable(test_autograd test/core/test_autograd.cpp)
+    add_executable(test_data test/core/test_data.cpp)
 
     target_link_libraries(app PRIVATE myproject)
     target_link_libraries(testmnist PRIVATE myproject)
@@ -106,6 +107,8 @@ if (MYPROJECT_BUILD_TESTS)
     target_link_libraries(test_ops PRIVATE myproject)
     target_link_libraries(test_tensor PRIVATE myproject)
     target_link_libraries(test_autograd PRIVATE myproject)
+    target_link_libraries(test_data PRIVATE myproject)
+
 endif()
 
 install(
