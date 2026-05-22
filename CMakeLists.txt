@@ -94,6 +94,7 @@ if (MYPROJECT_BUILD_TESTS)
     #tests
     add_executable(test_tensor test/core/test_tensor.cpp)
     add_executable(test_ops test/core/test_ops.cpp)
+    add_executable(test_autograd test/core/test_autograd.cpp)
 
     target_link_libraries(app PRIVATE myproject)
     target_link_libraries(testmnist PRIVATE myproject)
@@ -104,6 +105,7 @@ if (MYPROJECT_BUILD_TESTS)
     target_link_libraries(InfConvNet PRIVATE myproject)
     target_link_libraries(test_ops PRIVATE myproject)
     target_link_libraries(test_tensor PRIVATE myproject)
+    target_link_libraries(test_autograd PRIVATE myproject)
 endif()
 
 install(
