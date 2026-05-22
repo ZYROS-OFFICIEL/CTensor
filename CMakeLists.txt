@@ -20,11 +20,6 @@ set(PROJECT_INCLUDES
     src/dashboard
 )
 
-# --------------------------------------------------
-# OBJECT libraries
-# --------------------------------------------------
-
-# Scalar
 add_library(opsmp OBJECT src/core/opsmp.cpp)
 target_include_directories(opsmp PRIVATE ${PROJECT_INCLUDES})
 
@@ -37,7 +32,6 @@ add_library(core OBJECT
 )
 target_include_directories(core PRIVATE ${PROJECT_INCLUDES})
 
-# Neural net
 add_library(neuralnet OBJECT
     src/neuralnet/loss.cpp
     src/neuralnet/layer.cpp
@@ -50,11 +44,9 @@ add_library(neuralnet OBJECT
 )
 target_include_directories(neuralnet PRIVATE ${PROJECT_INCLUDES})
 
-# Convolution
 add_library(conv OBJECT src/neuralnet/conv/conv.cpp)
 target_include_directories(conv PRIVATE ${PROJECT_INCLUDES})
 
-# AVX2
 add_library(ops_avx2 OBJECT
     src/cpu/AVX2/ops_avx2_d64.cpp
     src/cpu/AVX2/ops_avx2_f32.cpp
@@ -62,7 +54,6 @@ add_library(ops_avx2 OBJECT
 target_include_directories(ops_avx2 PRIVATE ${PROJECT_INCLUDES})
 target_compile_options(ops_avx2 PRIVATE -O3 -mavx2 -mfma -fopenmp)
 
-# AVX512
 add_library(ops_avx512 OBJECT
     src/cpu/AVX512/ops_avx512_d64.cpp
     src/cpu/AVX512/ops_avx512_f32.cpp
@@ -90,7 +81,6 @@ target_include_directories(myproject
 target_compile_options(myproject PUBLIC -fopenmp)
 target_link_libraries(myproject PUBLIC gomp)
 
-
 option(MYPROJECT_BUILD_TESTS "Build benchmarks/tests" ON)
 
 if (MYPROJECT_BUILD_TESTS)
@@ -101,7 +91,8 @@ if (MYPROJECT_BUILD_TESTS)
     add_executable(convnet test/convnet_test.cpp)
     add_executable(ConvNet test/train_conv.cpp)
     add_executable(InfConvNet test/inf_conv.cpp)
-
+    
+    add_executable(test_tensor test/core/test_tensor.cpp)
     target_link_libraries(app PRIVATE myproject)
     target_link_libraries(testmnist PRIVATE myproject)
     target_link_libraries(trainmnist PRIVATE myproject)
@@ -109,6 +100,8 @@ if (MYPROJECT_BUILD_TESTS)
     target_link_libraries(convnet PRIVATE myproject)
     target_link_libraries(ConvNet PRIVATE myproject)
     target_link_libraries(InfConvNet PRIVATE myproject)
+    
+    target_link_libraries(test_tensor PRIVATE myproject)
 endif()
 
 install(
