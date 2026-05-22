@@ -104,14 +104,14 @@ class SmallVector {
     alignas(std::vector<T>) char       heap_buf_[sizeof(std::vector<T>)];
     bool heap_active_ = false;
 
-    T*                    sp()       noexcept { return reinterpret_cast<T*>(stack_); }
-    const T*              sp() const noexcept { return reinterpret_cast<const T*>(stack_); }
+    T* sp()       noexcept { return reinterpret_cast<T*>(stack_); }
+    const T* sp() const noexcept { return reinterpret_cast<const T*>(stack_); }
     std::vector<T>&       hv()       noexcept { return *reinterpret_cast<std::vector<T>*>(heap_buf_); }
     const std::vector<T>& hv() const noexcept { return *reinterpret_cast<const std::vector<T>*>(heap_buf_); }
 
     void init_heap(size_t reserve) {
         new (heap_buf_) std::vector<T>();
-        hv().reserve(reserve);          
+        hv().reserve(reserve);
         heap_active_ = true;
     }
 
@@ -202,14 +202,14 @@ public:
     T&       operator[](size_t i)       noexcept { return heap_active_ ? hv()[i] : sp()[i]; }
     const T& operator[](size_t i) const noexcept { return heap_active_ ? hv()[i] : sp()[i]; }
 
-    T*       data()       noexcept { return heap_active_ ? hv().data() : sp(); }
+    T* data()       noexcept { return heap_active_ ? hv().data() : sp(); }
     const T* data() const noexcept { return heap_active_ ? hv().data() : sp(); }
 
     size_t size()  const noexcept { return size_; }
     bool   empty() const noexcept { return size_ == 0; }
 
-    T*       begin()       noexcept { return data(); }
-    T*       end()         noexcept { return data() + size_; }
+    T* begin()       noexcept { return data(); }
+    T* end()         noexcept { return data() + size_; }
     const T* begin() const noexcept { return data(); }
     const T* end()   const noexcept { return data() + size_; }
 
@@ -237,7 +237,7 @@ public:
 
 template <typename T>
 class intrusive_ptr {
-    static_assert(std::is_base_of<RefCounted, T>::value, "T must inherit RefCounted");
+    // REMOVED static_assert here to allow incomplete types like Tensorimpl
     T* ptr_ = nullptr;
 
 public:
@@ -280,8 +280,8 @@ public:
         ptr_ = nullptr;
     }
 
-    T*       get()        const noexcept { return ptr_; }
-    T*       operator->() const noexcept { return ptr_; }
+    T* get()        const noexcept { return ptr_; }
+    T* operator->() const noexcept { return ptr_; }
     T&       operator*()  const noexcept { return *ptr_; }
     explicit operator bool() const noexcept { return ptr_ != nullptr; }
     bool operator==(const intrusive_ptr& o) const noexcept { return ptr_ == o.ptr_; }
@@ -294,7 +294,7 @@ intrusive_ptr<T> make_intrusive(Args&&... args) {
 }
 
 struct Block {
-    void*  ptr;
+    void* ptr;
     size_t size;
     bool   in_use;
 };

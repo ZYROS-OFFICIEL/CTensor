@@ -18,10 +18,12 @@ inline void check_index_in_storage(const Tensorimpl* impl, size_t idx, const cha
         std::cerr << ctx << ": missing impl/data\n";
         return;
     }
-    if (idx >= impl->data->size) {
+    
+    // Check against bytes instead of size
+    if ((idx + 1) * dtype_size(impl->dtype) > impl->data->bytes) {
         std::cerr << "OOB " << ctx << ": idx=" << idx
                   << " offset=" << impl->offset
-                  << " storage->size=" << impl->data->size
+                  << " storage->bytes=" << impl->data->bytes
                   << " ndim=" << impl->ndim
                   << "\n";
         throw std::runtime_error("index out of underlying storage bounds");
