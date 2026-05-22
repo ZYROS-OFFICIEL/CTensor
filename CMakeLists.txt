@@ -91,8 +91,10 @@ if (MYPROJECT_BUILD_TESTS)
     add_executable(convnet test/convnet_test.cpp)
     add_executable(ConvNet test/train_conv.cpp)
     add_executable(InfConvNet test/inf_conv.cpp)
-    
+    #tests
     add_executable(test_tensor test/core/test_tensor.cpp)
+    add_executable(test_ops test/core/test_ops.cpp)
+
     target_link_libraries(app PRIVATE myproject)
     target_link_libraries(testmnist PRIVATE myproject)
     target_link_libraries(trainmnist PRIVATE myproject)
@@ -100,7 +102,7 @@ if (MYPROJECT_BUILD_TESTS)
     target_link_libraries(convnet PRIVATE myproject)
     target_link_libraries(ConvNet PRIVATE myproject)
     target_link_libraries(InfConvNet PRIVATE myproject)
-    
+    target_link_libraries(test_ops PRIVATE myproject)
     target_link_libraries(test_tensor PRIVATE myproject)
 endif()
 
