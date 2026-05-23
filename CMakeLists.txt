@@ -96,6 +96,7 @@ if (MYPROJECT_BUILD_TESTS)
     add_executable(test_ops test/core/test_ops.cpp)
     add_executable(test_autograd test/core/test_autograd.cpp)
     add_executable(test_data test/core/test_data.cpp)
+    add_executable(layer_test test/neuralnet/layer_test.cpp)
 
     target_link_libraries(app PRIVATE myproject)
     target_link_libraries(testmnist PRIVATE myproject)
@@ -108,6 +109,7 @@ if (MYPROJECT_BUILD_TESTS)
     target_link_libraries(test_tensor PRIVATE myproject)
     target_link_libraries(test_autograd PRIVATE myproject)
     target_link_libraries(test_data PRIVATE myproject)
+    target_link_libraries(layer_test PRIVATE myproject)
 
 endif()
 
