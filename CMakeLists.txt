@@ -98,6 +98,7 @@ if (MYPROJECT_BUILD_TESTS)
     add_executable(test_data test/core/test_data.cpp)
     add_executable(layer_test test/neuralnet/layer_test.cpp)
     add_executable(loss_test test/neuralnet/loss_test.cpp)
+    add_executable(test_metrics test/neuralnet/test_metrics.cpp)
 
     target_link_libraries(app PRIVATE myproject)
     target_link_libraries(testmnist PRIVATE myproject)
@@ -112,6 +113,7 @@ if (MYPROJECT_BUILD_TESTS)
     target_link_libraries(test_data PRIVATE myproject)
     target_link_libraries(layer_test PRIVATE myproject)
     target_link_libraries(loss_test PRIVATE myproject)
+    target_link_libraries(test_metrics PRIVATE myproject)
 
 endif()
 
