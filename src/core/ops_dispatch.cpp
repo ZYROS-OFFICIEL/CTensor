@@ -173,10 +173,24 @@ Tensor run_binary_op(const Tensor& a, const Tensor& b, OpFunc op) {
 Tensor dispatch_binary(BinaryOp op, const Tensor& a, const Tensor& b, const char* name) {
     ensure_same_device(a, b, name);
 
+    Tensor act_a = a;
+    Tensor act_b = b;
+    if (a._dtype() != b._dtype()) {
+        if (a._dtype() == DType::Double64 || b._dtype() == DType::Double64) {
+            if (a._dtype() != DType::Double64) act_a = a.astype(DType::Double64);
+            if (b._dtype() != DType::Double64) act_b = b.astype(DType::Double64);
+        } else if (a._dtype() == DType::Float32 || b._dtype() == DType::Float32) {
+            if (a._dtype() != DType::Float32) act_a = a.astype(DType::Float32);
+            if (b._dtype() != DType::Float32) act_b = b.astype(DType::Float32);
+        } else {
+            act_b = b.astype(a._dtype());
+        }
+    }
+
     // 1. SCALAR SHORT-CIRCUIT
-    if (a.numel() == 1 && b.numel() == 1) {
-        double va = a.read_scalar(0);
-        double vb = b.read_scalar(0);
+    if (act_a.numel() == 1 && act_b.numel() == 1) {
+        double va = act_a.read_scalar(0);
+        double vb = act_b.read_scalar(0);
         double res = 0.0;
         bool is_bool = false;
 
@@ -196,17 +210,17 @@ Tensor dispatch_binary(BinaryOp op, const Tensor& a, const Tensor& b, const char
         }
 
         if (op != BinaryOp::MATMUL) {
-            Tensor out({1}, is_bool ? DType::Bool : a._dtype());
+            Tensor out({1}, is_bool ? DType::Bool : act_a._dtype());
             out.write_scalar(0, res);
             return out;
         }
     }
 
     // 2. Main Dispatch
-    if (a.device().is_cpu()) {
-        auto fn = get_registry().table[(int)op][(int)a._dtype()];
+    if (act_a.device().is_cpu()) {
+        auto fn = get_registry().table[(int)op][(int)act_a._dtype()];
         if (!fn) throw std::runtime_error(std::string(name) + ": unsupported dtype or op not registered");
-        return fn(a, b);
+        return fn(act_a, act_b);
     }
 
     throw std::runtime_error(std::string(name) + ": unsupported device");
