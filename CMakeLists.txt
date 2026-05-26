@@ -101,6 +101,8 @@ if (MYPROJECT_BUILD_TESTS)
     add_executable(test_metrics test/neuralnet/test_metrics.cpp)
     add_executable(test_optimizers test/neuralnet/test_optimizers.cpp)
     add_executable(test_dataloader test/neuralnet/test_dataloader.cpp)
+    add_executable(test_nn test/neuralnet/test_nn.cpp)
+
 
     target_link_libraries(app PRIVATE myproject)
     target_link_libraries(testmnist PRIVATE myproject)
@@ -118,6 +120,7 @@ if (MYPROJECT_BUILD_TESTS)
     target_link_libraries(test_metrics PRIVATE myproject)
     target_link_libraries(test_optimizers PRIVATE myproject)
     target_link_libraries(test_dataloader PRIVATE myproject)
+    target_link_libraries(test_nn PRIVATE myproject)
 
 endif()
 
