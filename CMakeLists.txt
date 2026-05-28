@@ -103,6 +103,7 @@ if (MYPROJECT_BUILD_TESTS)
     add_executable(test_dataloader test/neuralnet/test_dataloader.cpp)
     add_executable(test_nn test/neuralnet/test_nn.cpp)
     add_executable(test_checks test/neuralnet/test_checks.cpp)
+    add_executable(test_relu test/neuralnet/test_relu.cpp)
 
 
     target_link_libraries(app PRIVATE myproject)
@@ -123,6 +124,8 @@ if (MYPROJECT_BUILD_TESTS)
     target_link_libraries(test_dataloader PRIVATE myproject)
     target_link_libraries(test_nn PRIVATE myproject)
     target_link_libraries(test_checks PRIVATE myproject)
+    target_link_libraries(test_relu PRIVATE myproject)
+
 
 endif()
 
