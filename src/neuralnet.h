@@ -4,6 +4,7 @@
 #include "neuralnet/loss.h"
 #include "neuralnet/module.h"
 #include "neuralnet/metrics.h"
+#include "neuralnet/norm/norm.h"
 #include "neuralnet/Relu.h"
 #include "neuralnet/vision/vision_dataset.h"
 #include "neuralnet/train_utils.h"

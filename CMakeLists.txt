@@ -17,6 +17,7 @@ set(PROJECT_INCLUDES
     src/neuralnet/dataloader
     src/neuralnet/batchnorm
     src/neuralnet/weights
+    src/neuralnet/norm
     src/dashboard
 )
 
@@ -41,6 +42,7 @@ add_library(neuralnet OBJECT
     src/neuralnet/pooling/pooling.cpp
     src/neuralnet/batchnorm/batchnorm.cpp
     src/neuralnet/weights/weights_init.cpp
+    src/neuralnet/norm/norm.cpp
 )
 target_include_directories(neuralnet PRIVATE ${PROJECT_INCLUDES})
 
@@ -104,6 +106,7 @@ if (MYPROJECT_BUILD_TESTS)
     add_executable(test_nn test/neuralnet/test_nn.cpp)
     add_executable(test_checks test/neuralnet/test_checks.cpp)
     add_executable(test_relu test/neuralnet/test_relu.cpp)
+    add_executable(test_norm test/neuralnet/test_norm.cpp)
 
 
     target_link_libraries(app PRIVATE myproject)
@@ -125,6 +128,7 @@ if (MYPROJECT_BUILD_TESTS)
     target_link_libraries(test_nn PRIVATE myproject)
     target_link_libraries(test_checks PRIVATE myproject)
     target_link_libraries(test_relu PRIVATE myproject)
+    target_link_libraries(test_norm PRIVATE myproject)
 
 
 endif()
