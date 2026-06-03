@@ -111,6 +111,7 @@ if (MYPROJECT_BUILD_TESTS)
     add_executable(test_weights_init test/neuralnet/test_weights_init.cpp)
     add_executable(test_pooling test/neuralnet/test_pooling.cpp)
     add_executable(test_dropout test/neuralnet/test_dropout.cpp)
+    add_executable(test_batchnorm test/neuralnet/test_batchnorm.cpp)
 
 
     target_link_libraries(app PRIVATE myproject)
@@ -136,6 +137,8 @@ if (MYPROJECT_BUILD_TESTS)
     target_link_libraries(test_weights_init PRIVATE myproject)
     target_link_libraries(test_pooling PRIVATE myproject)
     target_link_libraries(test_dropout PRIVATE myproject)
+    target_link_libraries(test_batchnorm PRIVATE myproject)
+
 
 
 endif()
