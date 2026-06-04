@@ -1,6 +1,6 @@
 #include "dashboard.h"
 
-void start_dashboard_server(int port=8080 ) {
+void start_dashboard_server(int port) {
     std::cout << "Starting live dashboard on http://localhost:" << port << "\n";
     
     // Construct the command to run Python.
@@ -17,7 +17,7 @@ void start_dashboard_server(int port=8080 ) {
     (void)ret; // Suppress warning
 }
 // Asynchronous HTTP POST request so it doesn't block the training loop
-void api_log_metrics(int epoch, size_t samples, double loss, double acc,int port =8080) {
+void log_metrics(int epoch, size_t samples, double loss, double acc,int port ) {
     std::thread([=]() {
         // Construct the JSON payload string safely
         std::string json = "{\\\"epoch\\\": " + std::to_string(epoch) + 
