@@ -18,7 +18,7 @@ set(PROJECT_INCLUDES
     src/neuralnet/batchnorm
     src/neuralnet/weights
     src/neuralnet/norm
-    src/dashboard
+    src/dashboard/
 )
 
 add_library(opsmp OBJECT src/core/opsmp.cpp)
@@ -50,6 +50,11 @@ target_include_directories(neuralnet PRIVATE ${PROJECT_INCLUDES})
 add_library(conv OBJECT src/neuralnet/conv/conv.cpp)
 target_include_directories(conv PRIVATE ${PROJECT_INCLUDES})
 
+
+add_library(dashboard OBJECT
+    src/dashboard/dashboard.cpp
+)
+target_include_directories(dashboard PRIVATE ${PROJECT_INCLUDES})
 add_library(ops_avx2 OBJECT
     src/cpu/AVX2/ops_avx2_d64.cpp
     src/cpu/AVX2/ops_avx2_f32.cpp
@@ -71,6 +76,7 @@ add_library(myproject STATIC
     $<TARGET_OBJECTS:core>
     $<TARGET_OBJECTS:neuralnet>
     $<TARGET_OBJECTS:conv>
+    $<TARGET_OBJECTS:dashboard>
 )
 
 target_compile_features(myproject PUBLIC cxx_std_20)
@@ -113,6 +119,7 @@ if (MYPROJECT_BUILD_TESTS)
     add_executable(test_dropout test/neuralnet/test_dropout.cpp)
     add_executable(test_batchnorm test/neuralnet/test_batchnorm.cpp)
 
+    add_executable(test_dashboard test/dashboard/dashboard.cpp)
 
     target_link_libraries(app PRIVATE myproject)
     target_link_libraries(testmnist PRIVATE myproject)
@@ -138,6 +145,7 @@ if (MYPROJECT_BUILD_TESTS)
     target_link_libraries(test_pooling PRIVATE myproject)
     target_link_libraries(test_dropout PRIVATE myproject)
     target_link_libraries(test_batchnorm PRIVATE myproject)
+    target_link_libraries(test_dashboard PRIVATE myproject)
 
 
 
