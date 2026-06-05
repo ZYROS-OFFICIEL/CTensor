@@ -18,7 +18,7 @@ set(PROJECT_INCLUDES
     src/neuralnet/batchnorm
     src/neuralnet/weights
     src/neuralnet/norm
-    src/dashboard/
+    src/dashboard
 )
 
 add_library(opsmp OBJECT src/core/opsmp.cpp)
@@ -120,6 +120,7 @@ if (MYPROJECT_BUILD_TESTS)
     add_executable(test_batchnorm test/neuralnet/test_batchnorm.cpp)
 
     add_executable(test_dashboard test/dashboard/dashboard.cpp)
+    add_executable(test_conv test/neuralnet/test_conv.cpp)
 
     target_link_libraries(app PRIVATE myproject)
     target_link_libraries(testmnist PRIVATE myproject)
@@ -146,7 +147,7 @@ if (MYPROJECT_BUILD_TESTS)
     target_link_libraries(test_dropout PRIVATE myproject)
     target_link_libraries(test_batchnorm PRIVATE myproject)
     target_link_libraries(test_dashboard PRIVATE myproject)
-
+    target_link_libraries(test_conv PRIVATE myproject)
 
 
 endif()
