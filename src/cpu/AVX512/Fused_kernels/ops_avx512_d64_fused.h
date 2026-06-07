@@ -1,36 +1,15 @@
 #pragma once
-#include "tensor.h"
+#include "core.h"
 #include <immintrin.h>
 #include <stdexcept>
 
-<<<<<<< HEAD
 //  Naming convention: <op1>_<op2>_avx512_64
-=======
-//  Naming convention: <op1>_<op2>_avx512_d64
->>>>>>> 4cdce48 (Adding : fused_kernels declarations for avx512)
 //  All ops follow the mathematical order of arguments:
 //    fma(a,b,c)  = a*b + c
 //    fms(a,b,c)  = a*b - c
 //    add_relu(a,b) = relu(a+b)
 
 
-<<<<<<< HEAD
-Tensor fma_avx512_d64(const Tensor& a, const Tensor& b, const Tensor& c); 
-Tensor fms_avx512_d64(const Tensor& a, const Tensor& b, const Tensor& c);
-Tensor nfma_avx512_d64(const Tensor& a, const Tensor& b, const Tensor& c); 
-Tensor add_scale_avx512_d64(const Tensor& a, const Tensor& b, float scale); 
-
-Tensor add_relu_avx512_d64(const Tensor& a, const Tensor& b);   
-Tensor add_sigmoid_avx512_d64(const Tensor& a, const Tensor& b);  
-Tensor add_tanh_avx512_d64(const Tensor& a, const Tensor& b);   
-Tensor mul_add_avx512_d64(const Tensor& a, const Tensor& b, const Tensor& c); 
-Tensor add_exp_avx512_d64(const Tensor& a, const Tensor& b);   
-Tensor add_ln_avx512_d64(const Tensor& a, const Tensor& b);   
-
-Tensor exp_neg_avx512_d64(const Tensor& a);                     
-Tensor ln_relu_avx512_d64(const Tensor& a);                     
-Tensor sigmoid_ln_avx512_d64(const Tensor& a);                     
-=======
 Tensor fma_avx512_d64 (const Tensor& a, const Tensor& b, const Tensor& c); 
 Tensor fms_avx512_d64 (const Tensor& a, const Tensor& b, const Tensor& c);
 Tensor nfma_avx512_d64(const Tensor& a, const Tensor& b, const Tensor& c); 
@@ -46,7 +25,6 @@ Tensor add_ln_avx512_d64      (const Tensor& a, const Tensor& b);
 Tensor exp_neg_avx512_d64     (const Tensor& a);                     
 Tensor ln_relu_avx512_d64     (const Tensor& a);                     
 Tensor sigmoid_ln_avx512_d64  (const Tensor& a);                     
->>>>>>> 4cdce48 (Adding : fused_kernels declarations for avx512)
 
 Tensor silu_avx512_d64(const Tensor& a);
 
