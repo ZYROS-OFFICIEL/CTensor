@@ -1,5 +1,5 @@
 #include "cpu/AVX512/Fused_kernels/ops_avx512_f32_fused.h"
-#include "cpu/AVX512ops_avx512_f32.h"
+#include "cpu/AVX512/ops_avx512_f32.h"
 #include <immintrin.h>
 #include <omp.h>
 #include <cmath>
@@ -186,7 +186,7 @@ Tensor binary_fused_512(const Tensor& A, const Tensor& B, Func op) {
     Tensor out(os, DType::Float32);
     const float* ap  = get_ptr<float>(A);
     const float* bp  = get_ptr<float>(B);
-    float*       op_ = get_ptr<float>(out);
+    float* op_ = get_ptr<float>(out);
     auto om  = build_index_multipliers(os);
     auto ast = shape_to_strides_bytes(as);
     auto bst = shape_to_strides_bytes(bs);
@@ -230,7 +230,7 @@ Tensor ternary_fused_512(const Tensor& A, const Tensor& B, const Tensor& C, Func
     const float* ap  = get_ptr<float>(A);
     const float* bp  = get_ptr<float>(B);
     const float* cp  = get_ptr<float>(C);
-    float*       op_ = get_ptr<float>(out);
+    float* op_ = get_ptr<float>(out);
     auto om  = build_index_multipliers(os);
     auto ast = shape_to_strides_bytes(as);
     auto bst = shape_to_strides_bytes(bs);
@@ -265,7 +265,7 @@ Tensor unary_fused_512(const Tensor& A, Func op) {
     size_t n = A.numel();
     Tensor out(A.shape(), DType::Float32);
     const float* ap  = get_ptr<float>(A);
-    float*       op_ = get_ptr<float>(out);
+    float* op_ = get_ptr<float>(out);
     #pragma omp parallel for schedule(static)
     for (size_t i = 0; i < n; i += 16) {
         size_t rem = n - i;
@@ -274,6 +274,8 @@ Tensor unary_fused_512(const Tensor& A, Func op) {
         _mm512_mask_storeu_ps(op_ + i, k, op(va));
     }
     return out;
+}
+
 }
 
 Tensor fma_avx512_f32(const Tensor& a, const Tensor& b, const Tensor& c) {
@@ -407,12 +409,12 @@ Tensor layer_norm_avx512_f32(const Tensor& x, const Tensor& weight,
     const float* xp  = get_ptr<float>(x);
     const float* wp  = get_ptr<float>(weight);
     const float* bp  = get_ptr<float>(bias);
-    float*       op_ = get_ptr<float>(out);
+    float* op_ = get_ptr<float>(out);
  
     #pragma omp parallel for schedule(static)
     for (size_t row = 0; row < outer; ++row) {
         const float* xrow = xp  + row * D;
-        float*       orow = op_ + row * D;
+        float* orow = op_ + row * D;
  
         __m512 vsum = ZMM_0_PS;
         size_t i = 0;
@@ -457,8 +459,6 @@ Tensor layer_norm_avx512_f32(const Tensor& x, const Tensor& weight,
         }
     }
     return out;
-}
-
 }
  
 #endif
