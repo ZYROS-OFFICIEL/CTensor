@@ -9,6 +9,7 @@ set(PROJECT_INCLUDES
     src/core
     src/cpu/AVX2
     src/cpu/AVX512
+    src/cpu/AVX512/Fused_kernels
     src/neuralnet
     src/neuralnet/conv
     src/neuralnet/dataset
@@ -65,6 +66,8 @@ target_compile_options(ops_avx2 PRIVATE -O3 -mavx2 -mfma -fopenmp)
 add_library(ops_avx512 OBJECT
     src/cpu/AVX512/ops_avx512_d64.cpp
     src/cpu/AVX512/ops_avx512_f32.cpp
+    src/cpu/AVX512/Fused_kernels/ops_avx512_d64_fused.cpp
+    src/cpu/AVX512/Fused_kernels/ops_avx512_f32_fused.cpp
 )
 target_include_directories(ops_avx512 PRIVATE ${PROJECT_INCLUDES})
 target_compile_options(ops_avx512 PRIVATE -O3 -mavx512f -mavx512dq)
@@ -122,6 +125,10 @@ if (MYPROJECT_BUILD_TESTS)
     add_executable(test_dashboard test/dashboard/dashboard.cpp)
     add_executable(test_conv test/neuralnet/test_conv.cpp)
 
+    #AVX512
+    add_executable(test_avx512_f32_fk test/cpu/Fused_kernels/test_avx512_f32_fk.cpp)
+    target_compile_options(test_avx512_f32_fk PRIVATE -mavx512f)
+
     target_link_libraries(app PRIVATE myproject)
     target_link_libraries(testmnist PRIVATE myproject)
     target_link_libraries(trainmnist PRIVATE myproject)
@@ -148,6 +155,8 @@ if (MYPROJECT_BUILD_TESTS)
     target_link_libraries(test_batchnorm PRIVATE myproject)
     target_link_libraries(test_dashboard PRIVATE myproject)
     target_link_libraries(test_conv PRIVATE myproject)
+
+    target_link_libraries(test_avx512_f32_fk PRIVATE myproject)
 
 
 endif()
