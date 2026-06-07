@@ -1,5 +1,5 @@
-#include "cpu/AVX512/Fused_kernels/ops_avx512_fd64_fused.h"
-#include "cpu/AVX512ops_avx512_d64.h"
+#include "cpu/AVX512/Fused_kernels/ops_avx512_d64_fused.h"
+#include "cpu/AVX512/ops_avx512_d64.h"
 #include <immintrin.h>
 #include <omp.h>
 #include <cmath>
@@ -18,7 +18,7 @@ inline T* get_ptr(const Tensor& t){
     return (T*)t.impl->data->data.get() +t.impl->offset;
 }
 
-#define ZMM_O_PD _mm512_setzero_pd
+#define ZMM_0_PD _mm512_setzero_pd()
 #define ZMM_1_PD _mm512_set1_pd(1.0)
 #define ZMM_05_PD _mm512_set1_pd(0.5)
 
@@ -26,13 +26,13 @@ inline __mmask8 tail_mask_d64(size_t n) {
     return (__mmask8)((1U << n) - 1); 
 }
 
-inline __m512 bitwise_xor(__m512 a, __m512 b) {
+inline __m512d bitwise_xor(__m512d a, __m512d b) {
     return _mm512_castsi512_pd(_mm512_xor_si512(_mm512_castpd_si512(a), _mm512_castpd_si512(b)));
 }
-inline __m512 bitwise_and(__m512 a, __m512 b) {
+inline __m512d bitwise_and(__m512d a, __m512d b) {
     return _mm512_castsi512_pd(_mm512_and_si512(_mm512_castpd_si512(a), _mm512_castpd_si512(b)));
 }
-inline __m512 bitwise_or(__m512 a, __m512 b) {
+inline __m512d bitwise_or(__m512d a, __m512d b) {
     return _mm512_castsi512_pd(_mm512_or_si512(_mm512_castpd_si512(a), _mm512_castpd_si512(b)));
 }
 inline __m512d abs_pd(__m512d x) {
@@ -77,11 +77,7 @@ inline __m512d log512_pd(__m512d x) {
     __m512i xi    = _mm512_castpd_si512(x);
     __m512i exp_i = _mm512_srli_epi64(xi, 52);
     exp_i         = _mm512_sub_epi64(exp_i, _mm512_set1_epi64(1023));
-<<<<<<< HEAD
-    __m512d e     = _mm512_cvtepi64_pd(exp_i);        // AVX512DQ
-=======
     __m512d e     = _mm512_cvtepi64_pd(exp_i);        
->>>>>>> e6cfde4 (Adding: declaration for fuse kernels in CUDA for F32)
     xi = _mm512_and_si512(xi, _mm512_set1_epi64(0x000FFFFFFFFFFFFFLL));
     xi = _mm512_or_si512 (xi, _mm512_set1_epi64(0x3FF0000000000000LL));
     x  = _mm512_castsi512_pd(xi);
@@ -103,5 +99,6 @@ inline __m512d log512_pd(__m512d x) {
     return _mm512_fmadd_pd(e, _mm512_set1_pd(6.93147180559945309417e-1), ln_m);
 }
 
-
 }
+
+#endif
