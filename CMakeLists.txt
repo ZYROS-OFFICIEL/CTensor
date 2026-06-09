@@ -128,6 +128,8 @@ if (MYPROJECT_BUILD_TESTS)
     #AVX512
     add_executable(test_avx512_f32_fk test/cpu/Fused_kernels/test_avx512_f32_fk.cpp)
     target_compile_options(test_avx512_f32_fk PRIVATE -mavx512f)
+    add_executable(test_avx512_d64_fk test/cpu/Fused_kernels/test_avx512_d64_fk.cpp)
+    target_compile_options(test_avx512_d64_fk PRIVATE -mavx512f)
 
     target_link_libraries(app PRIVATE myproject)
     target_link_libraries(testmnist PRIVATE myproject)
@@ -157,6 +159,7 @@ if (MYPROJECT_BUILD_TESTS)
     target_link_libraries(test_conv PRIVATE myproject)
 
     target_link_libraries(test_avx512_f32_fk PRIVATE myproject)
+    target_link_libraries(test_avx512_d64_fk PRIVATE myproject)
 
 
 endif()
