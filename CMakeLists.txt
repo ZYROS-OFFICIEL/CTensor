@@ -59,6 +59,8 @@ target_include_directories(dashboard PRIVATE ${PROJECT_INCLUDES})
 add_library(ops_avx2 OBJECT
     src/cpu/AVX2/ops_avx2_d64.cpp
     src/cpu/AVX2/ops_avx2_f32.cpp
+
+    src/cpu/AVX2/Fused_kernels/ops_avx2_f32_fused.cpp
 )
 target_include_directories(ops_avx2 PRIVATE ${PROJECT_INCLUDES})
 target_compile_options(ops_avx2 PRIVATE -O3 -mavx2 -mfma -fopenmp)
@@ -130,6 +132,8 @@ if (MYPROJECT_BUILD_TESTS)
     target_compile_options(test_avx512_f32_fk PRIVATE -mavx512f)
     add_executable(test_avx512_d64_fk test/cpu/Fused_kernels/test_avx512_d64_fk.cpp)
     target_compile_options(test_avx512_d64_fk PRIVATE -mavx512f)
+    add_executable(test_avx2_f32_fk test/cpu/Fused_kernels/test_avx2_f32_fk.cpp)
+    target_compile_options(test_avx2_f32_fk PRIVATE -mavx512f)
 
     target_link_libraries(app PRIVATE myproject)
     target_link_libraries(testmnist PRIVATE myproject)
@@ -160,6 +164,7 @@ if (MYPROJECT_BUILD_TESTS)
 
     target_link_libraries(test_avx512_f32_fk PRIVATE myproject)
     target_link_libraries(test_avx512_d64_fk PRIVATE myproject)
+    target_link_libraries(test_avx2_f32_fk PRIVATE myproject)
 
 
 endif()
