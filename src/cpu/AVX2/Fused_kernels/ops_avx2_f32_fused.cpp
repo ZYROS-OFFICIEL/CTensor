@@ -457,4 +457,3 @@ Tensor layer_norm_avx2_f32(const Tensor& x, const Tensor& weight,
 }
  
 #endif
-}
