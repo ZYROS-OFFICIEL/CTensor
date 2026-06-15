@@ -1,5 +1,5 @@
 #pragma once
-#include "tensor.h"
+#include "core.h"
 #include <immintrin.h>
 #include <cmath>
 #include <algorithm>
