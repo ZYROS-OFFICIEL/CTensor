@@ -6,7 +6,7 @@
 #include <limits>
 #include <iostream>
 #include <cstring> 
-
+#include <numbers>
 // Local headers AFTER
 #include "opsmp.h"
 #include "autograd.h"
@@ -581,6 +581,11 @@ Tensor sigmoid_mp(const Tensor& a) {
 Tensor Relu_mp(const Tensor& a) { 
     return unary_op_impl(a, [](double x){ return x > 0 ? x : 0.0; }, 
                          a.requires_grad() ? std::make_shared<GradRelu>(a) : nullptr); 
+}
+
+Tensor gelu_mp(const Tensor& a) { 
+    return unary_op_impl(a, [](double x){ return 0.5 * x * (1.0 + std::tanh(std::sqrt(2.0 / std::numbers::pi) * (x + 0.044715 * std::pow(x, 3)))); }, 
+                         a.requires_grad() ? std::make_shared<GradGelu>(a) : nullptr); 
 }
 
 Tensor softplus_mp(const Tensor& a) { 
