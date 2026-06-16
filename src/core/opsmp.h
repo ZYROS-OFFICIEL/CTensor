@@ -61,6 +61,7 @@ Tensor cosh_mp(const Tensor& a);
 Tensor sigmoid_mp(const Tensor& a);
 Tensor Relu_mp(const Tensor& a);
 Tensor softplus_mp(const Tensor& a);
+Tensor gelu_mp(const Tensor& a);
 
 //------------------ Reduction Operations --------------------------------
 
