@@ -356,6 +356,38 @@ void GradRelu::backward(const Tensor& self) {
         accumulate_grad(t, mul(grad, mask));
     }
 }
+void GradGelu::backward(const Tensor& self) {
+    if (t.requires_grad()) {
+        Tensor grad = tensor_from_grad(self);
+        
+        // Math Constants
+        double sqrt_2_over_pi = std::sqrt(2.0 / std::numbers::pi);
+        double coef = 0.044715;
+        
+        // Forward intermediate calculations
+        Tensor x_sq = mul(t, t);                  // x^2
+        Tensor x_cubed = mul(t, x_sq);            // x^3
+        Tensor inner = add(t, mul_scalar(x_cubed, coef));
+        Tensor tanh_inner = tanh(mul_scalar(inner, sqrt_2_over_pi));
+        
+        // term1: 0.5 * (1 + tanh(sqrt(2/pi) * (x + 0.044715 * x^3)))
+        Tensor term1 = mul_scalar(add_scalar(tanh_inner, 1.0), 0.5);
+        
+        // inner_deriv: sqrt(2/pi) * (1 + 3 * 0.044715 * x^2)
+        // -> This is what was missing in your implementation!
+        Tensor inner_deriv = mul_scalar(add_scalar(mul_scalar(x_sq, 3.0 * coef), 1.0), sqrt_2_over_pi);
+        
+        // sech^2(x) = 1 - tanh^2(x)
+        Tensor sech_squared = sub_scalar_rev(1.0, mul(tanh_inner, tanh_inner)); 
+        
+        // term2: 0.5 * x * sech^2(...) * inner_deriv
+        Tensor term2 = mul_scalar(mul(mul(t, sech_squared), inner_deriv), 0.5);
+        
+        // Combine and accumulate
+        Tensor deriv = add(term1, term2);
+        accumulate_grad(t, mul(grad, deriv));
+    }
+}
 
 void GradSoftplus::backward(const Tensor& self) {
     if (t.requires_grad()) {
