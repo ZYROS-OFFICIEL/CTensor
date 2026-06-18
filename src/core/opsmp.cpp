@@ -593,6 +593,11 @@ Tensor silu_mp(const Tensor& a) {
                          a.requires_grad() ? std::make_shared<GradSilu>(a) : nullptr); 
 }
 
+Tensor mish_mp(const Tensor& a) { 
+    return unary_op_impl(a, [](double x){ return x * std::tanh(std::log(1.0 + std::exp(x))); }, 
+                         a.requires_grad() ? std::make_shared<GradMish>(a) : nullptr); 
+}
+
 
 Tensor softplus_mp(const Tensor& a) { 
     return unary_op_impl(a, [](double x){ return std::log(1.0 + std::exp(x)); }, 
