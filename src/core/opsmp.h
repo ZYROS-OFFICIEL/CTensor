@@ -63,6 +63,7 @@ Tensor Relu_mp(const Tensor& a);
 Tensor softplus_mp(const Tensor& a);
 Tensor gelu_mp(const Tensor& a);
 Tensor silu_mp(const Tensor& a);
+Tensor mish_mp(const Tensor& a);
 
 //------------------ Reduction Operations --------------------------------
 
