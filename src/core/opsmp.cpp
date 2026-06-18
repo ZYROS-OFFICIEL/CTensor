@@ -588,6 +588,12 @@ Tensor gelu_mp(const Tensor& a) {
                          a.requires_grad() ? std::make_shared<GradGelu>(a) : nullptr); 
 }
 
+Tensor silu_mp(const Tensor& a) { 
+    return unary_op_impl(a, [](double x){ return x / (1.0 + std::exp(-x)); }, 
+                         a.requires_grad() ? std::make_shared<GradSilu>(a) : nullptr); 
+}
+
+
 Tensor softplus_mp(const Tensor& a) { 
     return unary_op_impl(a, [](double x){ return std::log(1.0 + std::exp(x)); }, 
                          a.requires_grad() ? std::make_shared<GradSoftplus>(a) : nullptr); 
