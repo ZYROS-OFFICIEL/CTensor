@@ -399,6 +399,22 @@ void GradSilu::backward(const Tensor& self) {
     }
 }
 
+void GradMish::backward(const Tensor& self) {
+    if (t.requires_grad()) {
+        Tensor grad = tensor_from_grad(self);
+        Tensor exp_t = exp(t);
+        Tensor ln_term = log(add_scalar(exp_t, 1.0));
+        Tensor tanh_term = tanh(ln_term);
+        
+        // derivative of mish: tanh(ln(1 + exp(x))) + x * sech^2(ln(1 + exp(x))) * (exp(x) / (1 + exp(x)))
+        Tensor sech_squared = sub_scalar_rev(1.0, mul(tanh_term, tanh_term));
+        Tensor exp_div = div(exp_t, add_scalar(exp_t, 1.0));
+        Tensor deriv = add(tanh_term, mul(mul(t, sech_squared), exp_div));
+        
+        accumulate_grad(t, mul(grad, deriv));
+    }
+}
+
 void GradSoftplus::backward(const Tensor& self) {
     if (t.requires_grad()) {
         // sigmoid(x)
