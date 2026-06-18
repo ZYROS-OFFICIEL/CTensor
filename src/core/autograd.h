@@ -202,6 +202,14 @@ struct GradGelu : GradFn {
 
     void backward(const Tensor& self) override;
 };
+
+struct GradSilu : GradFn {
+    Tensor t;
+    GradSilu(const Tensor& t_) : t(t_) { parents = {t}; }
+
+    void backward(const Tensor& self) override;
+};
+
 struct GradSoftplus : GradFn {
     Tensor t;
     GradSoftplus(const Tensor& t_) : t(t_) { parents = {t}; }

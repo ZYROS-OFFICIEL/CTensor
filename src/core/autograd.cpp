@@ -389,6 +389,16 @@ void GradGelu::backward(const Tensor& self) {
     }
 }
 
+void GradSilu::backward(const Tensor& self) {
+    if (t.requires_grad()) {
+        Tensor grad = tensor_from_grad(self);
+        Tensor sig = sigmoid(t);
+        Tensor one_minus_sig = sub_scalar_rev(1.0, sig);
+        Tensor deriv = add(sig, mul(t, one_minus_sig));
+        accumulate_grad(t, mul(grad, deriv));
+    }
+}
+
 void GradSoftplus::backward(const Tensor& self) {
     if (t.requires_grad()) {
         // sigmoid(x)
