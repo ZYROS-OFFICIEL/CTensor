@@ -58,6 +58,8 @@ Tensor sigmoid(const Tensor &a);
 Tensor relu(const Tensor &a);
 Tensor softplus(const Tensor &a);
 Tensor gelu(const Tensor &a);
+Tensor silu(const Tensor &a);
+Tensor mish(const Tensor &a);
 
 // Reductions
 Tensor sum(const Tensor &a, int dim = -1);
