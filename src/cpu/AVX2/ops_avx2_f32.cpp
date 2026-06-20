@@ -618,6 +618,26 @@ Tensor softplus_avx2_f32(const Tensor& a) {
         return log256_ps(_mm256_add_ps(YMM_1_PS, exp256_ps(x))); 
     }); 
 }
+Tensor silu_avx2_f32(const Tensor& a) { 
+    return unary_op_broadcast(a, [](__m256 x){ 
+        __m256 one = YMM_1_PS;
+        __m256 exp_x = exp256_ps(x);
+        __m256 denom = _mm256_add_ps(one, exp_x);
+        return _mm256_div_ps(exp_x, denom);
+    }); 
+}
+Tensor gelu_avx2_f32(const Tensor& a) { 
+    return unary_op_broadcast(a, [](__m256 x){ 
+        const __m256 kAlpha = _mm256_set1_ps(0.7978845608028654f); // sqrt(2/pi)
+        const __m256 kBeta = _mm256_set1_ps(0.044715f);
+        __m256 x_cube = _mm256_mul_ps(_mm256_mul_ps(x, x), x);
+        __m256 inner = _mm256_add_ps(x, _mm256_mul_ps(kBeta, x_cube));
+        __m256 tanh_inner = tanh256_ps(_mm256_mul_ps(kAlpha, inner));
+        __m256 one = YMM_1_PS;
+        __m256 result = _mm256_mul_ps(_mm256_mul_ps(_mm256_add_ps(one, tanh_inner), x), _mm256_set1_ps(0.5f));
+        return result;
+    }); 
+}
 
 #define OMP_SIMD_UNARY_AVX2(FUNC_NAME, STD_FUNC) \
 Tensor FUNC_NAME(const Tensor& a) { \
