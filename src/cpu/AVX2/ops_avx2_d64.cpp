@@ -472,6 +472,25 @@ Tensor relu_avx2_d64(const Tensor& a) {
     return unary_op_d64_impl(a, []( __m256d x){ return _mm256_max_pd(x, YMM_0_PD); });
 }
 
+Tensor silu_avx2_d64(const Tensor& a) {
+    return unary_op_d64_impl(a, []( __m256d x){
+        __m256d sig = _mm256_div_pd(YMM_1_PD, _mm256_add_pd(YMM_1_PD, _mm256_exp_pd(_mm256_sub_pd(YMM_0_PD, x))));
+        return _mm256_mul_pd(x, sig);
+    });
+}
+Tensor gelu_avx2_d64(const Tensor& a) {
+    return unary_op_d64_impl(a, []( __m256d x){
+        const __m256d k0 = _mm256_set1_pd(0.044715);
+        const __m256d k1 = _mm256_set1_pd(0.7978845608028654); // sqrt(2/pi)
+        __m256d x3 = _mm256_mul_pd(_mm256_mul_pd(x, x), x); // x^3
+        __m256d inner = _mm256_add_pd(x, _mm256_mul_pd(k0, x3)); // x + k0*x^3
+        __m256d tanh_inner = _mm256_mul_pd(k1, inner);
+        tanh_inner = _mm256_tanh_pd(tanh_inner);
+        __m256d cdf = _mm256_mul_pd(_mm256_add_pd(YMM_1_PD, tanh_inner), _mm256_set1_pd(0.5)); // 0.5 * (1 + tanh(...))
+        return _mm256_mul_pd(x, cdf);
+    });
+}
+
 // Complex unary ops use OMP SIMD
 #define OMP_SIMD_UNARY_D64(FUNC_NAME, STD_FUNC) \
 Tensor FUNC_NAME(const Tensor& a) { \

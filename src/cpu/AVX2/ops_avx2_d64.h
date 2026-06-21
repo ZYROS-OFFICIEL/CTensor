@@ -49,6 +49,8 @@ Tensor sinh_avx2_d64(const Tensor& a);
 Tensor cosh_avx2_d64(const Tensor& a);
 Tensor sigmoid_avx2_d64(const Tensor& a);
 Tensor softplus_avx2_d64(const Tensor& a);
+Tensor silu_avx2_d64(const Tensor& a);
+Tensor gelu_avx2_d64(const Tensor& a);
 
 // ========================================================================
 //                        Reductions (Double64)
