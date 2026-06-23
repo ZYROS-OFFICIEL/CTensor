@@ -45,20 +45,7 @@ public:
         k = k.reshape({bsz, k_len, num_heads, head_dim}).permute({0, 2, 1, 3});
         v = v.reshape({bsz, v_len, num_heads, head_dim}).permute({0, 2, 1, 3});
 
-        Tensor k_t = k.permute({0, 1, 3, 2}); 
-        
-        Tensor attn_scores = matmul(q, k_t);
-        
-        float scale = 1.0f / std::sqrt(static_cast<float>(head_dim));
-        attn_scores = mul_scalar(attn_scores, scale);
-
-        if (attn_mask.impl) { 
-            attn_scores = add(attn_scores, attn_mask);
-        }
-
-        Tensor attn_weights = functional::softmax(attn_scores, -1);
-s
-        Tensor attn_output = matmul(attn_weights, v);
+        Tensor attn_output = scaled_dot_product_attention(q, k, v, attn_mask);
 
         attn_output = attn_output.permute({0, 2, 1, 3});
         
