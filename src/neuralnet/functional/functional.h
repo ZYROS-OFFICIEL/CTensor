@@ -4,6 +4,13 @@
 #include <vector>
 #include <stdexcept>
 
+enum class InterpolateMode {
+    Nearest,
+    Linear,
+    Bilinear,
+    Bicubic,
+    Trilinear
+};
 namespace functional {
 
 inline Tensor embedding(
