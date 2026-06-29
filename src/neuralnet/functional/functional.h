@@ -11,7 +11,6 @@ enum class InterpolateMode {
     Bicubic,
     Trilinear
 };
-namespace functional {
 
 inline Tensor embedding(
     const Tensor& weight, 
@@ -39,5 +38,3 @@ inline Tensor interpolate(
     return ops::interpolate(input, size, scale_factor, static_cast<int>(mode), align_corners);
 }
 
-
-} 
