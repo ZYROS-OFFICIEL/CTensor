@@ -69,8 +69,11 @@ Tensor mish_mp(const Tensor& a);
 
 Tensor sum_mp(const Tensor& t, int dim = -1);
 Tensor mean_mp(const Tensor& t, int dim = -1);
-Tensor max_mp(const Tensor& t, int dim = -1); // Placeholder if you implement it
-Tensor min_mp(const Tensor& t, int dim = -1); // Placeholder
+Tensor max_mp(const Tensor& t, int dim = -1); 
+Tensor min_mp(const Tensor& t, int dim = -1); 
+
+//------------------ Other Operations ------------------------------------
+Tensor interpolate(const Tensor& input, const std::vector<size_t>& size, const std::vector<double>& scale_factor, int mode, bool align_corners);
 
 //------------------ Element-wise Comparisons ----------------------------
 Tensor lt_mp(const Tensor& a, double b);
