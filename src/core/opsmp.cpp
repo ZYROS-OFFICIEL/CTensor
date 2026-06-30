@@ -39,6 +39,13 @@ static std::vector<size_t> broadcast_shape(const std::vector<size_t>& a, const s
     return res;
 }
 
+static inline float get_scale(size_t in_size, size_t out_size, bool align_corners) {
+    if (align_corners) {
+        return (out_size > 1) ? (float)(in_size - 1) / (out_size - 1) : 0.0f;
+    } else {
+        return (out_size > 0) ? (float)in_size / out_size : 0.0f;
+    }
+}
 // ======================================================================================
 //                            OPTIMIZED ITERATOR (NO MODULO)
 // ======================================================================================
@@ -711,6 +718,10 @@ Tensor mean_mp(const Tensor& t, int dim) {
     double count = (double)t.impl->shape[dim < 0 ? dim + t.impl->ndim : dim];
     return mult_scalar_mp(s, 1.0 / count);
 }
+
+//--- Other operators ---
+
+
 
 // --- Comparisons ---
 
