@@ -46,6 +46,24 @@ static inline float get_scale(size_t in_size, size_t out_size, bool align_corner
         return (out_size > 0) ? (float)in_size / out_size : 0.0f;
     }
 }
+
+static inline int compute_nearest_index(size_t out_idx, float scale, size_t in_size, bool align_corners) {
+    if (align_corners) {
+        return std::min((int)std::round(out_idx * scale), (int)in_size - 1);
+    } else {
+        return std::min((int)(out_idx * scale), (int)in_size - 1);
+    }
+}
+
+static inline float compute_source_index(size_t out_idx, float scale, bool align_corners) {
+    if (align_corners) {
+        return out_idx * scale;
+    } else {
+        float src_idx = (out_idx + 0.5f) * scale - 0.5f;
+        return src_idx < 0.0f ? 0.0f : src_idx;
+    }
+}
+
 // ======================================================================================
 //                            OPTIMIZED ITERATOR (NO MODULO)
 // ======================================================================================
