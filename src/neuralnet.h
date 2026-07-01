@@ -16,3 +16,5 @@
 #include "neuralnet/dropout/dropout.h"
 #include "neuralnet/pooling/pooling.h"
 #include "neuralnet/weights/weights_init.h"
+#include "neuralnet/functional/functional.h"
+#include "neuralnet/Interpolation/interpolation.h"
