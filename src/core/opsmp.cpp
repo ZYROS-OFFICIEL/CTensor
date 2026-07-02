@@ -847,3 +847,92 @@ Tensor cat_mp(const std::vector<Tensor>& tensors, size_t dim) {
     }
     return out;
 }
+
+//other ops:
+
+Tensor interpolate_mp(const Tensor& input, const std::vector<size_t>& size, const std::vector<double>& scale_factor, int mode, bool align_corners) {
+    if (!input.impl) throw std::runtime_error("interpolate: null input");
+    if (input.impl->ndim != 4) throw std::runtime_error("interpolate: currently only supports 4D tensors [B, C, H, W]");
+
+    size_t B = input.shape()[0];
+    size_t C = input.shape()[1];
+    size_t H_in = input.shape()[2];
+    size_t W_in = input.shape()[3];
+
+    size_t H_out = 0;
+    size_t W_out = 0;
+
+    if (!size.empty()) {
+        if (size.size() != 2) throw std::runtime_error("interpolate: size must be 2D [H, W]");
+        H_out = size[0];
+        W_out = size[1];
+    } else if (!scale_factor.empty()) {
+        if (scale_factor.size() != 2) throw std::runtime_error("interpolate: scale_factor must be 2D [scale_h, scale_w]");
+        H_out = static_cast<size_t>(std::floor(H_in * scale_factor[0]));
+        W_out = static_cast<size_t>(std::floor(W_in * scale_factor[1]));
+    } else {
+        throw std::runtime_error("interpolate: must specify either size or scale_factor");
+    }
+
+    bool req = input.requires_grad();
+    Tensor out({B, C, H_out, W_out}, input._dtype(), req);
+    if (req) {
+        out.impl->grad_fn = std::make_shared<GradInterpolate>(input, size, scale_factor, mode, align_corners);
+    }
+
+    float scale_h = get_scale(H_in, H_out, align_corners);
+    float scale_w = get_scale(W_in, W_out, align_corners);
+
+    if (input._dtype() == DType::Float32 && input.is_contiguous()) {
+        const float* in_ptr = (const float*)input.impl->data->data.get() + input.impl->offset;
+        float* out_ptr = (float*)out.impl->data->data.get();
+
+        size_t hw_in = H_in * W_in;
+        size_t hw_out = H_out * W_out;
+
+        #pragma omp parallel for collapse(2) schedule(static)
+        for (size_t b = 0; b < B; ++b) {
+            for (size_t c = 0; c < C; ++c) {
+                const float* in_channel = in_ptr + (b * C + c) * hw_in;
+                float* out_channel = out_ptr + (b * C + c) * hw_out;
+
+                if (mode == 0) { 
+                    for (size_t oh = 0; oh < H_out; ++oh) {
+                        int ih = compute_nearest_index(oh, scale_h, H_in, align_corners);
+                        for (size_t ow = 0; ow < W_out; ++ow) {
+                            int iw = compute_nearest_index(ow, scale_w, W_in, align_corners);
+                            out_channel[oh * W_out + ow] = in_channel[ih * W_in + iw];
+                        }
+                    }
+                } else if (mode == 1) { 
+                    for (size_t oh = 0; oh < H_out; ++oh) {
+                        float h_src = compute_source_index(oh, scale_h, align_corners);
+                        int h0 = (int)std::floor(h_src);
+                        int h1 = std::min(h0 + 1, (int)H_in - 1);
+                        float h1_w = h_src - h0;
+                        float h0_w = 1.0f - h1_w;
+
+                        for (size_t ow = 0; ow < W_out; ++ow) {
+                            float w_src = compute_source_index(ow, scale_w, align_corners);
+                            int w0 = (int)std::floor(w_src);
+                            int w1 = std::min(w0 + 1, (int)W_in - 1);
+                            float w1_w = w_src - w0;
+                            float w0_w = 1.0f - w1_w;
+
+                            float val = in_channel[h0 * W_in + w0] * h0_w * w0_w +
+                                        in_channel[h0 * W_in + w1] * h0_w * w1_w +
+                                        in_channel[h1 * W_in + w0] * h1_w * w0_w +
+                                        in_channel[h1 * W_in + w1] * h1_w * w1_w;
+
+                            out_channel[oh * W_out + ow] = val;
+                        }
+                    }
+                }
+            }
+        }
+    } else {
+        throw std::runtime_error("interpolate_mp: currently only optimized for Float32 Contiguous tensors");
+    }
+
+    return out;
+}
