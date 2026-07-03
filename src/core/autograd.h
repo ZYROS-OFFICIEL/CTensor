@@ -112,6 +112,17 @@ struct GradMean : GradFn {
     void backward(const Tensor& self) override ;
 };
 
+struct GradInterpolate : GradFn {
+    Tensor t;
+    std::vector<size_t> out_shape;
+    bool align_corners;
+    GradInterpolate(const Tensor& t_, const std::vector<size_t>& out_shape_, bool align_corners_)
+        : t(t_), out_shape(out_shape_), align_corners(align_corners_) {
+        parents = {t};
+    }
+    void backward(const Tensor& self) override ;
+};
+
 struct GradLn : GradFn {
     Tensor t;
     GradLn(const Tensor& t_) : t(t_) { parents = {t}; }

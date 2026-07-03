@@ -11,6 +11,7 @@
 #include "autograd.h" 
 #include "tensor.h"
 
+
 //-------------------- helpers --------------------
 void ensure_grad_buffer(Tensor &t, bool zero_existing) {
     if (!t.impl) throw std::runtime_error("ensure_grad_buffer: undefined tensor");
@@ -37,6 +38,21 @@ void ensure_grad_buffer(Tensor &t, bool zero_existing) {
             std::memset(t.impl->grad->data->data.get(), 0, nbytes);
         }
     }
+}
+
+
+static inline float get_scale(size_t in_size, size_t out_size, bool align_corners) {
+    if (align_corners) return (out_size > 1) ? (float)(in_size - 1) / (out_size - 1) : 0.0f;
+    return (out_size > 0) ? (float)in_size / out_size : 0.0f;
+}
+static inline int compute_nearest_index(size_t out_idx, float scale, size_t in_size, bool align_corners) {
+    if (align_corners) return std::min((int)std::round(out_idx * scale), (int)in_size - 1);
+    return std::min((int)(out_idx * scale), (int)in_size - 1);
+}
+static inline float compute_source_index(size_t out_idx, float scale, bool align_corners) {
+    if (align_corners) return out_idx * scale;
+    float src_idx = (out_idx + 0.5f) * scale - 0.5f;
+    return src_idx < 0.0f ? 0.0f : src_idx;
 }
 
 // Convert the raw gradient buffer into a usable Tensor object
