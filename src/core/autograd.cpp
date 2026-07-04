@@ -439,6 +439,69 @@ void GradSoftplus::backward(const Tensor& self) {
         accumulate_grad(t, mul(grad, sig));
     }
 }
+
+void GradInterpolate::backward(const Tensor& self) {
+    if (!t.requires_grad()) return;
+    
+    Tensor grad_output = tensor_from_grad(self).contiguous();
+    Tensor grad_input = Tensor::zeros(t.shape(), t._dtype(), false);
+    
+    size_t B = t.shape()[0];
+    size_t C = t.shape()[1];
+    size_t H_in = t.shape()[2];
+    size_t W_in = t.shape()[3];
+    
+    size_t H_out = out_shape[2];
+    size_t W_out = out_shape[3];
+    
+    float scale_h = align_corners ? (float)(H_in - 1) / (H_out > 1 ? H_out - 1 : 1) : (float)H_in / H_out;
+    float scale_w = align_corners ? (float)(W_in - 1) / (W_out > 1 ? W_out - 1 : 1) : (float)W_in / W_out;
+    
+    const float* go_ptr = (const float*)grad_output.impl->data->data.get() + grad_output.impl->offset;
+    float* gi_ptr = (float*)grad_input.impl->data->data.get();
+    
+    size_t hw_in = H_in * W_in;
+    size_t hw_out = H_out * W_out;
+    
+    #pragma omp parallel for collapse(2) schedule(static)
+    for (size_t b = 0; b < B; ++b) {
+        for (size_t c = 0; c < C; ++c) {
+            const float* go_channel = go_ptr + (b * C + c) * hw_out;
+            float* gi_channel = gi_ptr + (b * C + c) * hw_in;
+            
+            for (size_t oh = 0; oh < H_out; ++oh) {
+                float h_src = align_corners ? oh * scale_h : (oh + 0.5f) * scale_h - 0.5f;
+                h_src = std::max(0.0f, h_src);
+                int h0 = (int)std::floor(h_src);
+                int h1 = std::min(h0 + 1, (int)H_in - 1);
+                float h1_w = h_src - h0;
+                float h0_w = 1.0f - h1_w;
+                
+                for (size_t ow = 0; ow < W_out; ++ow) {
+                    float w_src = align_corners ? ow * scale_w : (ow + 0.5f) * scale_w - 0.5f;
+                    w_src = std::max(0.0f, w_src);
+                    int w0 = (int)std::floor(w_src);
+                    int w1 = std::min(w0 + 1, (int)W_in - 1);
+                    float w1_w = w_src - w0;
+                    float w0_w = 1.0f - w1_w;
+                    
+                    float g_val = go_channel[oh * W_out + ow];
+                    
+                    #pragma omp atomic
+                    gi_channel[h0 * W_in + w0] += g_val * h0_w * w0_w;
+                    #pragma omp atomic
+                    gi_channel[h0 * W_in + w1] += g_val * h0_w * w1_w;
+                    #pragma omp atomic
+                    gi_channel[h1 * W_in + w0] += g_val * h1_w * w0_w;
+                    #pragma omp atomic
+                    gi_channel[h1 * W_in + w1] += g_val * h1_w * w1_w;
+                }
+            }
+        }
+    }
+    accumulate_grad(t, grad_input);
+}
+
 //--------------------Reduction backward --------------------
 void GradSum::backward(const Tensor& self) {
     if (t.requires_grad()) {
