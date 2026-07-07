@@ -545,6 +545,10 @@ Tensor cat(const std::vector<Tensor>& tensors, size_t dim) {
     return cat_mp(tensors, dim);
 }
 
+Tensor interpolate(const Tensor& input, const std::vector<size_t>& output_size, const std::string& mode, bool align_corners) {
+    return interpolate_mp(input, output_size, mode, align_corners);
+}
+
 // --- Operators ---
 
 Tensor& operator+=(Tensor& a, const Tensor& b) { a = add(a, b); return a; }
