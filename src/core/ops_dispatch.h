@@ -71,6 +71,8 @@ Tensor argmax(const Tensor &a, int dim);
 // Utils
 Tensor cat(const std::vector<Tensor>& tensors, size_t dim);
 
+
+Tensor interpolate(const Tensor& input, const std::vector<size_t>& output_size, const std::string& mode = "nearest", bool align_corners = false);
 //------------------ Operator Overloads ----------------------------------
 
 Tensor operator+(const Tensor& a, const Tensor& b);
