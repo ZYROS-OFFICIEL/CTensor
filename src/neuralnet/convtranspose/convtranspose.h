@@ -1,5 +1,5 @@
 #pragma once
-#include "core/
+#include "core"
 #include "neuralnet" 
 #include <vector>
 
