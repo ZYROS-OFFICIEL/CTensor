@@ -308,10 +308,30 @@ struct GradGather : GradFn {
     Tensor index;  // The indices used
     size_t dim;    // The dimension gathered along
 
-    GradGather(const Tensor& t_, const Tensor& index_, size_t dim_) 
+    GradGather(const Tensor& t_, const Tensor& index_, size_t dim_)
         : t(t_), index(index_), dim(dim_) {
         parents = {t}; // Index usually doesn't require grad in standard layers
     }
+
+    void backward(const Tensor& self) override;
+};
+
+struct GradEmbedding : GradFn {
+    Tensor weight;  
+    Tensor indices;  
+
+    GradEmbedding(const Tensor& weight_, const Tensor& indices_)
+        : weight(weight_), indices(indices_) {
+        parents = {weight};
+    }
+
+    void backward(const Tensor& self) override;
+};
+
+struct GradBatchMatMul : GradFn {
+    Tensor a, b;
+
+    GradBatchMatMul(const Tensor& a_, const Tensor& b_) : a(a_), b(b_) { parents = {a, b}; }
 
     void backward(const Tensor& self) override;
 };
