@@ -634,6 +634,53 @@ void GradGather::backward(const Tensor& self) {
     accumulate_grad(t, grad_input);
 }
 
+void GradEmbedding::backward(const Tensor& self) {
+    if (!weight.requires_grad()) return;
+
+    Tensor grad_output = tensor_from_grad(self).contiguous();
+    Tensor grad_weight = Tensor::zeros(weight.shape(), weight._dtype(), false);
+    Tensor idx_cont = indices.contiguous();
+
+    void* gw_ptr  = grad_weight.impl->data->data.get();
+    void* go_ptr  = grad_output.impl->data->data.get();
+    void* idx_ptr = idx_cont.impl->data->data.get();
+
+    size_t N = indices.numel();
+    size_t D = weight.shape()[1];
+    size_t V = weight.shape()[0];
+    DType dt     = weight._dtype();
+    DType idx_dt = indices._dtype();
+
+    for (size_t i = 0; i < N; ++i) {
+        int64_t idx = static_cast<int64_t>(read_scalar_at(idx_ptr, i, idx_dt));
+        if (idx < 0) idx += (int64_t)V;
+        if (idx < 0 || (size_t)idx >= V) continue; 
+
+        size_t gw_row_off = (size_t)idx * D;
+        size_t go_row_off = i * D;
+        for (size_t d = 0; d < D; ++d) {
+            double curr = read_scalar_at(gw_ptr, gw_row_off + d, dt);
+            double inc  = read_scalar_at(go_ptr, go_row_off + d, dt);
+            write_scalar_at(gw_ptr, gw_row_off + d, dt, curr + inc);
+        }
+    }
+
+    accumulate_grad(weight, grad_weight);
+}
+
+void GradBatchMatMul::backward(const Tensor& self) {
+    Tensor grad = tensor_from_grad(self);
+
+    auto T = [](const Tensor& t) { return t.permute({0, 2, 1}); };
+
+    if (a.requires_grad()) {
+        accumulate_grad(a, bmm(grad, T(b)));
+    }
+    if (b.requires_grad()) {
+        accumulate_grad(b, bmm(T(a), grad));
+    }
+}
+
 void backward(Tensor& root) {
     if (!root.impl || !root.requires_grad()) 
         throw std::runtime_error("backward: tensor does not require grad");
