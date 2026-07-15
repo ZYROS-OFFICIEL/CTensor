@@ -1,6 +1,7 @@
 #pragma once
 #include "core.h"
 #include "neuralnet.h"
+#include "neuralnet/functional/functional.h"
 #include <vector>
 #include <stdexcept>
 
