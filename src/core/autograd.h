@@ -295,11 +295,17 @@ struct GradPermute : GradFn {
 struct GradReshape : GradFn {
     Tensor t;
     std::vector<size_t> old_shape;
-    
-    GradReshape(const Tensor& t_, std::vector<size_t> old_) : t(t_), old_shape(old_) { 
-        parents = {t}; 
+
+    GradReshape(const Tensor& t_, std::vector<size_t> old_) : t(t_), old_shape(old_) {
+        parents = {t};
     }
 
+    void backward(const Tensor& self) override;
+};
+
+struct GradClone : GradFn {
+    Tensor t;
+    GradClone(const Tensor& t_) : t(t_) { parents = {t}; }
     void backward(const Tensor& self) override;
 };
 

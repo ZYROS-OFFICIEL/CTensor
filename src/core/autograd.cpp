@@ -543,6 +543,12 @@ void GradReshape::backward(const Tensor& self) {
         accumulate_grad(t, contig.reshape(old_shape));
     }
 }
+
+void GradClone::backward(const Tensor& self) {
+    if (t.requires_grad()) {
+        accumulate_grad(t, tensor_from_grad(self));
+    }
+}
 void GradASin::backward(const Tensor& s){ 
     if(t.requires_grad()) {
         accumulate_grad(t, mul(tensor_from_grad(s), pow_scalar(sub_scalar_rev(1.0, mul(t,t)), -0.5))); 

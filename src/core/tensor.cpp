@@ -190,6 +190,9 @@ Tensor Tensor::clone() const {
             }
         }
     }
+    if (impl->requires_grad) {
+        out.impl->grad_fn = std::make_shared<GradClone>(*this);
+    }
     return out;
 }
 
