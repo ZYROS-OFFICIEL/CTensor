@@ -70,6 +70,8 @@ Tensor argmax(const Tensor &a, int dim);
 
 // Utils
 Tensor cat(const std::vector<Tensor>& tensors, size_t dim);
+Tensor embedding_lookup(const Tensor& weight, const Tensor& indices);
+Tensor bmm(const Tensor& A, const Tensor& B);
 
 
 Tensor interpolate(const Tensor& input, const std::vector<size_t>& output_size, const std::string& mode = "nearest", bool align_corners = false);

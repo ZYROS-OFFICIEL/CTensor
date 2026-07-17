@@ -877,7 +877,7 @@ Tensor interpolate_mp(const Tensor& input, const std::vector<size_t>& size, cons
     bool req = input.requires_grad();
     Tensor out({B, C, H_out, W_out}, input._dtype(), req);
     if (req) {
-        out.impl->grad_fn = std::make_shared<GradInterpolate>(input, size, scale_factor, mode, align_corners);
+        out.impl->grad_fn = std::make_shared<GradInterpolate>(input, out.shape(), align_corners);
     }
 
     float scale_h = get_scale(H_in, H_out, align_corners);
@@ -932,6 +932,104 @@ Tensor interpolate_mp(const Tensor& input, const std::vector<size_t>& size, cons
         }
     } else {
         throw std::runtime_error("interpolate_mp: currently only optimized for Float32 Contiguous tensors");
+    }
+
+    return out;
+}
+
+// ======================================================================================
+//                              EMBEDDING LOOKUP
+// ======================================================================================
+
+Tensor embedding_lookup_mp(const Tensor& weight, const Tensor& indices) {
+    if (!weight.impl || !indices.impl) throw std::runtime_error("embedding_lookup: null input");
+    if (weight.impl->ndim != 2) throw std::runtime_error("embedding_lookup: weight must be 2D [V, D]");
+
+    DType idx_dt = indices._dtype();
+    if (idx_dt == DType::Float32 || idx_dt == DType::Double64 || idx_dt == DType::Float16)
+        throw std::runtime_error("embedding_lookup: indices must be integer type");
+
+    size_t V = weight.impl->shape[0];
+    size_t D = weight.impl->shape[1];
+
+    std::vector<size_t> out_shape = indices.shape();
+    out_shape.push_back(D);
+
+    bool req = weight.requires_grad();
+    Tensor out(out_shape, weight._dtype(), false);
+
+    Tensor idx_cont = indices.contiguous();
+    Tensor w_cont = weight.contiguous();
+
+    const char* w_ptr   = (const char*)w_cont.impl->data->data.get();
+    const char* idx_ptr = (const char*)idx_cont.impl->data->data.get();
+    char*       out_ptr = (char*)out.impl->data->data.get();
+
+    size_t N = idx_cont.numel();
+    size_t dt_sz = dtype_size(weight._dtype());
+
+    for (size_t i = 0; i < N; ++i) {
+        int64_t idx = static_cast<int64_t>(read_scalar_at(idx_ptr, i, idx_dt));
+        if (idx < 0) idx += (int64_t)V;
+        if (idx < 0 || (size_t)idx >= V) throw std::out_of_range("embedding_lookup: index out of bounds");
+
+        std::memcpy(out_ptr + i * D * dt_sz, w_ptr + (size_t)idx * D * dt_sz, D * dt_sz);
+    }
+
+    if (req) {
+        out.requires_grad_(true);
+        out.impl->grad_fn = std::make_shared<GradEmbedding>(weight, indices);
+    }
+
+    return out;
+}
+
+// ======================================================================================
+//                              BATCHED MATMUL
+// ======================================================================================
+
+Tensor bmm_mp(const Tensor& A, const Tensor& B) {
+    if (!A.impl || !B.impl) throw std::runtime_error("bmm: null input");
+    if (A.impl->ndim != 3 || B.impl->ndim != 3)
+        throw std::runtime_error("bmm: both inputs must be 3D [Batch, M, K] and [Batch, K, N]");
+
+    size_t Batch = A.impl->shape[0];
+    size_t M = A.impl->shape[1];
+    size_t K = A.impl->shape[2];
+    if (B.impl->shape[0] != Batch) throw std::runtime_error("bmm: batch size mismatch");
+    if (B.impl->shape[1] != K)     throw std::runtime_error("bmm: inner dimension mismatch");
+    size_t N = B.impl->shape[2];
+
+    Tensor A_c = A.contiguous();
+    Tensor B_c = B.contiguous();
+
+    bool req = A.requires_grad() || B.requires_grad();
+    Tensor out({Batch, M, N}, A._dtype(), false);
+
+    size_t dt_sz = A.dtype_bytes();
+    char* out_base = (char*)out.impl->data->data.get();
+
+    size_t a_slice_elems = M * K;
+    size_t b_slice_elems = K * N;
+    size_t out_slice_elems = M * N;
+
+    for (size_t i = 0; i < Batch; ++i) {
+        Tensor A_i, B_i;
+        A_i.impl = intrusive_ptr<Tensorimpl>(new Tensorimpl(
+            A_c.impl->data, A_c.impl->offset + i * a_slice_elems,
+            SmallVector<size_t, 5>({M, K}), SmallVector<size_t, 5>({K, 1}), A._dtype(), false));
+        B_i.impl = intrusive_ptr<Tensorimpl>(new Tensorimpl(
+            B_c.impl->data, B_c.impl->offset + i * b_slice_elems,
+            SmallVector<size_t, 5>({K, N}), SmallVector<size_t, 5>({N, 1}), B._dtype(), false));
+
+        Tensor C_i = matmul(A_i, B_i).contiguous();
+        std::memcpy(out_base + i * out_slice_elems * dt_sz,
+                    C_i.impl->data->data.get(), out_slice_elems * dt_sz);
+    }
+
+    if (req) {
+        out.requires_grad_(true);
+        out.impl->grad_fn = std::make_shared<GradBatchMatMul>(A, B);
     }
 
     return out;
