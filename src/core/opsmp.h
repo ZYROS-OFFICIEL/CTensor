@@ -73,7 +73,7 @@ Tensor max_mp(const Tensor& t, int dim = -1);
 Tensor min_mp(const Tensor& t, int dim = -1); 
 
 //------------------ Other Operations ------------------------------------
-Tensor interpolate(const Tensor& input, const std::vector<size_t>& size, const std::vector<double>& scale_factor, int mode, bool align_corners);
+Tensor interpolate_mp(const Tensor& input, const std::vector<size_t>& size, const std::vector<double>& scale_factor, int mode, bool align_corners);
 
 //------------------ Element-wise Comparisons ----------------------------
 Tensor lt_mp(const Tensor& a, double b);
@@ -92,4 +92,7 @@ Tensor ne_mp(const Tensor& a, const Tensor& b);
 
 //------------------ Utilities -------------------------------------------
 Tensor cat_mp(const std::vector<Tensor>& tensors, size_t dim);
+
+Tensor embedding_lookup_mp(const Tensor& weight, const Tensor& indices);
+Tensor bmm_mp(const Tensor& A, const Tensor& B);
 
