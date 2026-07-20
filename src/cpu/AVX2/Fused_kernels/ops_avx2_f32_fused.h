@@ -26,10 +26,6 @@ Tensor exp_neg_avx2_f32(const Tensor& a);
 Tensor ln_relu_avx2_f32(const Tensor& a);                     
 Tensor sigmoid_ln_avx2_f32(const Tensor& a);                     
 
-Tensor silu_avx2_f32(const Tensor& a);
-
-Tensor gelu_avx2_f32(const Tensor& a);
-
 Tensor swiglu_avx2_f32(const Tensor& a, const Tensor& b);
 
 Tensor layer_norm_avx2_f32(const Tensor& x,const Tensor& weight,const Tensor& bias,float eps = 1e-5f);
