@@ -350,18 +350,6 @@ Tensor sigmoid_ln_avx2_f32(const Tensor& a) {
     });
 }
  
-Tensor silu_avx2_f32(const Tensor& a) {
-    return unary_fused_256(a, [](__m256 x) {
-        return silu256_ps(x);
-    });
-}
- 
-Tensor gelu_avx2_f32(const Tensor& a) {
-    return unary_fused_256(a, [](__m256 x) {
-        return gelu256_ps(x);
-    });
-}
- 
 Tensor swiglu_avx2_f32(const Tensor& a, const Tensor& b) {
     return binary_fused_256(a, b, [](__m256 x, __m256 y) {
         return _mm256_mul_ps(silu256_ps(x), y);
