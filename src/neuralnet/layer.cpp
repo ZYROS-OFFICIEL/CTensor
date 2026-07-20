@@ -1,5 +1,5 @@
-#include "layer.h"
-#include "opsmp.h" // Use optimized ops
+#include "neuralnet.h"
+#include "core.h" 
 #include <stdexcept>
 #include <cmath>
 #include <iostream>
@@ -21,23 +21,28 @@ Linear::Linear(int in_feat, int out_feat, bool with_bias, DType dt)
 
 Tensor Linear::forward(const Tensor& input) {
     if (!input.impl) throw std::runtime_error("Linear: null input");
-    
-    // Input shape expected: [Batch, in_features]
-    
-    // 1. Transpose weights to [in, out] for matmul
+
     Tensor w_t = weight.permute({1, 0});
+    std::vector<size_t> in_shape = input.shape();
 
-    // 2. MatMul
-    // A=[Batch, in], B=[in, out] -> Result=[Batch, out]
-    Tensor output = matmul(input, w_t);
-
-    // 3. Add Bias (if exists)
-    if (bias.impl) {
-        // Bias is [out]. Output is [Batch, out].
-        output = output + bias;
+    if (in_shape.size() <= 2) {
+        Tensor output = matmul(input, w_t);
+        if (bias.impl) output = output + bias;
+        return output;
     }
 
-    return output;
+    // matmul only supports exactly-2D operands on real hardware (AVX2/AVX512 kernels
+    // throw otherwise) — flatten leading dims to 2D, matmul, then restore them.
+    size_t batch = 1;
+    for (size_t i = 0; i + 1 < in_shape.size(); ++i) batch *= in_shape[i];
+    Tensor flat = input.contiguous().reshape({batch, in_shape.back()});
+
+    Tensor out2d = matmul(flat, w_t);
+    if (bias.impl) out2d = out2d + bias;
+
+    std::vector<size_t> out_shape = in_shape;
+    out_shape.back() = (size_t)out_features;
+    return out2d.reshape(out_shape);
 }
 
 // --- Flatten Layer Implementation ---
