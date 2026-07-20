@@ -471,10 +471,22 @@ Tensor sqrt_avx2_d64(const Tensor& a) {
 Tensor relu_avx2_d64(const Tensor& a) {
     return unary_op_d64_impl(a, []( __m256d x){ return _mm256_max_pd(x, YMM_0_PD); });
 }
+static inline __m256d mm256_exp_pd_fallback(__m256d x) {
+    alignas(32) double buf[4];
+    _mm256_store_pd(buf, x);
+    for (int i = 0; i < 4; ++i) buf[i] = std::exp(buf[i]);
+    return _mm256_load_pd(buf);
+}
+static inline __m256d mm256_tanh_pd_fallback(__m256d x) {
+    alignas(32) double buf[4];
+    _mm256_store_pd(buf, x);
+    for (int i = 0; i < 4; ++i) buf[i] = std::tanh(buf[i]);
+    return _mm256_load_pd(buf);
+}
 
 Tensor silu_avx2_d64(const Tensor& a) {
     return unary_op_d64_impl(a, []( __m256d x){
-        __m256d sig = _mm256_div_pd(YMM_1_PD, _mm256_add_pd(YMM_1_PD, _mm256_exp_pd(_mm256_sub_pd(YMM_0_PD, x))));
+        __m256d sig = _mm256_div_pd(YMM_1_PD, _mm256_add_pd(YMM_1_PD, mm256_exp_pd_fallback(_mm256_sub_pd(YMM_0_PD, x))));
         return _mm256_mul_pd(x, sig);
     });
 }
@@ -485,7 +497,7 @@ Tensor gelu_avx2_d64(const Tensor& a) {
         __m256d x3 = _mm256_mul_pd(_mm256_mul_pd(x, x), x); // x^3
         __m256d inner = _mm256_add_pd(x, _mm256_mul_pd(k0, x3)); // x + k0*x^3
         __m256d tanh_inner = _mm256_mul_pd(k1, inner);
-        tanh_inner = _mm256_tanh_pd(tanh_inner);
+        tanh_inner = mm256_tanh_pd_fallback(tanh_inner);
         __m256d cdf = _mm256_mul_pd(_mm256_add_pd(YMM_1_PD, tanh_inner), _mm256_set1_pd(0.5)); // 0.5 * (1 + tanh(...))
         return _mm256_mul_pd(x, cdf);
     });
