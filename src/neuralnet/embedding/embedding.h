@@ -25,11 +25,11 @@ public:
         }
 
         weight = Tensor::empty({num_embeddings, embedding_dim});
-        init::normal_(weight, 0.0, 1.0); 
-        
+        normal_(weight, 0.0, 1.0);
+
         if (padding_idx >= 0) {
-            Tensor pad_row = weight[padding_idx]; 
-            init::zeros_(pad_row);
+            Tensor pad_row = weight.select(0, padding_idx);
+            zeros_(pad_row);
         }
 
         weight.requires_grad_(true);
