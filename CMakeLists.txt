@@ -19,7 +19,9 @@ set(PROJECT_INCLUDES
     src/neuralnet/batchnorm
     src/neuralnet/weights
     src/neuralnet/norm
+    src/neuralnet/embedding
     src/dashboard
+    src/models
 )
 
 add_library(opsmp OBJECT src/core/opsmp.cpp)
@@ -44,12 +46,16 @@ add_library(neuralnet OBJECT
     src/neuralnet/batchnorm/batchnorm.cpp
     src/neuralnet/weights/weights_init.cpp
     src/neuralnet/norm/norm.cpp
+    src/neuralnet/norm/layernorm.cpp
 
 )
 target_include_directories(neuralnet PRIVATE ${PROJECT_INCLUDES})
 
 add_library(conv OBJECT src/neuralnet/conv/conv.cpp)
 target_include_directories(conv PRIVATE ${PROJECT_INCLUDES})
+
+add_library(models OBJECT src/models/gpt2.cpp)
+target_include_directories(models PRIVATE ${PROJECT_INCLUDES})
 
 
 add_library(dashboard OBJECT
@@ -82,6 +88,7 @@ add_library(myproject STATIC
     $<TARGET_OBJECTS:neuralnet>
     $<TARGET_OBJECTS:conv>
     $<TARGET_OBJECTS:dashboard>
+    $<TARGET_OBJECTS:models>
 )
 
 target_compile_features(myproject PUBLIC cxx_std_20)
@@ -126,6 +133,8 @@ if (MYPROJECT_BUILD_TESTS)
 
     add_executable(test_dashboard test/dashboard/dashboard.cpp)
     add_executable(test_conv test/neuralnet/test_conv.cpp)
+    add_executable(test_gpt2_primitives test/models/test_gpt2_primitives.cpp)
+    add_executable(test_gpt2_toy test/models/test_gpt2_toy.cpp)
 
     #AVX512
     add_executable(test_avx512_f32_fk test/cpu/Fused_kernels/test_avx512_f32_fk.cpp)
@@ -165,6 +174,8 @@ if (MYPROJECT_BUILD_TESTS)
     target_link_libraries(test_batchnorm PRIVATE myproject)
     target_link_libraries(test_dashboard PRIVATE myproject)
     target_link_libraries(test_conv PRIVATE myproject)
+    target_link_libraries(test_gpt2_primitives PRIVATE myproject)
+    target_link_libraries(test_gpt2_toy PRIVATE myproject)
 
     target_link_libraries(test_avx512_f32_fk PRIVATE myproject)
     target_link_libraries(test_avx512_d64_fk PRIVATE myproject)
