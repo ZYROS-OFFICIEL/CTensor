@@ -310,13 +310,13 @@ struct GradClone : GradFn {
 };
 
 struct GradGather : GradFn {
-    Tensor t;      // The source tensor (embeddings or logits)
-    Tensor index;  // The indices used
-    size_t dim;    // The dimension gathered along
+    Tensor t;
+    Tensor index;  
+    size_t dim;    
 
     GradGather(const Tensor& t_, const Tensor& index_, size_t dim_)
         : t(t_), index(index_), dim(dim_) {
-        parents = {t}; // Index usually doesn't require grad in standard layers
+        parents = {t}; 
     }
 
     void backward(const Tensor& self) override;
