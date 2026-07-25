@@ -98,12 +98,12 @@ void accumulate_grad(Tensor& target, const Tensor& grad_src) {
         }
     }
 
-    // 2. Perform Reduction (if needed)
     Tensor grad_aligned = grad_src;
     if (!axes_to_reduce.empty()) {
         for (int ax : axes_to_reduce) {
-            grad_aligned = sum(grad_aligned, ax);
+            grad_aligned = sum(grad_aligned, ax).unsqueeze((size_t)ax);
         }
+        grad_aligned = grad_aligned.contiguous().reshape(target.shape());
     }
 
     // 3. Add to target.grad
@@ -433,7 +433,6 @@ void GradMish::backward(const Tensor& self) {
 
 void GradSoftplus::backward(const Tensor& self) {
     if (t.requires_grad()) {
-        // sigmoid(x)
         Tensor grad = tensor_from_grad(self);
         Tensor sig = sigmoid(t);
         accumulate_grad(t, mul(grad, sig));
@@ -505,7 +504,13 @@ void GradInterpolate::backward(const Tensor& self) {
 //--------------------Reduction backward --------------------
 void GradSum::backward(const Tensor& self) {
     if (t.requires_grad()) {
-        accumulate_grad(t, tensor_from_grad(self));
+        Tensor grad = tensor_from_grad(self);
+        int nd = (int)t.impl->ndim;
+        int actual_dim = (dim < 0) ? dim + nd : dim;
+        if (actual_dim >= 0 && actual_dim < nd) {
+            grad = grad.unsqueeze((size_t)actual_dim);
+        }
+        accumulate_grad(t, grad);
     }
 }
 
