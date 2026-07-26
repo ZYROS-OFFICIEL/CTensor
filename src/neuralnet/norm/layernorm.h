@@ -14,4 +14,8 @@ public:
     Tensor operator()(const Tensor& x) { return forward(x); }
 
     std::vector<Tensor*> parameters() override { return {&weight, &bias}; }
+
+    NamedParams named_parameters(const std::string& prefix = "") override {
+        return {{prefix + "weight", &weight}, {prefix + "bias", &bias}};
+    }
 };
