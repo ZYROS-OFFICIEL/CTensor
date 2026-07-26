@@ -44,7 +44,11 @@ public:
     }
 
     std::vector<Tensor*> parameters() override {
-        return { &weight }; 
+        return { &weight };
+    }
+
+    NamedParams named_parameters(const std::string& prefix = "") override {
+        return { {prefix + "weight", &weight} };
     }
 };
 
