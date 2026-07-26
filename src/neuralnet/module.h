@@ -23,7 +23,19 @@ public:
     virtual std::vector<Tensor*> parameters() {
         return {}; // Default implementation returns nothing
     }
+
+    using NamedParams = std::vector<std::pair<std::string, Tensor*>>;
+
+    virtual NamedParams named_parameters(const std::string& prefix = "") {
+        return {};
+    }
 };
+
+inline void collect_named(Module::NamedParams& out, const std::string& prefix,
+                           const std::string& name, Module& m) {
+    auto sub = m.named_parameters(prefix + name + ".");
+    out.insert(out.end(), sub.begin(), sub.end());
+}
 
 // A container that holds a list of modules
 class Sequential : public Module {
@@ -44,7 +56,7 @@ public:
         training = false;
         for (auto& m : modules) m->eval();
     }
-    
+
     // Recursive parameter collection
     std::vector<Tensor*> parameters() override {
         std::vector<Tensor*> params;
@@ -54,5 +66,13 @@ public:
         }
         return params;
     }
-    
+
+    NamedParams named_parameters(const std::string& prefix = "") override {
+        NamedParams params;
+        for (size_t i = 0; i < modules.size(); ++i) {
+            collect_named(params, prefix, std::to_string(i), *modules[i]);
+        }
+        return params;
+    }
+
 };
