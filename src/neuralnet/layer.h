@@ -26,6 +26,12 @@ public:
         return params;
     }
 
+    NamedParams named_parameters(const std::string& prefix = "") override {
+        NamedParams params = {{prefix + "weight", &weight}};
+        if (bias.impl) params.push_back({prefix + "bias", &bias});
+        return params;
+    }
+
     // Forward pass
     Tensor forward(const Tensor& input);
     Tensor operator()(const Tensor& input) { return forward(input); }
