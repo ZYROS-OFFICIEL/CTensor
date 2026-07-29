@@ -54,6 +54,15 @@ public:
     std::vector<Tensor*> parameters() override {
         return torch::nn::combine_params(q_proj, k_proj, v_proj, out_proj);
     }
+
+    NamedParams named_parameters(const std::string& prefix = "") override {
+        NamedParams p;
+        collect_named(p, prefix, "q_proj", q_proj);
+        collect_named(p, prefix, "k_proj", k_proj);
+        collect_named(p, prefix, "v_proj", v_proj);
+        collect_named(p, prefix, "out_proj", out_proj);
+        return p;
+    }
 };
 
 class GPT2MLP : public Module {
@@ -74,6 +83,13 @@ public:
 
     std::vector<Tensor*> parameters() override {
         return torch::nn::combine_params(c_fc, c_proj);
+    }
+
+    NamedParams named_parameters(const std::string& prefix = "") override {
+        NamedParams p;
+        collect_named(p, prefix, "c_fc", c_fc);
+        collect_named(p, prefix, "c_proj", c_proj);
+        return p;
     }
 };
 
@@ -104,6 +120,15 @@ public:
         add(attn.parameters());
         add(ln_2.parameters());
         add(mlp.parameters());
+        return p;
+    }
+
+    NamedParams named_parameters(const std::string& prefix = "") override {
+        NamedParams p;
+        collect_named(p, prefix, "ln_1", ln_1);
+        collect_named(p, prefix, "attn", attn);
+        collect_named(p, prefix, "ln_2", ln_2);
+        collect_named(p, prefix, "mlp", mlp);
         return p;
     }
 };
@@ -142,6 +167,17 @@ public:
         }
         p.push_back(&ln_f.weight);
         p.push_back(&ln_f.bias);
+        return p;
+    }
+
+    NamedParams named_parameters(const std::string& prefix = "") override {
+        NamedParams p;
+        collect_named(p, prefix, "wte", wte);
+        collect_named(p, prefix, "wpe", wpe);
+        for (size_t i = 0; i < blocks.size(); ++i) {
+            collect_named(p, prefix, "h." + std::to_string(i), *blocks[i]);
+        }
+        collect_named(p, prefix, "ln_f", ln_f);
         return p;
     }
 
