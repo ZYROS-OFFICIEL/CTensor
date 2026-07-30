@@ -9,6 +9,7 @@
 #include <cmath>
 #include <iostream>
 #include <cstdint>
+#include <cstring>
 #include <numeric>
 #include <atomic>
 #include <algorithm>
@@ -20,8 +21,84 @@
 #endif
 
 enum class DType {
-    Float32, Int32, Double64, UInt8, UInt16, UInt32, UInt64, Int8, Int16, Int64, Bool, Float16
+    Float32, Int32, Double64, UInt8, UInt16, UInt32, UInt64, Int8, Int16, Int64, Bool, Float16, BFloat16
 };
+
+HOST_DEVICE inline float half_to_float(uint16_t h) {
+    uint32_t sign = (uint32_t)(h & 0x8000) << 16;
+    uint32_t exp  = (h >> 10) & 0x1F;
+    uint32_t mant = h & 0x3FF;
+    uint32_t bits;
+    if (exp == 0) {
+        if (mant == 0) {
+            bits = sign;
+        } else {
+            int32_t e = -1;
+            do { ++e; mant <<= 1; } while ((mant & 0x400) == 0);
+            mant &= 0x3FF;
+            bits = sign | ((uint32_t)(127 - 15 - e) << 23) | (mant << 13);
+        }
+    } else if (exp == 0x1F) {
+        bits = sign | 0x7F800000u | (mant << 13);
+    } else {
+        bits = sign | ((exp + (127 - 15)) << 23) | (mant << 13);
+    }
+    float f;
+    std::memcpy(&f, &bits, sizeof(f));
+    return f;
+}
+
+HOST_DEVICE inline uint16_t float_to_half(float f) {
+    uint32_t bits;
+    std::memcpy(&bits, &f, sizeof(bits));
+    uint32_t sign = (bits >> 16) & 0x8000u;
+    uint32_t abs_bits = bits & 0x7FFFFFFFu;
+
+    if (abs_bits >= 0x7F800000u) {
+        uint32_t mant = (abs_bits > 0x7F800000u) ? 0x200u : 0u;
+        return (uint16_t)(sign | 0x7C00u | mant);
+    }
+    if (abs_bits >= 0x47800000u) {
+        return (uint16_t)(sign | 0x7C00u);
+    }
+    if (abs_bits < 0x38800000u) {
+        int32_t shift = (int32_t)(0x38800000u - abs_bits) >> 23;
+        if (shift > 24) return (uint16_t)sign;
+        uint32_t mant = (abs_bits & 0x7FFFFFu) | 0x800000u;
+        uint32_t half_mant = mant >> (14 + shift);
+        uint32_t remainder = mant & ((1u << (14 + shift)) - 1);
+        uint32_t halfway = 1u << (13 + shift);
+        if (remainder > halfway || (remainder == halfway && (half_mant & 1))) ++half_mant;
+        return (uint16_t)(sign | half_mant);
+    }
+
+    uint32_t half_mant = (abs_bits >> 13) & 0x3FFu;
+    uint32_t half_exp = ((abs_bits >> 23) - 127 + 15) << 10;
+    uint32_t remainder = abs_bits & 0x1FFFu;
+    uint16_t result = (uint16_t)(sign | half_exp | half_mant);
+    if (remainder > 0x1000u || (remainder == 0x1000u && (half_mant & 1))) {
+        ++result;
+    }
+    return result;
+}
+
+HOST_DEVICE inline float bfloat16_to_float(uint16_t h) {
+    uint32_t bits = (uint32_t)h << 16;
+    float f;
+    std::memcpy(&f, &bits, sizeof(f));
+    return f;
+}
+
+HOST_DEVICE inline uint16_t float_to_bfloat16(float f) {
+    uint32_t bits;
+    std::memcpy(&bits, &f, sizeof(bits));
+    if ((bits & 0x7FFFFFFFu) > 0x7F800000u) {
+        return (uint16_t)((bits >> 16) | 0x0040u);
+    }
+    uint32_t rounding_bias = 0x7FFFu + ((bits >> 16) & 1u);
+    bits += rounding_bias;
+    return (uint16_t)(bits >> 16);
+}
 
 HOST_DEVICE inline size_t dtype_size(DType dt) {
     switch (dt) {
@@ -37,6 +114,7 @@ HOST_DEVICE inline size_t dtype_size(DType dt) {
         case DType::Int64:    return sizeof(int64_t);
         case DType::Bool:     return sizeof(bool);
         case DType::Float16:  return 2;
+        case DType::BFloat16: return 2;
     }
     return sizeof(float);
 }
@@ -55,6 +133,7 @@ inline const char* dtype_to_str(DType dt) {
         case DType::Int64:    return "int64";
         case DType::Bool:     return "bool";
         case DType::Float16:  return "float16";
+        case DType::BFloat16: return "bfloat16";
     }
     return "unknown";
 }
@@ -72,6 +151,8 @@ HOST_DEVICE inline double read_scalar_at(const void* data, size_t idx, DType dt)
         case DType::Int16:    return static_cast<double>(static_cast<const int16_t*> (data)[idx]);
         case DType::Int64:    return static_cast<double>(static_cast<const int64_t*> (data)[idx]);
         case DType::Bool:     return static_cast<double>(static_cast<const bool*>    (data)[idx]);
+        case DType::Float16:  return static_cast<double>(half_to_float(static_cast<const uint16_t*>(data)[idx]));
+        case DType::BFloat16: return static_cast<double>(bfloat16_to_float(static_cast<const uint16_t*>(data)[idx]));
         default:              return 0.0;
     }
 }
@@ -89,6 +170,8 @@ HOST_DEVICE inline void write_scalar_at(void* data, size_t idx, DType dt, double
         case DType::Int16:    static_cast<int16_t*> (data)[idx] = static_cast<int16_t> (val); return;
         case DType::Int64:    static_cast<int64_t*> (data)[idx] = static_cast<int64_t> (val); return;
         case DType::Bool:     static_cast<bool*>    (data)[idx] = (val != 0.0);               return;
+        case DType::Float16:  static_cast<uint16_t*>(data)[idx] = float_to_half(static_cast<float>(val));    return;
+        case DType::BFloat16: static_cast<uint16_t*>(data)[idx] = float_to_bfloat16(static_cast<float>(val)); return;
         default:                                                                                return;
     }
 }
