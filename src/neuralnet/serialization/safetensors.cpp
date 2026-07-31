@@ -237,12 +237,11 @@ std::string json_escape(const std::string& s) {
     return out;
 }
 
-DType from_safetensors_dtype(const std::string& s, bool& is_bf16) {
-    is_bf16 = false;
+DType from_safetensors_dtype(const std::string& s) {
     if (s == "F32")  return DType::Float32;
     if (s == "F64")  return DType::Double64;
     if (s == "F16")  return DType::Float16;
-    if (s == "BF16") { is_bf16 = true; return DType::Float32; }
+    if (s == "BF16") return DType::BFloat16;
     if (s == "I64")  return DType::Int64;
     if (s == "I32")  return DType::Int32;
     if (s == "I16")  return DType::Int16;
@@ -260,6 +259,7 @@ const char* to_safetensors_dtype(DType dt) {
         case DType::Float32:  return "F32";
         case DType::Double64: return "F64";
         case DType::Float16:  return "F16";
+        case DType::BFloat16: return "BF16";
         case DType::Int64:    return "I64";
         case DType::Int32:    return "I32";
         case DType::Int16:    return "I16";
@@ -346,31 +346,18 @@ std::unordered_map<std::string, Tensor> load(
         if (end < begin || end > blob_size)
             throw std::runtime_error("safetensors: tensor '" + name + "' has out-of-range data_offsets");
 
-        bool is_bf16 = false;
-        DType out_dtype = from_safetensors_dtype(dtype_v->str, is_bf16);
+        DType out_dtype = from_safetensors_dtype(dtype_v->str);
 
         size_t numel = 1;
         for (size_t s : shape) numel *= s;
-        size_t on_disk_esz = is_bf16 ? 2 : dtype_size(out_dtype);
-        size_t expected_bytes = numel * on_disk_esz;
+        size_t expected_bytes = numel * dtype_size(out_dtype);
         if (end - begin != expected_bytes)
             throw std::runtime_error("safetensors: tensor '" + name + "' byte length " +
                 std::to_string(end - begin) + " does not match shape*dtype size " +
                 std::to_string(expected_bytes));
 
         Tensor t = Tensor::empty(shape, out_dtype);
-        const char* src = blob.data() + begin;
-
-        if (is_bf16) {
-            float* dst = static_cast<float*>(t.impl->data->data.get());
-            const uint16_t* src16 = reinterpret_cast<const uint16_t*>(src);
-            for (size_t i = 0; i < numel; ++i) {
-                uint32_t bits = (uint32_t)src16[i] << 16;
-                std::memcpy(&dst[i], &bits, sizeof(float));
-            }
-        } else if (numel > 0) {
-            std::memcpy(t.impl->data->data.get(), src, expected_bytes);
-        }
+        if (numel > 0) std::memcpy(t.impl->data->data.get(), blob.data() + begin, expected_bytes);
 
         result.emplace(name, std::move(t));
     }
