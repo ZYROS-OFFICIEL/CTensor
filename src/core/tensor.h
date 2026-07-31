@@ -62,13 +62,15 @@ HOST_DEVICE inline uint16_t float_to_half(float f) {
         return (uint16_t)(sign | 0x7C00u);
     }
     if (abs_bits < 0x38800000u) {
-        int32_t shift = (int32_t)(0x38800000u - abs_bits) >> 23;
+        int32_t exp_field = (int32_t)(abs_bits >> 23);
+        if (exp_field == 0) return (uint16_t)sign;
+        int32_t shift = 126 - exp_field;
         if (shift > 24) return (uint16_t)sign;
-        uint32_t mant = (abs_bits & 0x7FFFFFu) | 0x800000u;
-        uint32_t half_mant = mant >> (14 + shift);
-        uint32_t remainder = mant & ((1u << (14 + shift)) - 1);
-        uint32_t halfway = 1u << (13 + shift);
-        if (remainder > halfway || (remainder == halfway && (half_mant & 1))) ++half_mant;
+        uint32_t full_mant = (abs_bits & 0x7FFFFFu) | 0x800000u;
+        uint32_t half_mant = full_mant >> shift;
+        uint32_t remainder = full_mant & ((1u << shift) - 1u);
+        uint32_t halfway = 1u << (shift - 1);
+        if (remainder > halfway || (remainder == halfway && (half_mant & 1u))) ++half_mant;
         return (uint16_t)(sign | half_mant);
     }
 
