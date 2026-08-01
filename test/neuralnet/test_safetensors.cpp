@@ -148,7 +148,7 @@ void test_hand_built_file() {
     std::remove(path.c_str());
 }
 
-void test_bf16_widening() {
+void test_bf16_native() {
     std::string path = tmp_path("st_bf16.safetensors");
 
     std::string header = "{\"y\":{\"dtype\":\"BF16\",\"shape\":[2],\"data_offsets\":[0,4]}}";
@@ -170,9 +170,49 @@ void test_bf16_widening() {
 
     auto loaded = safetensors::load(path);
     Tensor& y = loaded.at("y");
-    assert(y._dtype() == DType::Float32);
+    assert(y._dtype() == DType::BFloat16);
     assert(std::abs(y.read_scalar(0) - 1.5) < 1e-3);
     assert(std::abs(y.read_scalar(1) - (-2.0)) < 1e-3);
+
+    std::remove(path.c_str());
+}
+
+void test_bf16_writer_roundtrip() {
+    std::string path = tmp_path("st_bf16_write.safetensors");
+
+    Tensor t = Tensor::empty({3}, DType::BFloat16);
+    t.write_scalar(0, 3.25);
+    t.write_scalar(1, -0.5);
+    t.write_scalar(2, 100.0);
+
+    safetensors::save(path, std::vector<std::pair<std::string, Tensor>>{ {"bf", t} });
+
+    auto loaded = safetensors::load(path);
+    Tensor& bf = loaded.at("bf");
+    assert(bf._dtype() == DType::BFloat16);
+    assert(bf.numel() == 3);
+    for (size_t i = 0; i < 3; ++i)
+        assert(std::abs(bf.read_scalar(i) - t.read_scalar(i)) < 1e-6);
+
+    std::remove(path.c_str());
+}
+
+void test_float16_roundtrip() {
+    std::string path = tmp_path("st_f16.safetensors");
+
+    Tensor t = Tensor::empty({4}, DType::Float16);
+    t.write_scalar(0, 1.5);
+    t.write_scalar(1, -3.25);
+    t.write_scalar(2, 0.0);
+    t.write_scalar(3, 65504.0);
+
+    safetensors::save(path, std::vector<std::pair<std::string, Tensor>>{ {"h", t} });
+
+    auto loaded = safetensors::load(path);
+    Tensor& h = loaded.at("h");
+    assert(h._dtype() == DType::Float16);
+    for (size_t i = 0; i < 4; ++i)
+        assert(std::abs(h.read_scalar(i) - t.read_scalar(i)) < 1e-6);
 
     std::remove(path.c_str());
 }
@@ -183,7 +223,9 @@ int main() {
     test_gpt2_named_parameters_roundtrip();
     test_load_into_non_strict_report();
     test_hand_built_file();
-    test_bf16_widening();
+    test_bf16_native();
+    test_bf16_writer_roundtrip();
+    test_float16_roundtrip();
     std::cout << "test_safetensors passed\n";
     return 0;
 }
