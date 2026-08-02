@@ -56,7 +56,7 @@ target_include_directories(neuralnet PRIVATE ${PROJECT_INCLUDES})
 add_library(conv OBJECT src/neuralnet/conv/conv.cpp)
 target_include_directories(conv PRIVATE ${PROJECT_INCLUDES})
 
-add_library(models OBJECT src/models/gpt2.cpp)
+add_library(models OBJECT src/models/gpt2.cpp src/models/gpt2_safetensors.cpp)
 target_include_directories(models PRIVATE ${PROJECT_INCLUDES})
 
 

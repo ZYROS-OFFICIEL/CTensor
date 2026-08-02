@@ -186,3 +186,7 @@ public:
 private:
     void init_weights();
 };
+
+namespace gpt2_io {
+    safetensors::LoadReport load_huggingface(const std::string& path, GPT2Model& model, bool strict = true);
+}
