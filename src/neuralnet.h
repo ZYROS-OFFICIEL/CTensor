@@ -18,3 +18,5 @@
 #include "neuralnet/weights/weights_init.h"
 #include "neuralnet/functional/functional.h"
 #include "neuralnet/Interpolation/interpolation.h"
+#include "neuralnet/norm/layernorm.h"
+#include "neuralnet/serialization/safetensors.h"

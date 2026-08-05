@@ -138,6 +138,7 @@ if (MYPROJECT_BUILD_TESTS)
     add_executable(test_conv test/neuralnet/test_conv.cpp)
     add_executable(test_gpt2_primitives test/models/test_gpt2_primitives.cpp)
     add_executable(test_gpt2_toy test/models/test_gpt2_toy.cpp)
+    add_executable(test_gpt2_huggingface test/models/test_gpt2_huggingface.cpp)
 
     #AVX512
     add_executable(test_avx512_f32_fk test/cpu/Fused_kernels/test_avx512_f32_fk.cpp)
@@ -180,6 +181,7 @@ if (MYPROJECT_BUILD_TESTS)
     target_link_libraries(test_conv PRIVATE myproject)
     target_link_libraries(test_gpt2_primitives PRIVATE myproject)
     target_link_libraries(test_gpt2_toy PRIVATE myproject)
+    target_link_libraries(test_gpt2_huggingface PRIVATE myproject)
 
     target_link_libraries(test_avx512_f32_fk PRIVATE myproject)
     target_link_libraries(test_avx512_d64_fk PRIVATE myproject)
