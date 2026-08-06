@@ -1,12 +1,15 @@
 #include "core.h"
 #include "neuralnet.h"
 #include "models/gpt2.h"
+#include "models/gpt2_tokenizer.h"
 #include <iostream>
 
 int main(int argc, char** argv) {
-    if (argc < 2) {
-        std::cerr << "usage: test_gpt2_huggingface <path-to-gpt2-model.safetensors> [prompt_ids...]\n";
-        std::cerr << "  downloads: https://huggingface.co/openai-community/gpt2/resolve/main/model.safetensors\n";
+    if (argc < 4) {
+        std::cerr << "usage: test_gpt2_huggingface <model.safetensors> <vocab.json> <merges.txt> [prompt text]\n";
+        std::cerr << "  model:  https://huggingface.co/openai-community/gpt2/resolve/main/model.safetensors\n";
+        std::cerr << "  vocab:  https://huggingface.co/openai-community/gpt2/resolve/main/vocab.json\n";
+        std::cerr << "  merges: https://huggingface.co/openai-community/gpt2/resolve/main/merges.txt\n";
         return 1;
     }
 
@@ -16,19 +19,21 @@ int main(int argc, char** argv) {
     auto report = gpt2_io::load_huggingface(argv[1], model, true);
     std::cout << "loaded checkpoint, unexpected_keys=" << report.unexpected.size() << "\n";
 
-    std::vector<int> prompt_ids;
-    if (argc > 2) {
-        for (int i = 2; i < argc; ++i) prompt_ids.push_back(std::stoi(argv[i]));
-    } else {
-        prompt_ids = {464, 3139, 286, 4881, 318};
-    }
+    GPT2Tokenizer tok = GPT2Tokenizer::from_files(argv[2], argv[3]);
+
+    std::string prompt = (argc > 4) ? argv[4] : "The capital of France is";
+    std::vector<int> prompt_ids = tok.encode(prompt);
+
+    std::cout << "prompt: \"" << prompt << "\"\n";
+    std::cout << "prompt_ids:";
+    for (int id : prompt_ids) std::cout << " " << id;
+    std::cout << "\n";
 
     model.eval();
     std::vector<int> generated = model.generate(prompt_ids, 20, 0.0);
+    std::string text = tok.decode(generated);
 
-    std::cout << "generated_ids:";
-    for (int id : generated) std::cout << " " << id;
-    std::cout << "\n";
+    std::cout << "generated: \"" << text << "\"\n";
 
     return 0;
 }
