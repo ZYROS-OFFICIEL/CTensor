@@ -13,6 +13,7 @@ These functions perform element-wise calculations or matrix multiplication betwe
 * `div(a, b)`: Element-wise division.
 * `pow(a, b)`: Element-wise power.
 * `matmul(a, b)`: Matrix multiplication.
+* `bmm(A, B)`: Batched matrix multiplication. Both operands are `[Batch, N, M]`; the batch dimension is iterated and the trailing 2D matrices multiplied. Used by attention to compute all heads at once.
 
 ### Scalar Operations
 These functions apply a mathematical operation between a tensor and a standard double-precision scalar.
@@ -31,7 +32,15 @@ These functions apply element-wise mathematical transformations to a single tens
 
 * **Basic Math**: `abs()`, `log()`, `ln()`, `exp()`, `sqrt()`.
 * **Trigonometry**: `sin()`, `cos()`, `tan()`, `asin()`, `acos()`, `atan()`, `sinh()`, `cosh()`, `tanh()`.
-* **Activations**: `sigmoid()`, `relu()`, `softplus()`.
+* **Activations**: `sigmoid()`, `relu()`, `softplus()`, `gelu()`, `silu()`, `mish()`.
+
+#### Modern Activations
+
+* `gelu(a)`: Gaussian Error Linear Unit — a smooth ReLU that weights inputs by their probability under a normal distribution. The activation used by GPT-2, BERT, and most transformers.
+* `silu(a)`: Sigmoid Linear Unit, also called Swish — `x * sigmoid(x)`. Smooth, non-monotonic, and the gate half of SwiGLU.
+* `mish(a)`: `x * tanh(softplus(x))`. Smoother than SiLU, sometimes better in vision models.
+
+`softmax` is not a core op — it lives in the functional namespace as `functional::softmax(x, dim)`, implemented in its numerically stable form. See [Functional](Functional.md).
 
 ### Reductions
 These functions reduce the dimensions of a tensor. By default (`dim = -1`), they reduce across the entire flattened tensor.
@@ -54,6 +63,8 @@ Element-wise boolean comparisons. These return a tensor of boolean type. Overloa
 
 ### Utility
 * `cat(tensors, dim)`: Concatenates a vector of tensors along the specified dimension.
+* `embedding_lookup(weight, indices)`: Gathers rows of `weight` at the given integer `indices`, appending the embedding dimension to the index shape. Backs the [`Embedding`](Embedding.md) layer.
+* `interpolate(input, output_size, mode = "nearest", align_corners = false)`: Resamples the spatial dimensions of a tensor. `mode` is `"nearest"` or `"bilinear"`. See [Functional](Functional.md) for the typed wrapper and the `Upsample` module.
 
 ## C++ Operator Overloading
 
