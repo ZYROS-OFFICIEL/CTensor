@@ -124,6 +124,20 @@ All optimizers inherit from a base `Optimizer` class and implement:
 * Adagrad: Adaptive Gradient algorithm
 * Lion: Evolved Sign Momentum optimizer (memory efficient)
 
+### Namespaces
+
+Only four optimizers are currently aliased into `torch::optim`:
+
+| Namespace | Available |
+|---|---|
+| `torch::optim::` | `SGD`, `Adam`, `AdamW`, `RMSprop` |
+| global scope | all nine, plus `StepLR` |
+
+```cpp
+torch::optim::AdamW optimizer(params, 0.001);   // aliased
+Lion optimizer(params, 0.0001);                 // global scope only
+```
+
 ### Usage
 
 ```cpp
