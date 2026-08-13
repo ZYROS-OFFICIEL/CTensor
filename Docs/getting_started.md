@@ -154,17 +154,62 @@ If you want to learn more, you can explore the API reference and documentation b
 
 Explore the modular documentation below to learn more about the internals and API of CTensor, structured similarly to standard PyTorch references:
 
+### Core
+
 * [Tensors & Metadata](Tensor.md)
-  Learn about the core multi-dimensional array class, metadata (shape, dtype), factory methods, and memory management.
+  The core multi-dimensional array class, metadata (shape, dtype), factory methods, and memory management.
 
 * [Tensor Operations API](Ops.md)
-  Explore the mathematical, logical, and reduction operations available for tensors, as well as C++ operator overloading.
+  Mathematical, logical, and reduction operations, plus C++ operator overloading.
+
+* [Autograd Engine](Autograd.md)
+  The reverse-mode automatic differentiation engine, gradient buffers, and computation graph nodes.
 
 * [Hardware & Devices](Device.md)
   Device structures, allocations, and CPU/CUDA targeting.
 
-* [Neural Network Module (`torch::nn`)](nn.md)
-  The high-level API for neural network layers, loss functions, parameters, and DataLoaders.
+* [CPU Backend & Dispatch](Backend.md)
+  How AVX2/AVX-512 kernels are selected at runtime, the fused-kernel catalogue, and OpenMP threading.
 
-* [Autograd Engine](Autograd.md)
-  Dive into the reverse-mode automatic differentiation engine, gradient buffers, and computation graph nodes.
+### Building Models
+
+* [Modules & Containers](Module.md)
+  The `Module` base class, `Sequential`, named parameters, and train/eval mode.
+
+* [Neural Network Module (`torch::nn`)](nn.md)
+  The high-level façade: layers, losses, parameter helpers, and DataLoaders.
+
+* [Layers](Layer.md) — `Linear`, `Flatten`
+* [Convolution](Conv.md) — `Conv1d`, `Conv2d`, `Conv3d`
+* [Transposed Convolution](ConvTranspose.md) — learnable upsampling
+* [Pooling](Pooling.md) — max and average pooling
+* [ReLU & Activations](relu.md)
+* [Dropout](Dropout.md)
+* [Batch Normalization](BatchNorm.md)
+* [Norms & LayerNorm](Norm.md)
+* [Embedding](Embedding.md)
+* [Attention](Attention.md) — scaled dot-product and multi-head attention
+* [Functional API & Upsampling](Functional.md) — `softmax`, `interpolate`, `Upsample`
+* [Weight Initialization](Weights.md)
+
+### Data & Training
+
+* [Data Handling](Data.md)
+* [DataLoader](Dataloader.md)
+* [Training & Optimization](Training.md) — optimizers, schedulers, training loops
+* [Loss Functions](Loss.md)
+* [Metrics](Metrics.md)
+* [Live Dashboard](Dashboard.md) — stream loss and accuracy to a browser
+
+### Saving & Loading
+
+* [Checkpoints](Chekpoint.md) — the lightweight binary format
+* [Serialization (safetensors)](Serialization.md) — the interchange format, and the JSON parser
+
+### Models
+
+* [GPT-2](GPT2.md) — the transformer, the BPE tokenizer, and loading Hugging Face weights
+
+### Project
+
+* [Building, Testing & Installing](Build.md) — CMake targets, test executables, install layout
