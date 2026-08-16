@@ -1,5 +1,5 @@
 #pragma once
-#include "tensor.h"
+#include "core.h"
 #include <immintrin.h>
 #include <cmath>
 #include <algorithm>
@@ -48,6 +48,8 @@ Tensor sinh_avx2_f32(const Tensor& a);
 Tensor cosh_avx2_f32(const Tensor& a);
 Tensor sigmoid_avx2_f32(const Tensor& a);
 Tensor softplus_avx2_f32(const Tensor& a);
+Tensor silu_avx2_f32(const Tensor& a);
+Tensor gelu_avx2_f32(const Tensor& a);
 
 // ========================================================================
 //                        Reductions (Float32)

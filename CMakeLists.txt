@@ -9,6 +9,7 @@ set(PROJECT_INCLUDES
     src/core
     src/cpu/AVX2
     src/cpu/AVX512
+    src/cpu/AVX512/Fused_kernels
     src/neuralnet
     src/neuralnet/conv
     src/neuralnet/dataset
@@ -17,14 +18,13 @@ set(PROJECT_INCLUDES
     src/neuralnet/dataloader
     src/neuralnet/batchnorm
     src/neuralnet/weights
+    src/neuralnet/norm
+    src/neuralnet/embedding
+    src/neuralnet/serialization
     src/dashboard
+    src/models
 )
 
-# --------------------------------------------------
-# OBJECT libraries
-# --------------------------------------------------
-
-# Scalar
 add_library(opsmp OBJECT src/core/opsmp.cpp)
 target_include_directories(opsmp PRIVATE ${PROJECT_INCLUDES})
 
@@ -37,7 +37,6 @@ add_library(core OBJECT
 )
 target_include_directories(core PRIVATE ${PROJECT_INCLUDES})
 
-# Neural net
 add_library(neuralnet OBJECT
     src/neuralnet/loss.cpp
     src/neuralnet/layer.cpp
@@ -47,25 +46,38 @@ add_library(neuralnet OBJECT
     src/neuralnet/pooling/pooling.cpp
     src/neuralnet/batchnorm/batchnorm.cpp
     src/neuralnet/weights/weights_init.cpp
+    src/neuralnet/norm/norm.cpp
+    src/neuralnet/norm/layernorm.cpp
+    src/neuralnet/serialization/safetensors.cpp
+
 )
 target_include_directories(neuralnet PRIVATE ${PROJECT_INCLUDES})
 
-# Convolution
 add_library(conv OBJECT src/neuralnet/conv/conv.cpp)
 target_include_directories(conv PRIVATE ${PROJECT_INCLUDES})
 
-# AVX2
+add_library(models OBJECT src/models/gpt2.cpp src/models/gpt2_safetensors.cpp)
+target_include_directories(models PRIVATE ${PROJECT_INCLUDES})
+
+
+add_library(dashboard OBJECT
+    src/dashboard/dashboard.cpp
+)
+target_include_directories(dashboard PRIVATE ${PROJECT_INCLUDES})
 add_library(ops_avx2 OBJECT
     src/cpu/AVX2/ops_avx2_d64.cpp
     src/cpu/AVX2/ops_avx2_f32.cpp
+    src/cpu/AVX2/Fused_kernels/ops_avx2_d64_fused.cpp
+    src/cpu/AVX2/Fused_kernels/ops_avx2_f32_fused.cpp
 )
 target_include_directories(ops_avx2 PRIVATE ${PROJECT_INCLUDES})
 target_compile_options(ops_avx2 PRIVATE -O3 -mavx2 -mfma -fopenmp)
 
-# AVX512
 add_library(ops_avx512 OBJECT
     src/cpu/AVX512/ops_avx512_d64.cpp
     src/cpu/AVX512/ops_avx512_f32.cpp
+    src/cpu/AVX512/Fused_kernels/ops_avx512_d64_fused.cpp
+    src/cpu/AVX512/Fused_kernels/ops_avx512_f32_fused.cpp
 )
 target_include_directories(ops_avx512 PRIVATE ${PROJECT_INCLUDES})
 target_compile_options(ops_avx512 PRIVATE -O3 -mavx512f -mavx512dq)
@@ -77,6 +89,8 @@ add_library(myproject STATIC
     $<TARGET_OBJECTS:core>
     $<TARGET_OBJECTS:neuralnet>
     $<TARGET_OBJECTS:conv>
+    $<TARGET_OBJECTS:dashboard>
+    $<TARGET_OBJECTS:models>
 )
 
 target_compile_features(myproject PUBLIC cxx_std_20)
@@ -90,7 +104,6 @@ target_include_directories(myproject
 target_compile_options(myproject PUBLIC -fopenmp)
 target_link_libraries(myproject PUBLIC gomp)
 
-
 option(MYPROJECT_BUILD_TESTS "Build benchmarks/tests" ON)
 
 if (MYPROJECT_BUILD_TESTS)
@@ -101,6 +114,43 @@ if (MYPROJECT_BUILD_TESTS)
     add_executable(convnet test/convnet_test.cpp)
     add_executable(ConvNet test/train_conv.cpp)
     add_executable(InfConvNet test/inf_conv.cpp)
+    #tests
+    add_executable(test_tensor test/core/test_tensor.cpp)
+    add_executable(test_ops test/core/test_ops.cpp)
+    add_executable(test_autograd test/core/test_autograd.cpp)
+    add_executable(test_data test/core/test_data.cpp)
+    add_executable(layer_test test/neuralnet/layer_test.cpp)
+    add_executable(loss_test test/neuralnet/loss_test.cpp)
+    add_executable(test_metrics test/neuralnet/test_metrics.cpp)
+    add_executable(test_optimizers test/neuralnet/test_optimizers.cpp)
+    add_executable(test_dataloader test/neuralnet/test_dataloader.cpp)
+    add_executable(test_nn test/neuralnet/test_nn.cpp)
+    add_executable(test_checks test/neuralnet/test_checks.cpp)
+    add_executable(test_relu test/neuralnet/test_relu.cpp)
+    add_executable(test_norm test/neuralnet/test_norm.cpp)
+    add_executable(test_weights_init test/neuralnet/test_weights_init.cpp)
+    add_executable(test_safetensors test/neuralnet/test_safetensors.cpp)
+    add_executable(test_pooling test/neuralnet/test_pooling.cpp)
+    add_executable(test_dropout test/neuralnet/test_dropout.cpp)
+    add_executable(test_batchnorm test/neuralnet/test_batchnorm.cpp)
+
+    add_executable(test_dashboard test/dashboard/dashboard.cpp)
+    add_executable(test_conv test/neuralnet/test_conv.cpp)
+    add_executable(test_gpt2_primitives test/models/test_gpt2_primitives.cpp)
+    add_executable(test_gpt2_toy test/models/test_gpt2_toy.cpp)
+    add_executable(test_gpt2_huggingface test/models/test_gpt2_huggingface.cpp)
+
+    #AVX512
+    add_executable(test_avx512_f32_fk test/cpu/Fused_kernels/test_avx512_f32_fk.cpp)
+    target_compile_options(test_avx512_f32_fk PRIVATE -mavx512f)
+    add_executable(test_avx512_d64_fk test/cpu/Fused_kernels/test_avx512_d64_fk.cpp)
+    target_compile_options(test_avx512_d64_fk PRIVATE -mavx512f)
+    #AVX2
+    add_executable(test_avx2_f32_fk test/cpu/Fused_kernels/test_avx2_f32_fk.cpp)
+    target_compile_options(test_avx2_f32_fk PRIVATE -mfma)
+    add_executable(test_avx2_d64_fk test/cpu/Fused_kernels/test_avx2_d64_fk.cpp)
+    target_compile_options(test_avx2_d64_fk PRIVATE -mfma)
+
 
     target_link_libraries(app PRIVATE myproject)
     target_link_libraries(testmnist PRIVATE myproject)
@@ -109,6 +159,36 @@ if (MYPROJECT_BUILD_TESTS)
     target_link_libraries(convnet PRIVATE myproject)
     target_link_libraries(ConvNet PRIVATE myproject)
     target_link_libraries(InfConvNet PRIVATE myproject)
+    target_link_libraries(test_ops PRIVATE myproject)
+    target_link_libraries(test_tensor PRIVATE myproject)
+    target_link_libraries(test_autograd PRIVATE myproject)
+    target_link_libraries(test_data PRIVATE myproject)
+    target_link_libraries(layer_test PRIVATE myproject)
+    target_link_libraries(loss_test PRIVATE myproject)
+    target_link_libraries(test_metrics PRIVATE myproject)
+    target_link_libraries(test_optimizers PRIVATE myproject)
+    target_link_libraries(test_dataloader PRIVATE myproject)
+    target_link_libraries(test_nn PRIVATE myproject)
+    target_link_libraries(test_checks PRIVATE myproject)
+    target_link_libraries(test_relu PRIVATE myproject)
+    target_link_libraries(test_norm PRIVATE myproject)
+    target_link_libraries(test_weights_init PRIVATE myproject)
+    target_link_libraries(test_safetensors PRIVATE myproject)
+    target_link_libraries(test_pooling PRIVATE myproject)
+    target_link_libraries(test_dropout PRIVATE myproject)
+    target_link_libraries(test_batchnorm PRIVATE myproject)
+    target_link_libraries(test_dashboard PRIVATE myproject)
+    target_link_libraries(test_conv PRIVATE myproject)
+    target_link_libraries(test_gpt2_primitives PRIVATE myproject)
+    target_link_libraries(test_gpt2_toy PRIVATE myproject)
+    target_link_libraries(test_gpt2_huggingface PRIVATE myproject)
+
+    target_link_libraries(test_avx512_f32_fk PRIVATE myproject)
+    target_link_libraries(test_avx512_d64_fk PRIVATE myproject)
+    target_link_libraries(test_avx2_f32_fk PRIVATE myproject)
+    target_link_libraries(test_avx2_d64_fk PRIVATE myproject)
+
+
 endif()
 
 install(

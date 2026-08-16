@@ -6,7 +6,7 @@
 #include <limits>
 #include <iostream>
 #include <cstring> 
-
+#include <numbers>
 // Local headers AFTER
 #include "opsmp.h"
 #include "autograd.h"
@@ -37,6 +37,31 @@ static std::vector<size_t> broadcast_shape(const std::vector<size_t>& a, const s
         res[i] = std::max(da, db);
     }
     return res;
+}
+
+static inline float get_scale(size_t in_size, size_t out_size, bool align_corners) {
+    if (align_corners) {
+        return (out_size > 1) ? (float)(in_size - 1) / (out_size - 1) : 0.0f;
+    } else {
+        return (out_size > 0) ? (float)in_size / out_size : 0.0f;
+    }
+}
+
+static inline int compute_nearest_index(size_t out_idx, float scale, size_t in_size, bool align_corners) {
+    if (align_corners) {
+        return std::min((int)std::round(out_idx * scale), (int)in_size - 1);
+    } else {
+        return std::min((int)(out_idx * scale), (int)in_size - 1);
+    }
+}
+
+static inline float compute_source_index(size_t out_idx, float scale, bool align_corners) {
+    if (align_corners) {
+        return out_idx * scale;
+    } else {
+        float src_idx = (out_idx + 0.5f) * scale - 0.5f;
+        return src_idx < 0.0f ? 0.0f : src_idx;
+    }
 }
 
 // ======================================================================================
@@ -583,6 +608,22 @@ Tensor Relu_mp(const Tensor& a) {
                          a.requires_grad() ? std::make_shared<GradRelu>(a) : nullptr); 
 }
 
+Tensor gelu_mp(const Tensor& a) { 
+    return unary_op_impl(a, [](double x){ return 0.5 * x * (1.0 + std::tanh(std::sqrt(2.0 / std::numbers::pi) * (x + 0.044715 * std::pow(x, 3)))); }, 
+                         a.requires_grad() ? std::make_shared<GradGelu>(a) : nullptr); 
+}
+
+Tensor silu_mp(const Tensor& a) { 
+    return unary_op_impl(a, [](double x){ return x / (1.0 + std::exp(-x)); }, 
+                         a.requires_grad() ? std::make_shared<GradSilu>(a) : nullptr); 
+}
+
+Tensor mish_mp(const Tensor& a) { 
+    return unary_op_impl(a, [](double x){ return x * std::tanh(std::log(1.0 + std::exp(x))); }, 
+                         a.requires_grad() ? std::make_shared<GradMish>(a) : nullptr); 
+}
+
+
 Tensor softplus_mp(const Tensor& a) { 
     return unary_op_impl(a, [](double x){ return std::log(1.0 + std::exp(x)); }, 
                          a.requires_grad() ? std::make_shared<GradSoftplus>(a) : nullptr); 
@@ -696,6 +737,10 @@ Tensor mean_mp(const Tensor& t, int dim) {
     return mult_scalar_mp(s, 1.0 / count);
 }
 
+//--- Other operators ---
+
+
+
 // --- Comparisons ---
 
 Tensor lt_mp(const Tensor& a, double b) { return unary_op_impl(a, [b](double x){ return x < b ? 1.0 : 0.0; }); }
@@ -800,5 +845,192 @@ Tensor cat_mp(const std::vector<Tensor>& tensors, size_t dim) {
             }
         }
     }
+    return out;
+}
+
+//other ops:
+
+Tensor interpolate_mp(const Tensor& input, const std::vector<size_t>& size, const std::vector<double>& scale_factor, int mode, bool align_corners) {
+    if (!input.impl) throw std::runtime_error("interpolate: null input");
+    if (input.impl->ndim != 4) throw std::runtime_error("interpolate: currently only supports 4D tensors [B, C, H, W]");
+
+    size_t B = input.shape()[0];
+    size_t C = input.shape()[1];
+    size_t H_in = input.shape()[2];
+    size_t W_in = input.shape()[3];
+
+    size_t H_out = 0;
+    size_t W_out = 0;
+
+    if (!size.empty()) {
+        if (size.size() != 2) throw std::runtime_error("interpolate: size must be 2D [H, W]");
+        H_out = size[0];
+        W_out = size[1];
+    } else if (!scale_factor.empty()) {
+        if (scale_factor.size() != 2) throw std::runtime_error("interpolate: scale_factor must be 2D [scale_h, scale_w]");
+        H_out = static_cast<size_t>(std::floor(H_in * scale_factor[0]));
+        W_out = static_cast<size_t>(std::floor(W_in * scale_factor[1]));
+    } else {
+        throw std::runtime_error("interpolate: must specify either size or scale_factor");
+    }
+
+    bool req = input.requires_grad();
+    Tensor out({B, C, H_out, W_out}, input._dtype(), req);
+    if (req) {
+        out.impl->grad_fn = std::make_shared<GradInterpolate>(input, out.shape(), align_corners);
+    }
+
+    float scale_h = get_scale(H_in, H_out, align_corners);
+    float scale_w = get_scale(W_in, W_out, align_corners);
+
+    if (input._dtype() == DType::Float32 && input.is_contiguous()) {
+        const float* in_ptr = (const float*)input.impl->data->data.get() + input.impl->offset;
+        float* out_ptr = (float*)out.impl->data->data.get();
+
+        size_t hw_in = H_in * W_in;
+        size_t hw_out = H_out * W_out;
+
+        #pragma omp parallel for collapse(2) schedule(static)
+        for (size_t b = 0; b < B; ++b) {
+            for (size_t c = 0; c < C; ++c) {
+                const float* in_channel = in_ptr + (b * C + c) * hw_in;
+                float* out_channel = out_ptr + (b * C + c) * hw_out;
+
+                if (mode == 0) { 
+                    for (size_t oh = 0; oh < H_out; ++oh) {
+                        int ih = compute_nearest_index(oh, scale_h, H_in, align_corners);
+                        for (size_t ow = 0; ow < W_out; ++ow) {
+                            int iw = compute_nearest_index(ow, scale_w, W_in, align_corners);
+                            out_channel[oh * W_out + ow] = in_channel[ih * W_in + iw];
+                        }
+                    }
+                } else if (mode == 1) { 
+                    for (size_t oh = 0; oh < H_out; ++oh) {
+                        float h_src = compute_source_index(oh, scale_h, align_corners);
+                        int h0 = (int)std::floor(h_src);
+                        int h1 = std::min(h0 + 1, (int)H_in - 1);
+                        float h1_w = h_src - h0;
+                        float h0_w = 1.0f - h1_w;
+
+                        for (size_t ow = 0; ow < W_out; ++ow) {
+                            float w_src = compute_source_index(ow, scale_w, align_corners);
+                            int w0 = (int)std::floor(w_src);
+                            int w1 = std::min(w0 + 1, (int)W_in - 1);
+                            float w1_w = w_src - w0;
+                            float w0_w = 1.0f - w1_w;
+
+                            float val = in_channel[h0 * W_in + w0] * h0_w * w0_w +
+                                        in_channel[h0 * W_in + w1] * h0_w * w1_w +
+                                        in_channel[h1 * W_in + w0] * h1_w * w0_w +
+                                        in_channel[h1 * W_in + w1] * h1_w * w1_w;
+
+                            out_channel[oh * W_out + ow] = val;
+                        }
+                    }
+                }
+            }
+        }
+    } else {
+        throw std::runtime_error("interpolate_mp: currently only optimized for Float32 Contiguous tensors");
+    }
+
+    return out;
+}
+
+// ======================================================================================
+//                              EMBEDDING LOOKUP
+// ======================================================================================
+
+Tensor embedding_lookup_mp(const Tensor& weight, const Tensor& indices) {
+    if (!weight.impl || !indices.impl) throw std::runtime_error("embedding_lookup: null input");
+    if (weight.impl->ndim != 2) throw std::runtime_error("embedding_lookup: weight must be 2D [V, D]");
+
+    DType idx_dt = indices._dtype();
+    if (idx_dt == DType::Float32 || idx_dt == DType::Double64 || idx_dt == DType::Float16)
+        throw std::runtime_error("embedding_lookup: indices must be integer type");
+
+    size_t V = weight.impl->shape[0];
+    size_t D = weight.impl->shape[1];
+
+    std::vector<size_t> out_shape = indices.shape();
+    out_shape.push_back(D);
+
+    bool req = weight.requires_grad();
+    Tensor out(out_shape, weight._dtype(), false);
+
+    Tensor idx_cont = indices.contiguous();
+    Tensor w_cont = weight.contiguous();
+
+    const char* w_ptr   = (const char*)w_cont.impl->data->data.get();
+    const char* idx_ptr = (const char*)idx_cont.impl->data->data.get();
+    char*       out_ptr = (char*)out.impl->data->data.get();
+
+    size_t N = idx_cont.numel();
+    size_t dt_sz = dtype_size(weight._dtype());
+
+    for (size_t i = 0; i < N; ++i) {
+        int64_t idx = static_cast<int64_t>(read_scalar_at(idx_ptr, i, idx_dt));
+        if (idx < 0) idx += (int64_t)V;
+        if (idx < 0 || (size_t)idx >= V) throw std::out_of_range("embedding_lookup: index out of bounds");
+
+        std::memcpy(out_ptr + i * D * dt_sz, w_ptr + (size_t)idx * D * dt_sz, D * dt_sz);
+    }
+
+    if (req) {
+        out.requires_grad_(true);
+        out.impl->grad_fn = std::make_shared<GradEmbedding>(weight, indices);
+    }
+
+    return out;
+}
+
+// ======================================================================================
+//                              BATCHED MATMUL
+// ======================================================================================
+
+Tensor bmm_mp(const Tensor& A, const Tensor& B) {
+    if (!A.impl || !B.impl) throw std::runtime_error("bmm: null input");
+    if (A.impl->ndim != 3 || B.impl->ndim != 3)
+        throw std::runtime_error("bmm: both inputs must be 3D [Batch, M, K] and [Batch, K, N]");
+
+    size_t Batch = A.impl->shape[0];
+    size_t M = A.impl->shape[1];
+    size_t K = A.impl->shape[2];
+    if (B.impl->shape[0] != Batch) throw std::runtime_error("bmm: batch size mismatch");
+    if (B.impl->shape[1] != K)     throw std::runtime_error("bmm: inner dimension mismatch");
+    size_t N = B.impl->shape[2];
+
+    Tensor A_c = A.contiguous();
+    Tensor B_c = B.contiguous();
+
+    bool req = A.requires_grad() || B.requires_grad();
+    Tensor out({Batch, M, N}, A._dtype(), false);
+
+    size_t dt_sz = A.dtype_bytes();
+    char* out_base = (char*)out.impl->data->data.get();
+
+    size_t a_slice_elems = M * K;
+    size_t b_slice_elems = K * N;
+    size_t out_slice_elems = M * N;
+
+    for (size_t i = 0; i < Batch; ++i) {
+        Tensor A_i, B_i;
+        A_i.impl = intrusive_ptr<Tensorimpl>(new Tensorimpl(
+            A_c.impl->data, A_c.impl->offset + i * a_slice_elems,
+            SmallVector<size_t, 5>({M, K}), SmallVector<size_t, 5>({K, 1}), A._dtype(), false));
+        B_i.impl = intrusive_ptr<Tensorimpl>(new Tensorimpl(
+            B_c.impl->data, B_c.impl->offset + i * b_slice_elems,
+            SmallVector<size_t, 5>({K, N}), SmallVector<size_t, 5>({N, 1}), B._dtype(), false));
+
+        Tensor C_i = matmul(A_i, B_i).contiguous();
+        std::memcpy(out_base + i * out_slice_elems * dt_sz,
+                    C_i.impl->data->data.get(), out_slice_elems * dt_sz);
+    }
+
+    if (req) {
+        out.requires_grad_(true);
+        out.impl->grad_fn = std::make_shared<GradBatchMatMul>(A, B);
+    }
+
     return out;
 }

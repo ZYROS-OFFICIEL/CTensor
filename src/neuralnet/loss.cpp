@@ -20,9 +20,9 @@ Tensor Loss::MSE(const Tensor& pred_, const Tensor& target_) {
     Tensor result({1}, pred_.impl->dtype, req);
 
     Tensor temp = pow_scalar(pred_ - target_, 2);
-    Tensor summed = sum(temp, -1);
+    Tensor summed = sum(temp.flatten(), 0);
 
-    double mse_value = read_scalar_at(summed.impl->data->data.get(), 0, summed._dtype()) 
+    double mse_value = read_scalar_at(summed.impl->data->data.get(), 0, summed._dtype())
                        / static_cast<double>(pred_.numel_());
 
     write_scalar_at(result.impl->data->data.get(), 0, result._dtype(), mse_value);
@@ -42,7 +42,7 @@ Tensor Loss::MAE(const Tensor& pred, const Tensor& target,std::string reduction)
     Tensor result({1}, pred.impl->dtype, req);
 
     Tensor temp = abs(pred - target);
-    Tensor summed = sum(temp, -1);
+    Tensor summed = sum(temp.flatten(), 0);
 
     double mae_value = read_scalar_at(summed.impl->data->data.get(), 0, summed._dtype());
     if(reduction == "mean") {
@@ -74,7 +74,7 @@ Tensor Loss::HuberLoss(const Tensor& pred, const Tensor& target,std::string redu
 
     Tensor huber_loss = (abs_diff <= delta) * quadratic + (abs_diff > delta) * linear;
     
-    Tensor summed = sum(huber_loss, -1);
+    Tensor summed = sum(huber_loss.flatten(), 0);
     double huber_value = read_scalar_at(summed.impl->data->data.get(), 0, summed._dtype());
     if(reduction == "mean") {
         huber_value /= static_cast<double>(pred.numel_());
@@ -107,8 +107,8 @@ Tensor Loss::CrossEntropy(const Tensor& pred_, const Tensor& target_, std::strin
     Tensor nll = picked * -1.0;
 
     Tensor reduced;
-    if (reduction == "mean") reduced = mean(nll);
-    else reduced = sum(nll);
+    if (reduction == "mean") reduced = mean(nll.flatten(), 0);
+    else reduced = sum(nll.flatten(), 0);
     
     double val = read_scalar_at(reduced.impl->data->data.get(), 0, reduced._dtype());
     write_scalar_at(result.impl->data->data.get(), 0, result._dtype(), val);
@@ -127,7 +127,7 @@ Tensor Loss::LogCosh(const Tensor& pred, const Tensor& target,std::string reduct
     Tensor diff = pred - target;
     Tensor log_cosh_loss = ln(cosh(diff));
 
-    Tensor summed = sum(log_cosh_loss, -1);
+    Tensor summed = sum(log_cosh_loss.flatten(), 0);
     double log_cosh_value = read_scalar_at(summed.impl->data->data.get(), 0, summed._dtype());
 
     if(reduction == "mean") log_cosh_value /= static_cast<double>(pred.numel_());
@@ -142,8 +142,8 @@ Tensor Loss::BCE(const Tensor& pred, const Tensor& target,std::string reduction)
     if (!pred.impl || !target.impl) throw std::runtime_error("Loss::BCE: null tensor implementation");
     if (pred.impl->ndim != target.impl->ndim) throw std::runtime_error("Loss::BCE: dimension mismatch");
     
-    Tensor t_max = max(pred); 
-    Tensor t_min = min(pred); 
+    Tensor t_max = max(pred.flatten(), 0);
+    Tensor t_min = min(pred.flatten(), 0);
     
     double max_val = read_scalar_at(t_max.impl->data->data.get(), 0, t_max._dtype());
     double min_val = read_scalar_at(t_min.impl->data->data.get(), 0, t_min._dtype());
@@ -157,7 +157,7 @@ Tensor Loss::BCE(const Tensor& pred, const Tensor& target,std::string reduction)
 
     Tensor bce_loss = - (target * log_pred + (1 - target) * log_one_minus_pred);
 
-    Tensor summed = sum(bce_loss, -1);
+    Tensor summed = sum(bce_loss.flatten(), 0);
     double bce_value = read_scalar_at(summed.impl->data->data.get(), 0, summed._dtype());
 
     if(reduction == "mean") bce_value /= static_cast<double>(pred.numel_());
@@ -178,7 +178,7 @@ Tensor Loss::KLDiv(const Tensor& pred, const Tensor& target,std::string reductio
     Tensor log_pred = ln(pred + 1e-12); 
     Tensor kl_loss = target * (log_pred - ln(target + 1e-12));
 
-    Tensor summed = sum(kl_loss, -1);
+    Tensor summed = sum(kl_loss.flatten(), 0);
     double kl_value = read_scalar_at(summed.impl->data->data.get(), 0, summed._dtype());
 
     if(reduction == "mean") kl_value /= static_cast<double>(pred.numel_());
@@ -199,8 +199,8 @@ Tensor Loss::NLLLoss(const Tensor& pred, const Tensor& target, std::string reduc
     Tensor loss = picked * -1.0; 
 
     Tensor reduced;
-    if(reduction == "mean") reduced = mean(loss);
-    else reduced = sum(loss);
+    if(reduction == "mean") reduced = mean(loss.flatten(), 0);
+    else reduced = sum(loss.flatten(), 0);
 
     double val = read_scalar_at(reduced.impl->data->data.get(), 0, reduced._dtype());
     write_scalar_at(result.impl->data->data.get(), 0, result._dtype(), val);
@@ -219,7 +219,7 @@ Tensor HingeLoss(const Tensor& pred, const Tensor& target,std::string reduction)
     Tensor margin = one - target * pred;
     Tensor hinge_loss = relu(margin);
 
-    Tensor summed = sum(hinge_loss);
+    Tensor summed = sum(hinge_loss.flatten(), 0);
     double hinge_value = read_scalar_at(summed.impl->data->data.get(), 0, summed._dtype());
     if(reduction == "mean") hinge_value /= static_cast<double>(pred.numel_());
 
@@ -240,7 +240,7 @@ Tensor MarginRankingLoss(const Tensor& input1, const Tensor& input2, const Tenso
     Tensor margin_tensor = margin - target * diff;
     Tensor loss = relu(margin_tensor);
 
-    Tensor summed = sum(loss);
+    Tensor summed = sum(loss.flatten(), 0);
     double loss_value = read_scalar_at(summed.impl->data->data.get(), 0, summed._dtype());
 
     if(reduction == "mean") loss_value /= static_cast<double>(input1.numel_());

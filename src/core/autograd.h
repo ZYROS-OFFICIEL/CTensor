@@ -18,10 +18,12 @@ inline void check_index_in_storage(const Tensorimpl* impl, size_t idx, const cha
         std::cerr << ctx << ": missing impl/data\n";
         return;
     }
-    if (idx >= impl->data->size) {
+    
+    // Check against bytes instead of size
+    if ((idx + 1) * dtype_size(impl->dtype) > impl->data->bytes) {
         std::cerr << "OOB " << ctx << ": idx=" << idx
                   << " offset=" << impl->offset
-                  << " storage->size=" << impl->data->size
+                  << " storage->bytes=" << impl->data->bytes
                   << " ndim=" << impl->ndim
                   << "\n";
         throw std::runtime_error("index out of underlying storage bounds");
@@ -105,6 +107,17 @@ struct GradMean : GradFn {
     double scale;
     int dim; 
     GradMean(const Tensor& t_, double scale_, int dim_ = -1) : t(t_), scale(scale_), dim(dim_) {
+        parents = {t};
+    }
+    void backward(const Tensor& self) override ;
+};
+
+struct GradInterpolate : GradFn {
+    Tensor t;
+    std::vector<size_t> out_shape;
+    bool align_corners;
+    GradInterpolate(const Tensor& t_, const std::vector<size_t>& out_shape_, bool align_corners_)
+        : t(t_), out_shape(out_shape_), align_corners(align_corners_) {
         parents = {t};
     }
     void backward(const Tensor& self) override ;
@@ -194,6 +207,27 @@ struct GradRelu : GradFn {
 
     void backward(const Tensor& self) override;
 };
+struct GradGelu : GradFn {
+    Tensor t;
+    GradGelu(const Tensor& t_) : t(t_) { parents = {t}; }
+
+    void backward(const Tensor& self) override;
+};
+
+struct GradSilu : GradFn {
+    Tensor t;
+    GradSilu(const Tensor& t_) : t(t_) { parents = {t}; }
+
+    void backward(const Tensor& self) override;
+};
+
+struct GradMish : GradFn {
+    Tensor t;
+    GradMish(const Tensor& t_) : t(t_) { parents = {t}; }
+
+    void backward(const Tensor& self) override;
+};
+
 struct GradSoftplus : GradFn {
     Tensor t;
     GradSoftplus(const Tensor& t_) : t(t_) { parents = {t}; }
@@ -261,23 +295,49 @@ struct GradPermute : GradFn {
 struct GradReshape : GradFn {
     Tensor t;
     std::vector<size_t> old_shape;
-    
-    GradReshape(const Tensor& t_, std::vector<size_t> old_) : t(t_), old_shape(old_) { 
+
+    GradReshape(const Tensor& t_, std::vector<size_t> old_) : t(t_), old_shape(old_) {
+        parents = {t};
+    }
+
+    void backward(const Tensor& self) override;
+};
+
+struct GradClone : GradFn {
+    Tensor t;
+    GradClone(const Tensor& t_) : t(t_) { parents = {t}; }
+    void backward(const Tensor& self) override;
+};
+
+struct GradGather : GradFn {
+    Tensor t;
+    Tensor index;  
+    size_t dim;    
+
+    GradGather(const Tensor& t_, const Tensor& index_, size_t dim_)
+        : t(t_), index(index_), dim(dim_) {
         parents = {t}; 
     }
 
     void backward(const Tensor& self) override;
 };
 
-struct GradGather : GradFn {
-    Tensor t;      // The source tensor (embeddings or logits)
-    Tensor index;  // The indices used
-    size_t dim;    // The dimension gathered along
+struct GradEmbedding : GradFn {
+    Tensor weight;  
+    Tensor indices;  
 
-    GradGather(const Tensor& t_, const Tensor& index_, size_t dim_) 
-        : t(t_), index(index_), dim(dim_) {
-        parents = {t}; // Index usually doesn't require grad in standard layers
+    GradEmbedding(const Tensor& weight_, const Tensor& indices_)
+        : weight(weight_), indices(indices_) {
+        parents = {weight};
     }
+
+    void backward(const Tensor& self) override;
+};
+
+struct GradBatchMatMul : GradFn {
+    Tensor a, b;
+
+    GradBatchMatMul(const Tensor& a_, const Tensor& b_) : a(a_), b(b_) { parents = {a, b}; }
 
     void backward(const Tensor& self) override;
 };

@@ -13,6 +13,7 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image.h"
 #include "stb_image_write.h"
+
 // ---------- flat vector -> tensor ----------
 template<typename T>
 Tensor from_flat_vector(const std::vector<T>& data, const std::vector<size_t>& shape, DType dtype, bool requires_grad ) {
@@ -28,6 +29,7 @@ Tensor from_flat_vector(const std::vector<T>& data, const std::vector<size_t>& s
     }
     return out;
 }
+
 // ---------- raw pointer -> tensor ----------
 template<typename T>
 Tensor from_raw_ptr(const T* ptr, size_t count, const std::vector<size_t>& shape, DType dtype , bool requires_grad ) {
@@ -41,6 +43,7 @@ Tensor from_raw_ptr(const T* ptr, size_t count, const std::vector<size_t>& shape
     }
     return out;
 }
+
 // ---------- 2D nested vector -> tensor ----------
 template<typename T>
 Tensor from_2d_vector(const std::vector<std::vector<T>>& v2, DType dtype , bool requires_grad ) {
@@ -58,6 +61,7 @@ Tensor from_2d_vector(const std::vector<std::vector<T>>& v2, DType dtype , bool 
     }
     return out;
 }
+
 // ---------- 3D nested vector -> tensor ----------
 template<typename T>
 Tensor from_3d_vector(const std::vector<std::vector<std::vector<T>>>& v3, DType dtype , bool requires_grad ) {
@@ -78,8 +82,9 @@ Tensor from_3d_vector(const std::vector<std::vector<std::vector<T>>>& v3, DType 
                 write_scalar_at(out.impl->data->data.get(), idx++, out.impl->dtype, static_cast<double>(v3[i][j][k]));
     return out;
 }
+
 // ---------- CSV (numeric) -> 2D tensor ----------
-inline Tensor from_csv(const std::string& filename, DType dtype , bool has_header , char sep ) {
+Tensor from_csv(const std::string& filename, DType dtype , bool has_header , char sep ) {
     std::ifstream ifs(filename);
     if (!ifs) throw std::runtime_error("from_csv: cannot open file");
 
@@ -118,8 +123,9 @@ inline Tensor from_csv(const std::string& filename, DType dtype , bool has_heade
 
     return out;
 }
+
 // ---------- binary file (.bin) -> tensor ----------
-inline Tensor from_binary(const std::string& filename,
+Tensor from_binary(const std::string& filename,
                           const std::vector<size_t>& shape,
                           DType dtype,
                           bool requires_grad) {
@@ -155,8 +161,9 @@ inline Tensor from_binary(const std::string& filename,
 
     return out;
 }
+
 // ---------- NumPy .npy file -> tensor ----------
-inline Tensor from_npy(const std::string& filename, bool requires_grad ) {
+Tensor from_npy(const std::string& filename, bool requires_grad ) {
     std::ifstream ifs(filename, std::ios::binary);
     if (!ifs) throw std::runtime_error("from_npy: cannot open file");
 
@@ -251,6 +258,7 @@ inline Tensor from_npy(const std::string& filename, bool requires_grad ) {
 
     return out;
 }
+
 //---------------tensor -> image  ---------------
 void tensorio::to_image(const Tensor& t, const std::string& path) {
     assert(t.impl->ndim == 3 && "Expected [C,H,W] tensor");
@@ -268,6 +276,7 @@ void tensorio::to_image(const Tensor& t, const std::string& path) {
 
     stbi_write_png(path.c_str(), (int)W, (int)H, (int)C, buffer.data(), (int)(W * C));
 }
+
 //---------------from image file -------------------
 Tensor tensorio::from_image(const std::string& path, DType dtype) {
     int w, h, c;
@@ -287,3 +296,15 @@ Tensor tensorio::from_image(const std::string& path, DType dtype) {
     stbi_image_free(img_data);
     return t;
 }
+
+template Tensor from_flat_vector<double>(const std::vector<double>&, const std::vector<size_t>&, DType, bool);
+template Tensor from_flat_vector<float>(const std::vector<float>&, const std::vector<size_t>&, DType, bool);
+
+template Tensor from_raw_ptr<double>(const double*, size_t, const std::vector<size_t>&, DType, bool);
+template Tensor from_raw_ptr<float>(const float*, size_t, const std::vector<size_t>&, DType, bool);
+
+template Tensor from_2d_vector<double>(const std::vector<std::vector<double>>&, DType, bool);
+template Tensor from_2d_vector<float>(const std::vector<std::vector<float>>&, DType, bool);
+
+template Tensor from_3d_vector<double>(const std::vector<std::vector<std::vector<double>>>&, DType, bool);
+template Tensor from_3d_vector<float>(const std::vector<std::vector<std::vector<float>>>&, DType, bool);

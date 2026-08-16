@@ -1,7 +1,7 @@
 #pragma once
-#include "module.h"
+#include "neuralnet.h"
 #include <vector>
-#include "neuralnet/dataloader/dataloader.h" 
+#include "neuralnet/dataloader/dataloader.h"
 #include "dashboard/dashboard.h"
 #include <cstring>
 #include <cmath>

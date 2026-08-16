@@ -61,13 +61,19 @@ Tensor cosh_mp(const Tensor& a);
 Tensor sigmoid_mp(const Tensor& a);
 Tensor Relu_mp(const Tensor& a);
 Tensor softplus_mp(const Tensor& a);
+Tensor gelu_mp(const Tensor& a);
+Tensor silu_mp(const Tensor& a);
+Tensor mish_mp(const Tensor& a);
 
 //------------------ Reduction Operations --------------------------------
 
 Tensor sum_mp(const Tensor& t, int dim = -1);
 Tensor mean_mp(const Tensor& t, int dim = -1);
-Tensor max_mp(const Tensor& t, int dim = -1); // Placeholder if you implement it
-Tensor min_mp(const Tensor& t, int dim = -1); // Placeholder
+Tensor max_mp(const Tensor& t, int dim = -1); 
+Tensor min_mp(const Tensor& t, int dim = -1); 
+
+//------------------ Other Operations ------------------------------------
+Tensor interpolate_mp(const Tensor& input, const std::vector<size_t>& size, const std::vector<double>& scale_factor, int mode, bool align_corners);
 
 //------------------ Element-wise Comparisons ----------------------------
 Tensor lt_mp(const Tensor& a, double b);
@@ -86,4 +92,7 @@ Tensor ne_mp(const Tensor& a, const Tensor& b);
 
 //------------------ Utilities -------------------------------------------
 Tensor cat_mp(const std::vector<Tensor>& tensors, size_t dim);
+
+Tensor embedding_lookup_mp(const Tensor& weight, const Tensor& indices);
+Tensor bmm_mp(const Tensor& A, const Tensor& B);
 

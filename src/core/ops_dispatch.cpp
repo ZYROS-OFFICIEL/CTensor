@@ -173,10 +173,24 @@ Tensor run_binary_op(const Tensor& a, const Tensor& b, OpFunc op) {
 Tensor dispatch_binary(BinaryOp op, const Tensor& a, const Tensor& b, const char* name) {
     ensure_same_device(a, b, name);
 
+    Tensor act_a = a;
+    Tensor act_b = b;
+    if (a._dtype() != b._dtype()) {
+        if (a._dtype() == DType::Double64 || b._dtype() == DType::Double64) {
+            if (a._dtype() != DType::Double64) act_a = a.astype(DType::Double64);
+            if (b._dtype() != DType::Double64) act_b = b.astype(DType::Double64);
+        } else if (a._dtype() == DType::Float32 || b._dtype() == DType::Float32) {
+            if (a._dtype() != DType::Float32) act_a = a.astype(DType::Float32);
+            if (b._dtype() != DType::Float32) act_b = b.astype(DType::Float32);
+        } else {
+            act_b = b.astype(a._dtype());
+        }
+    }
+
     // 1. SCALAR SHORT-CIRCUIT
-    if (a.numel() == 1 && b.numel() == 1) {
-        double va = a.read_scalar(0);
-        double vb = b.read_scalar(0);
+    if (act_a.numel() == 1 && act_b.numel() == 1) {
+        double va = act_a.read_scalar(0);
+        double vb = act_b.read_scalar(0);
         double res = 0.0;
         bool is_bool = false;
 
@@ -196,17 +210,17 @@ Tensor dispatch_binary(BinaryOp op, const Tensor& a, const Tensor& b, const char
         }
 
         if (op != BinaryOp::MATMUL) {
-            Tensor out({1}, is_bool ? DType::Bool : a._dtype());
+            Tensor out({1}, is_bool ? DType::Bool : act_a._dtype());
             out.write_scalar(0, res);
             return out;
         }
     }
 
     // 2. Main Dispatch
-    if (a.device().is_cpu()) {
-        auto fn = get_registry().table[(int)op][(int)a._dtype()];
+    if (act_a.device().is_cpu()) {
+        auto fn = get_registry().table[(int)op][(int)act_a._dtype()];
         if (!fn) throw std::runtime_error(std::string(name) + ": unsupported dtype or op not registered");
-        return fn(a, b);
+        return fn(act_a, act_b);
     }
 
     throw std::runtime_error(std::string(name) + ": unsupported device");
@@ -333,7 +347,49 @@ IMPLEMENT_UNARY_OP(cosh, GradCosh, cosh_mp, cosh_avx2, cosh_avx512)
 IMPLEMENT_UNARY_OP(sigmoid, GradSigmoid, sigmoid_mp, sigmoid_avx2, sigmoid_avx512)
 IMPLEMENT_UNARY_OP(relu, GradRelu, Relu_mp, relu_avx2, relu_avx512) 
 IMPLEMENT_UNARY_OP(softplus, GradSoftplus, softplus_mp, softplus_avx2, softplus_avx512)
-
+// hand-written: no AVX512 kernels for gelu/silu, no SIMD kernel at all for mish
+Tensor gelu(const Tensor &a) {
+    Tensor out;
+    if (a.device().is_cpu()) {
+        switch (a._dtype()) {
+            case DType::Float32: out = cpu_has_avx2() ? gelu_avx2_f32(a) : gelu_mp(a); break;
+            case DType::Double64: out = cpu_has_avx2() ? gelu_avx2_d64(a) : gelu_mp(a); break;
+            default: out = gelu_mp(a); break;
+        }
+    } else {
+        throw std::runtime_error("gelu: unsupported device");
+    }
+    if (a.requires_grad()) {
+        out.requires_grad_(true);
+        out.impl->grad_fn = std::make_shared<GradGelu>(a);
+    }
+    return out;
+}
+Tensor silu(const Tensor &a) {
+    Tensor out;
+    if (a.device().is_cpu()) {
+        switch (a._dtype()) {
+            case DType::Float32: out = cpu_has_avx2() ? silu_avx2_f32(a) : silu_mp(a); break;
+            case DType::Double64: out = cpu_has_avx2() ? silu_avx2_d64(a) : silu_mp(a); break;
+            default: out = silu_mp(a); break;
+        }
+    } else {
+        throw std::runtime_error("silu: unsupported device");
+    }
+    if (a.requires_grad()) {
+        out.requires_grad_(true);
+        out.impl->grad_fn = std::make_shared<GradSilu>(a);
+    }
+    return out;
+}
+Tensor mish(const Tensor &a) {
+    Tensor out = mish_mp(a);
+    if (a.requires_grad()) {
+        out.requires_grad_(true);
+        out.impl->grad_fn = std::make_shared<GradMish>(a);
+    }
+    return out;
+}
 
 // ========================================================================
 //                     COMPARISONS
@@ -358,17 +414,18 @@ Tensor ne(const Tensor &a, double b) { return neq_mp(a, b); }
 // ========================================================================
 
 Tensor sum(const Tensor &a, int dim) {
+    bool is_flat = a.shape().size() <= 1;
     Tensor out;
     if (a.device().is_cpu()) {
         switch (a._dtype()) {
             case DType::Float32:
-                if (cpu_has_avx512f() ) out = sum_avx512_f32(a,dim);
-                else if (cpu_has_avx2() && dim == -1) out = sum_avx2_f32(a,dim);
+                if (is_flat && cpu_has_avx512f()) out = sum_avx512_f32(a,dim);
+                else if (is_flat && cpu_has_avx2() && dim == -1) out = sum_avx2_f32(a,dim);
                 else out = sum_mp(a,dim);
                 break;
             case DType::Double64:
-                if (cpu_has_avx512f()) out = sum_avx512_d64(a,dim);
-                else if (cpu_has_avx2() && dim == -1) out = sum_avx2_d64(a,dim);
+                if (is_flat && cpu_has_avx512f()) out = sum_avx512_d64(a,dim);
+                else if (is_flat && cpu_has_avx2() && dim == -1) out = sum_avx2_d64(a,dim);
                 else out = sum_mp(a,dim);
                 break;
             default: out = sum_mp(a,dim); break;
@@ -384,21 +441,23 @@ Tensor sum(const Tensor &a, int dim) {
 
 Tensor mean(const Tensor &a, int dim) {
     Tensor s = sum(a, dim);
-    double N = (double)a.numel();
-    if (dim != -1 && dim < (int)a.shape().size()) N = (double)a.shape()[dim];
+    int nd = (int)a.shape().size();
+    int actual_dim = (dim < 0) ? dim + nd : dim;
+    double N = (nd == 0) ? 1.0 : (double)a.shape()[actual_dim];
     return mul_scalar(s, 1.0 / N);
 }
 
 Tensor max(const Tensor &a, int dim) {
+    bool is_flat = a.shape().size() <= 1;
     if (a.device().is_cpu()) {
         switch (a._dtype()) {
             case DType::Float32:
-                if (cpu_has_avx512f()) return max_avx512_f32(a,dim);
-                if (cpu_has_avx2() && dim == -1)    return max_avx2_f32(a,dim);
+                if (is_flat && cpu_has_avx512f()) return max_avx512_f32(a,dim);
+                if (is_flat && cpu_has_avx2() && dim == -1)    return max_avx2_f32(a,dim);
                 return max_mp(a,dim);
             case DType::Double64:
-                if (cpu_has_avx512f()) return max_avx512_d64(a,dim);
-                if (cpu_has_avx2() && dim == -1)    return max_avx2_d64(a,dim);
+                if (is_flat && cpu_has_avx512f()) return max_avx512_d64(a,dim);
+                if (is_flat && cpu_has_avx2() && dim == -1)    return max_avx2_d64(a,dim);
                 return max_mp(a,dim);
             default: return max_mp(a,dim);
         }
@@ -407,15 +466,16 @@ Tensor max(const Tensor &a, int dim) {
 }
 
 Tensor min(const Tensor &a, int dim) {
+    bool is_flat = a.shape().size() <= 1;
     if (a.device().is_cpu()) {
         switch (a._dtype()) {
             case DType::Float32:
-                if (cpu_has_avx512f()) return min_avx512_f32(a,dim);
-                if (cpu_has_avx2() && dim == -1)    return min_avx2_f32(a,dim);
+                if (is_flat && cpu_has_avx512f()) return min_avx512_f32(a,dim);
+                if (is_flat && cpu_has_avx2() && dim == -1)    return min_avx2_f32(a,dim);
                 return min_mp(a,dim);
             case DType::Double64:
-                if (cpu_has_avx512f()) return min_avx512_d64(a,dim);
-                if (cpu_has_avx2() && dim == -1)    return min_avx2_d64(a,dim);
+                if (is_flat && cpu_has_avx512f()) return min_avx512_d64(a,dim);
+                if (is_flat && cpu_has_avx2() && dim == -1)    return min_avx2_d64(a,dim);
                 return min_mp(a,dim);
             default: return min_mp(a,dim);
         }
@@ -527,6 +587,19 @@ Tensor argmax(const Tensor &a, int dim) {
 
 Tensor cat(const std::vector<Tensor>& tensors, size_t dim) {
     return cat_mp(tensors, dim);
+}
+
+Tensor embedding_lookup(const Tensor& weight, const Tensor& indices) {
+    return embedding_lookup_mp(weight, indices);
+}
+
+Tensor bmm(const Tensor& A, const Tensor& B) {
+    return bmm_mp(A, B);
+}
+
+Tensor interpolate(const Tensor& input, const std::vector<size_t>& output_size, const std::string& mode, bool align_corners) {
+    int mode_int = (mode == "linear" || mode == "bilinear" || mode == "trilinear") ? 1 : 0;
+    return interpolate_mp(input, output_size, {}, mode_int, align_corners);
 }
 
 // --- Operators ---

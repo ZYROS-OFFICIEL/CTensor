@@ -57,3 +57,61 @@ Tensor feature_normalized = Lp_Norm(input_tensor, 2.0, 1, 1e-12);
 ### Returns
 
 * `Tensor` (same shape as the input tensor)
+
+---
+
+## Layer Normalization (`LayerNorm`)
+
+### Definition
+
+A learnable normalization **layer** — unlike `norm` and `Lp_Norm` above, which are stateless functions.
+
+`LayerNorm` standardizes each sample independently across its **last dimension**: it subtracts that vector's mean, divides by its standard deviation, then applies a learnable per-feature scale and shift.
+
+```
+y = (x - mean(x)) / sqrt(var(x) + eps) * weight + bias
+```
+
+Because the statistics come from a single sample rather than the batch, LayerNorm behaves identically in training and inference — no running buffers, no mode switch, no dependence on batch size. That is what makes it the normalization of choice for transformers and recurrent models, where [BatchNorm](BatchNorm.md) is awkward or unusable.
+
+### Constructor
+
+```cpp
+LayerNorm(int normalized_shape, double eps = 1e-5);
+```
+
+| Argument | Meaning |
+|---|---|
+| `normalized_shape` | Size of the last dimension — the model width |
+| `eps` | Added to the variance before the square root, for numerical stability |
+
+`weight` is initialized to ones and `bias` to zeros, both of shape `[normalized_shape]` and both `Float32` with gradients enabled, so the layer starts as a pure standardization and learns its scale from there.
+
+### Usage
+
+```cpp
+// Normalize over a 768-wide feature dimension
+LayerNorm ln(768, 1e-5);
+
+Tensor out = ln(x);        // [B, S, 768] -> [B, S, 768]
+
+// Parameters, for the optimizer
+auto params = ln.parameters();                  // { &weight, &bias }
+auto named  = ln.named_parameters("ln_1.");     // "ln_1.weight", "ln_1.bias"
+```
+
+### Returns
+
+* `Tensor` (same shape as the input tensor)
+
+> The forward pass is composed entirely of differentiable core ops (`mean`, `sqrt`, arithmetic), so autograd handles the backward pass without a dedicated node. A single-pass fused kernel also exists for inference — `layer_norm_avx2_f32` and friends, see [Backend](Backend.md).
+
+---
+
+## Choosing a Normalization
+
+| | Normalizes over | Batch-dependent | Typical use |
+|---|---|---|---|
+| `LayerNorm` | Last dimension of each sample | No | Transformers, sequence models |
+| [`BatchNorm`](BatchNorm.md) | Batch (and spatial) axes per channel | Yes | CNNs |
+| `Lp_Norm` | Any dimension, no parameters | No | Feature/embedding scaling |

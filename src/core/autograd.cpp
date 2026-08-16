@@ -11,6 +11,7 @@
 #include "autograd.h" 
 #include "tensor.h"
 
+
 //-------------------- helpers --------------------
 void ensure_grad_buffer(Tensor &t, bool zero_existing) {
     if (!t.impl) throw std::runtime_error("ensure_grad_buffer: undefined tensor");
@@ -37,6 +38,21 @@ void ensure_grad_buffer(Tensor &t, bool zero_existing) {
             std::memset(t.impl->grad->data->data.get(), 0, nbytes);
         }
     }
+}
+
+
+static inline float get_scale(size_t in_size, size_t out_size, bool align_corners) {
+    if (align_corners) return (out_size > 1) ? (float)(in_size - 1) / (out_size - 1) : 0.0f;
+    return (out_size > 0) ? (float)in_size / out_size : 0.0f;
+}
+static inline int compute_nearest_index(size_t out_idx, float scale, size_t in_size, bool align_corners) {
+    if (align_corners) return std::min((int)std::round(out_idx * scale), (int)in_size - 1);
+    return std::min((int)(out_idx * scale), (int)in_size - 1);
+}
+static inline float compute_source_index(size_t out_idx, float scale, bool align_corners) {
+    if (align_corners) return out_idx * scale;
+    float src_idx = (out_idx + 0.5f) * scale - 0.5f;
+    return src_idx < 0.0f ? 0.0f : src_idx;
 }
 
 // Convert the raw gradient buffer into a usable Tensor object
@@ -82,12 +98,12 @@ void accumulate_grad(Tensor& target, const Tensor& grad_src) {
         }
     }
 
-    // 2. Perform Reduction (if needed)
     Tensor grad_aligned = grad_src;
     if (!axes_to_reduce.empty()) {
         for (int ax : axes_to_reduce) {
-            grad_aligned = sum(grad_aligned, ax);
+            grad_aligned = sum(grad_aligned, ax).unsqueeze((size_t)ax);
         }
+        grad_aligned = grad_aligned.contiguous().reshape(target.shape());
     }
 
     // 3. Add to target.grad
@@ -356,19 +372,145 @@ void GradRelu::backward(const Tensor& self) {
         accumulate_grad(t, mul(grad, mask));
     }
 }
+void GradGelu::backward(const Tensor& self) {
+    if (t.requires_grad()) {
+        Tensor grad = tensor_from_grad(self);
+        
+        // Math Constants
+        double sqrt_2_over_pi = std::sqrt(2.0 / std::numbers::pi);
+        double coef = 0.044715;
+        
+        // Forward intermediate calculations
+        Tensor x_sq = mul(t, t);                  // x^2
+        Tensor x_cubed = mul(t, x_sq);            // x^3
+        Tensor inner = add(t, mul_scalar(x_cubed, coef));
+        Tensor tanh_inner = tanh(mul_scalar(inner, sqrt_2_over_pi));
+        
+        // term1: 0.5 * (1 + tanh(sqrt(2/pi) * (x + 0.044715 * x^3)))
+        Tensor term1 = mul_scalar(add_scalar(tanh_inner, 1.0), 0.5);
+        
+        // inner_deriv: sqrt(2/pi) * (1 + 3 * 0.044715 * x^2)
+        // -> This is what was missing in your implementation!
+        Tensor inner_deriv = mul_scalar(add_scalar(mul_scalar(x_sq, 3.0 * coef), 1.0), sqrt_2_over_pi);
+        
+        // sech^2(x) = 1 - tanh^2(x)
+        Tensor sech_squared = sub_scalar_rev(1.0, mul(tanh_inner, tanh_inner)); 
+        
+        // term2: 0.5 * x * sech^2(...) * inner_deriv
+        Tensor term2 = mul_scalar(mul(mul(t, sech_squared), inner_deriv), 0.5);
+        
+        // Combine and accumulate
+        Tensor deriv = add(term1, term2);
+        accumulate_grad(t, mul(grad, deriv));
+    }
+}
+
+void GradSilu::backward(const Tensor& self) {
+    if (t.requires_grad()) {
+        Tensor grad = tensor_from_grad(self);
+        Tensor sig = sigmoid(t);
+        Tensor one_minus_sig = sub_scalar_rev(1.0, sig);
+        Tensor deriv = add(sig, mul(t, one_minus_sig));
+        accumulate_grad(t, mul(grad, deriv));
+    }
+}
+
+void GradMish::backward(const Tensor& self) {
+    if (t.requires_grad()) {
+        Tensor grad = tensor_from_grad(self);
+        Tensor exp_t = exp(t);
+        Tensor ln_term = log(add_scalar(exp_t, 1.0));
+        Tensor tanh_term = tanh(ln_term);
+        
+        // derivative of mish: tanh(ln(1 + exp(x))) + x * sech^2(ln(1 + exp(x))) * (exp(x) / (1 + exp(x)))
+        Tensor sech_squared = sub_scalar_rev(1.0, mul(tanh_term, tanh_term));
+        Tensor exp_div = div(exp_t, add_scalar(exp_t, 1.0));
+        Tensor deriv = add(tanh_term, mul(mul(t, sech_squared), exp_div));
+        
+        accumulate_grad(t, mul(grad, deriv));
+    }
+}
 
 void GradSoftplus::backward(const Tensor& self) {
     if (t.requires_grad()) {
-        // sigmoid(x)
         Tensor grad = tensor_from_grad(self);
         Tensor sig = sigmoid(t);
         accumulate_grad(t, mul(grad, sig));
     }
 }
+
+void GradInterpolate::backward(const Tensor& self) {
+    if (!t.requires_grad()) return;
+    
+    Tensor grad_output = tensor_from_grad(self).contiguous();
+    Tensor grad_input = Tensor::zeros(t.shape(), t._dtype(), false);
+    
+    size_t B = t.shape()[0];
+    size_t C = t.shape()[1];
+    size_t H_in = t.shape()[2];
+    size_t W_in = t.shape()[3];
+    
+    size_t H_out = out_shape[2];
+    size_t W_out = out_shape[3];
+    
+    float scale_h = align_corners ? (float)(H_in - 1) / (H_out > 1 ? H_out - 1 : 1) : (float)H_in / H_out;
+    float scale_w = align_corners ? (float)(W_in - 1) / (W_out > 1 ? W_out - 1 : 1) : (float)W_in / W_out;
+    
+    const float* go_ptr = (const float*)grad_output.impl->data->data.get() + grad_output.impl->offset;
+    float* gi_ptr = (float*)grad_input.impl->data->data.get();
+    
+    size_t hw_in = H_in * W_in;
+    size_t hw_out = H_out * W_out;
+    
+    #pragma omp parallel for collapse(2) schedule(static)
+    for (size_t b = 0; b < B; ++b) {
+        for (size_t c = 0; c < C; ++c) {
+            const float* go_channel = go_ptr + (b * C + c) * hw_out;
+            float* gi_channel = gi_ptr + (b * C + c) * hw_in;
+            
+            for (size_t oh = 0; oh < H_out; ++oh) {
+                float h_src = align_corners ? oh * scale_h : (oh + 0.5f) * scale_h - 0.5f;
+                h_src = std::max(0.0f, h_src);
+                int h0 = (int)std::floor(h_src);
+                int h1 = std::min(h0 + 1, (int)H_in - 1);
+                float h1_w = h_src - h0;
+                float h0_w = 1.0f - h1_w;
+                
+                for (size_t ow = 0; ow < W_out; ++ow) {
+                    float w_src = align_corners ? ow * scale_w : (ow + 0.5f) * scale_w - 0.5f;
+                    w_src = std::max(0.0f, w_src);
+                    int w0 = (int)std::floor(w_src);
+                    int w1 = std::min(w0 + 1, (int)W_in - 1);
+                    float w1_w = w_src - w0;
+                    float w0_w = 1.0f - w1_w;
+                    
+                    float g_val = go_channel[oh * W_out + ow];
+                    
+                    #pragma omp atomic
+                    gi_channel[h0 * W_in + w0] += g_val * h0_w * w0_w;
+                    #pragma omp atomic
+                    gi_channel[h0 * W_in + w1] += g_val * h0_w * w1_w;
+                    #pragma omp atomic
+                    gi_channel[h1 * W_in + w0] += g_val * h1_w * w0_w;
+                    #pragma omp atomic
+                    gi_channel[h1 * W_in + w1] += g_val * h1_w * w1_w;
+                }
+            }
+        }
+    }
+    accumulate_grad(t, grad_input);
+}
+
 //--------------------Reduction backward --------------------
 void GradSum::backward(const Tensor& self) {
     if (t.requires_grad()) {
-        accumulate_grad(t, tensor_from_grad(self));
+        Tensor grad = tensor_from_grad(self);
+        int nd = (int)t.impl->ndim;
+        int actual_dim = (dim < 0) ? dim + nd : dim;
+        if (actual_dim >= 0 && actual_dim < nd) {
+            grad = grad.unsqueeze((size_t)actual_dim);
+        }
+        accumulate_grad(t, grad);
     }
 }
 
@@ -404,6 +546,12 @@ void GradReshape::backward(const Tensor& self) {
         // Force contiguous copy to ensure safe reshape
         Tensor contig = grad.contiguous();
         accumulate_grad(t, contig.reshape(old_shape));
+    }
+}
+
+void GradClone::backward(const Tensor& self) {
+    if (t.requires_grad()) {
+        accumulate_grad(t, tensor_from_grad(self));
     }
 }
 void GradASin::backward(const Tensor& s){ 
@@ -495,6 +643,53 @@ void GradGather::backward(const Tensor& self) {
     }
     
     accumulate_grad(t, grad_input);
+}
+
+void GradEmbedding::backward(const Tensor& self) {
+    if (!weight.requires_grad()) return;
+
+    Tensor grad_output = tensor_from_grad(self).contiguous();
+    Tensor grad_weight = Tensor::zeros(weight.shape(), weight._dtype(), false);
+    Tensor idx_cont = indices.contiguous();
+
+    void* gw_ptr  = grad_weight.impl->data->data.get();
+    void* go_ptr  = grad_output.impl->data->data.get();
+    void* idx_ptr = idx_cont.impl->data->data.get();
+
+    size_t N = indices.numel();
+    size_t D = weight.shape()[1];
+    size_t V = weight.shape()[0];
+    DType dt     = weight._dtype();
+    DType idx_dt = indices._dtype();
+
+    for (size_t i = 0; i < N; ++i) {
+        int64_t idx = static_cast<int64_t>(read_scalar_at(idx_ptr, i, idx_dt));
+        if (idx < 0) idx += (int64_t)V;
+        if (idx < 0 || (size_t)idx >= V) continue; 
+
+        size_t gw_row_off = (size_t)idx * D;
+        size_t go_row_off = i * D;
+        for (size_t d = 0; d < D; ++d) {
+            double curr = read_scalar_at(gw_ptr, gw_row_off + d, dt);
+            double inc  = read_scalar_at(go_ptr, go_row_off + d, dt);
+            write_scalar_at(gw_ptr, gw_row_off + d, dt, curr + inc);
+        }
+    }
+
+    accumulate_grad(weight, grad_weight);
+}
+
+void GradBatchMatMul::backward(const Tensor& self) {
+    Tensor grad = tensor_from_grad(self);
+
+    auto T = [](const Tensor& t) { return t.permute({0, 2, 1}); };
+
+    if (a.requires_grad()) {
+        accumulate_grad(a, bmm(grad, T(b)));
+    }
+    if (b.requires_grad()) {
+        accumulate_grad(b, bmm(T(a), grad));
+    }
 }
 
 void backward(Tensor& root) {
