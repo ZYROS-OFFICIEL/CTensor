@@ -2,7 +2,7 @@
 
 The `safetensors` namespace reads and writes the [safetensors](https://github.com/huggingface/safetensors) format: a JSON header describing every tensor, followed by one flat block of raw bytes. It is the interchange format used by Hugging Face, so a CTensor model can load weights produced by PyTorch — and vice versa — without a Python step.
 
-Unlike the custom binary format in [Checkpoints](Chekpoint.md), which stores parameters positionally, safetensors stores them **by name**. That makes checkpoints robust to layer reordering and lets you diagnose exactly which key failed to match.
+Unlike the custom binary format in [Checkpoints](Checkpoint.md), which stores parameters positionally, safetensors stores them **by name**. That makes checkpoints robust to layer reordering and lets you diagnose exactly which key failed to match.
 
 ---
 
@@ -189,4 +189,4 @@ if (const JsonValue* v = root.find("shape")) {
 | Mismatch diagnostics | Shape/size assertions | `LoadReport` with per-key detail |
 | Metadata | None | Arbitrary string map |
 
-Use safetensors for anything you intend to share or reload across code changes; see [Checkpoints](Chekpoint.md) for the lightweight in-house alternative.
+Use safetensors for anything you intend to share or reload across code changes; see [Checkpoints](Checkpoint.md) for the lightweight in-house alternative.
