@@ -1,0 +1,51 @@
+# ---------- Build output ----------
+/build/
+/build copy/
+/%CD%/
+cmake-build-*/
+
+# In-source CMake output
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CTestTestfile.cmake
+install_manifest.txt
+compile_commands.json
+
+# ---------- Compiled objects & binaries ----------
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+*.out
+*.pdb
+*.ilk
+*.d
+
+# ---------- MkDocs generated site ----------
+/site/
+
+# ---------- Python ----------
+__pycache__/
+*.py[cod]
+
+# ---------- Datasets & trained weights ----------
+# MNIST idx files: https://yann.lecun.com/exdb/mnist/
+*.idx1-ubyte
+*.idx3-ubyte
+# Hugging Face / GPT-2 weights
+*.safetensors
+# Trained checkpoints produced by the examples
+mnist_cnn.bin
+mnist_weights.bin
+
+# ---------- Editor / OS ----------
+.vscode/
+.idea/
+.DS_Store
+*.swp
