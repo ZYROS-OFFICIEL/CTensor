@@ -1,5 +1,4 @@
-
-## Hardware & Devices
+# Hardware & Devices
 
 The `Device` structure specifies the hardware target where a tensor's memory is allocated and where its computations are executed.
 

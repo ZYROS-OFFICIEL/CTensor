@@ -1,4 +1,4 @@
-# GPT-2 (`GPT2Model`, `GPT2Tokenizer`)
+<# GPT-2 (`GPT2Model`, `GPT2Tokenizer`)
 
 CTensor ships a complete GPT-2 implementation: the transformer itself, a byte-level BPE tokenizer, and a loader that reads the official Hugging Face `model.safetensors` weights. Together they run real text generation with the pretrained 124M checkpoint — no Python at any step.
 
